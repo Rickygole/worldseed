@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+/*
+ * WorldSeed design tokens.
+ * Three semantic colors (ok / warn / critical) + one AI accent (ai) + one
+ * "future" accent (future). Everything else is grayscale.
+ * Spacing: Tailwind's 4px unit; compose in multiples of 2 (8px grid).
+ */
+@theme {
+  --color-*: initial;
+  --color-bg: #0a0e14;
+  --color-surface: #111722;
+  --color-surface-2: #18202e;
+  --color-border: #243044;
+  --color-text: #e6edf3;
+  --color-muted: #8b98a9;
+  --color-ok: #2dd4bf;
+  --color-warn: #f5a524;
+  --color-critical: #ff3d71;
+  --color-ai: #4c8dff;
+  --color-future: #a78bfa;
+
+  --text-*: initial;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 28px;
+  --text-2xl--line-height: 32px;
+  --text-4xl: 48px;
+  --text-4xl--line-height: 48px;
+  --text-6xl: 72px;
+  --text-6xl--line-height: 72px;
+
+  --radius-*: initial;
+  --radius-card: 12px;
+  --radius-chip: 999px;
+  --radius-ctl: 8px;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  --ws-topbar: 56px;
+  --ws-ribbon: 96px;
+  --ws-footer: 32px;
+  --ws-left: 300px;
+  --ws-right: 360px;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* Floating glass panel: ~92% opacity + slight backdrop blur. */
+  .panel {
+    background: rgb(17 23 34 / 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+  .card {
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+  /* Numbers and IDs: JetBrains Mono, tabular. */
+  .num {
+    font-family: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .label {
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-chip);
+    background: var(--color-surface);
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: var(--radius-ctl);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 150ms, border-color 150ms;
+  }
+  .btn:hover:not(:disabled) {
+    background: var(--color-border);
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  /* The ONLY filled blue button in the app. */
+  .btn-primary {
+    background: var(--color-ai);
+    border-color: var(--color-ai);
+    color: #06101f;
+    font-weight: 600;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #6aa1ff;
+  }
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-ctl);
+    border: 1px solid transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+  }
+  .btn-icon:hover {
+    color: var(--color-text);
+    background: var(--color-surface-2);
+    border-color: var(--color-border);
+  }
+  .kbd {
+    font-family: var(--font-jetbrains), ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 16px;
+    padding: 0 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    color: var(--color-muted);
+    background: var(--color-surface);
+  }
+  /* Diagonal hatch: isolated zones are never color-only. */
+  .hatch-critical {
+    background-color: var(--color-critical);
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgb(10 14 20 / 0.75) 0 2px,
+      transparent 2px 5px
+    );
+  }
+}
+
+/* Slim dark scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ai);
+  outline-offset: 2px;
+}
+
+/* MapLibre: hide its own attribution control; the footer carries it. */
+.maplibregl-ctrl-bottom-right,
+.maplibregl-ctrl-bottom-left {
+  display: none;
+}
+
+/* deck.gl tooltip */
+.deck-tooltip {
+  font-family: var(--font-jetbrains), monospace !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
