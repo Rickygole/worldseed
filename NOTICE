@@ -1,0 +1,30 @@
+WorldSeed
+Copyright (c) 2026 Rickygole. Source code is licensed under the MIT License (see LICENSE).
+
+Data in data/snapshot/ is licensed separately under the Open Database License
+v1.0; see data/snapshot/LICENSE.md.
+Map data (c) OpenStreetMap contributors, available under the ODbL
+(https://www.openstreetmap.org/copyright).
+Basemap tiles: OpenFreeMap (c) OpenMapTiles. Data from OpenStreetMap.
+Demographic and jobs data: U.S. Census Bureau (American Community Survey 5-Year
+Estimates, TIGER/Line Shapefiles, LEHD LODES), public domain U.S. government works.
+
+AI features use NVIDIA Nemotron models served via Nebius Token Factory.
+Model license: to be confirmed on the model card of each model used.
+Use of the hosted AI features is subject to the Nebius Token Factory Terms of
+Service: https://docs.tokenfactory.nebius.com/legal/terms-of-service
+Live road-closure search results are provided by Tavily; linked articles remain
+the property of their publishers.
+
+Third-party software and fonts (final list is generated from the build):
+- MapLibre GL JS - BSD-3-Clause (contains code (c) Mapbox, BSD-3-Clause)
+- deck.gl - MIT, Copyright Vis.gl contributors
+- H3 / h3-js - Apache License 2.0, Copyright Uber Technologies, Inc.
+- Lucide - ISC, Copyright (c) Lucide Icons and Contributors; portions MIT,
+  Copyright (c) 2013-present Cole Bemis (Feather)
+- Inter - SIL OFL 1.1, Copyright (c) 2016 The Inter Project Authors
+- JetBrains Mono - SIL OFL 1.1, Copyright 2020 The JetBrains Mono Project Authors
+- Space Grotesk - SIL OFL 1.1, Copyright 2020 The Space Grotesk Project Authors
+
+WorldSeed is not affiliated with or endorsed by the OpenStreetMap Foundation,
+the U.S. Census Bureau, the NTSB, or any hospital, fire, EMS, or government agency.

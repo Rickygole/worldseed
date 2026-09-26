@@ -42,6 +42,8 @@ Living task board. Update it whenever something moves. Last updated: 2026-09-26.
 Record decisions here with a date and a one-line reason.
 
 - 2026-09-26: Track is Best Apps and Agents.
+- 2026-09-26: Hero metric is job Access (cross-harbor travel time to jobs, low-wage workers as the equity group); EMS is a secondary resilience-check lens, because real data shows first-due EMS response barely changes when the bridge is removed (see docs/ARCHITECTURE.md section 0).
+- 2026-09-26: Simulator and Monte Carlo run in the browser (TypeScript, Web Workers) so hosting stays free; results are labeled as computed locally.
 - 2026-09-26: Every displayed number comes from the simulator; the language model never produces a metric.
 - 2026-09-26: The Key Bridge collapse is never animated, no individuals are named, and the tool is framed as a planning aid, not live dispatch (see docs/DEDICATION.md).
 - 2026-09-26: Repo contains no AI-assistant attribution of any kind; enforced by local git hooks and `scripts/check-repo-hygiene.sh`.
