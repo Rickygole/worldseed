@@ -16,7 +16,7 @@ imputed free-flow speeds, 44 fire/EMS stations from OSM):
   (about 3.96 km and 4.62 km after simplification).
 - **First-due EMS response barely changes when the bridge is removed.** Exactly one node changed
   by more than 0.5 min, and that node was the dead-ended bridge span itself. Baseline node p50/p90
-  is 2.75 / 4.78 min, including the 1.0 min dispatch constant. Nearest-hospital travel time also
+  is 2.75 / 4.78 min, including the 1.0 min call-to-wheels delay. Nearest-hospital travel time also
   did not change. Both shores have their own stations and hospitals.
 - **Cross-harbor mobility changes a lot** (free-flow minutes, before -> after):
 
@@ -241,7 +241,7 @@ Target size is 18-30 hand-curated entries. They are labeled hypothetical unless 
 `[{ "id":"G-DUNDALK", "name":"Dundalk", "aliases":["dundalk md"], "kind":"neighborhood|road|facility|link|corridor", "ref":{"hexes":[..]|"edges":[..]|"facility":"F-..."|"link":"L-..."|"corridor":"C-..."}, "lat":0, "lng":0 }]`
 
 `assumptions.json` (generated from `assumptions.yaml`):
-`[{ "id":"A-DISPATCH", "label":"Dispatch + turnout", "value":60, "unit":"s", "status":"assumption|sourced", "source":null }]`
+`[{ "id":"A-CALL-TO-WHEELS", "label":"Call-processing and turnout delay", "value":60, "unit":"s", "status":"assumption|sourced", "source":null }]`
 
 `golden.json`: networkx reference results for baseline, bridge removed, and 2 candidate bundles.
 The TS simulator must match within 0.5 s per hex.
@@ -271,7 +271,7 @@ interface Lens { id: "access" | "ems"; label: string; unitLabel: string;
   metrics(field: Float32Array, baseline?: Float32Array): Metrics }
 ```
 - **EMS**: forward multi-source Dijkstra from active stations plus `extraSources`.
-  `hexT = A-DISPATCH + dist[node] + snapS`. Metrics: pop-weighted p50/p90, % pop within 8 min,
+  `hexT = A-CALL-TO-WHEELS + dist[node] + snapS`. Metrics: pop-weighted p50/p90, % pop within 8 min,
   zvh within 8 min, isolated BGs (pop-weighted BG median > 8 min), equity gap =
   zvh-weighted p90 minus pop-weighted p90.
 - **Access** (hero): reverse Dijkstra from each destination on the reverse CSR.
@@ -566,3 +566,11 @@ transit routing, native tool-calling dependence, and any vision model.
   Revisit once the real credit balance is known (Nebius promo emails pending).
 - **D3: deferred.** Start with the in-memory limiter; add Upstash only if the user signs up.
 - **App directory:** the app lives in `frontend/` (this document originally said `web/`).
+- **Lens finding (2026-09-26, from the pipeline run):** under the contract Access lens (job-weighted
+  mean time to 8 anchors) removing the Key Bridge adds only about 3 s regionally, with a local bump
+  of about 2-3 min around Edgemere and Sparrows Point. The bridge's function is crossing the
+  Patapsco, so a second lens `xharbor` (jobs on the opposite shore reachable within 30 min) is
+  defined a priori and added to `golden.json`; both lenses are always shown side by side so the
+  region-wide number is never hidden. The EMS lens shows zero change. See `docs/DATA_SOURCES.md`.
+- **Naming:** the delay parameter is `A-CALL-TO-WHEELS` (call-processing and turnout delay). The
+  word "dispatch" is avoided for product features (see `docs/LEGAL.md`).
