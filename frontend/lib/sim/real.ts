@@ -279,7 +279,9 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
       // All three lenses are computed together (in parallel across workers) so the regional and EMS numbers
       // are never hidden behind the cross-harbor one.
       const t0 = performance.now();
-      const all: LensId[] = ["xharbor", "access", "ems"];
+      const hasTrips = p.info.trips !== null;
+      if (lens === "freight" && !hasTrips) throw new Error("this snapshot has no trip definitions, so the freight lens is unavailable");
+      const all: LensId[] = ["xharbor", "access", "ems", ...(hasTrips ? (["freight"] as LensId[]) : [])];
       if (opts.signal?.aborted) throw abortError();
       const results = await p.runDeterministicBatch(ws, all.map((l) => ({ lens: l, xharbor: l === "xharbor" ? x : undefined })), { signal: opts.signal });
       if (opts.signal?.aborted) throw abortError();
@@ -288,18 +290,21 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
       const r = by[lens];
       const meta = { ...r.meta, workers: Math.min(all.length, p.workerCount), ms: wall };
       const m = r.metrics;
-      const n = r.field.length;
+      const n = world.cells.length;
       const cap = p.info.params.accessCapS;
       const minutes = new Float32Array(n);
-      const minutesKind = lens === "ems" ? "response" : "added";
+      const minutesKind = lens === "ems" ? "response" : lens === "freight" ? "none" : "added";
       const source = lens === "ems" ? r.field : (r.added as Float32Array);
-      for (let i = 0; i < n; i++) {
-        const s = source[i];
-        // xharbor terrain is ADDED time and never below the baseline plain (a candidate that helps shows in addedMin)
-        minutes[i] = (Number.isFinite(s) ? (lens === "xharbor" ? Math.max(0, s) : s) : cap) / 60;
+      // freight has no terrain: `minutes` stays all zeros (its numbers are per trip, in detail.lenses.freight.freight)
+      if (lens !== "freight") {
+        for (let i = 0; i < n; i++) {
+          const s = source[i];
+          // xharbor terrain is ADDED time and never below the baseline plain (a candidate that helps shows in addedMin)
+          minutes[i] = (Number.isFinite(s) ? (lens === "xharbor" ? Math.max(0, s) : s) : cap) / 60;
+        }
       }
       const finite = (s: number | undefined) => (s !== undefined && Number.isFinite(s) ? s / 60 : cap / 60);
-      const usesAdded = lens !== "ems";
+      const usesAdded = lens !== "ems" && lens !== "freight"; // freight: p50S/p90S are already the signed detours
       const out: SimOutput = {
         minutes,
         metrics: {
@@ -317,7 +322,7 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
           runnerText: formatRunnerLabel(meta),
           approximation: r.meta.variant?.approximate ? r.meta.variant.label : null,
           minutesKind,
-          lenses: { xharbor: by.xharbor.metrics, access: by.access.metrics, ems: by.ems.metrics },
+          lenses: { xharbor: by.xharbor.metrics, access: by.access.metrics, ems: by.ems.metrics, ...(by.freight ? { freight: by.freight.metrics } : {}) },
         },
       };
       if (lens === "xharbor") out.detail!.xharbor = xharborDetail(r, by.xharbor.metrics, mainHexes as Hexes);

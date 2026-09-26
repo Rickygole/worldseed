@@ -27,12 +27,13 @@ export const SEARCH_FUTURES = {
   tod: "am" as const,
   closureProb: 0.1,
   /** Futures per world. Cross-harbor futures cost about 0.1 s each per worker; EMS about 5 ms. */
-  n: { xharbor: 24, ems: 60, access: 24 } as Record<LensId, number>,
+  n: { xharbor: 24, ems: 60, access: 24, freight: 60 } as Record<LensId, number>,
   /** Destination anchors per shore for cross-harbor futures (the deterministic map uses 64). */
   xharborAnchors: 16,
 };
 
-export const simLensFor = (missionLens: ConfirmedMission["lens"]): LensId => (missionLens === "ems" ? "ems" : "xharbor");
+/** access -> cross-harbor lens; ems -> EMS; freight -> the 24 cross-harbor hazmat-truck trips (no terrain). */
+export const simLensFor = (missionLens: ConfirmedMission["lens"]): LensId => (missionLens === "ems" ? "ems" : missionLens === "freight" ? "freight" : "xharbor");
 
 export function futuresOptions(lens: LensId): FuturesOptions {
   return {

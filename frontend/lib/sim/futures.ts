@@ -21,11 +21,12 @@ import type {
   LensMetrics,
 } from "./contract";
 
-export const DEFAULT_HEADLINE: Record<LensId, GoalMetric> = { ems: "p90S", access: "addedP90S", xharbor: "popLossGt10pct" };
+export const DEFAULT_HEADLINE: Record<LensId, GoalMetric> = { ems: "p90S", access: "addedP90S", xharbor: "popLossGt10pct", freight: "p90S" };
 
 const LENS_METRICS: Record<LensId, GoalMetric[]> = {
   ems: ["p50S", "p90S", "pctWithin", "equityGapS", "isolatedCount"],
   access: ["p50S", "p90S", "pctWithin", "equityGapS", "addedP50S", "addedP90S", "isolatedCount"],
+  freight: ["p50S", "p90S", "pctWithin", "equityGapS", "isolatedCount"],
   xharbor: [
     "p50S", "p90S", "pctWithin", "equityGapS", "addedP50S", "addedP90S", "isolatedCount",
     "popLossGt10pct", "popLossGt25pct", "lowWageLossGt10pct", "popMeanLossPct", "popMeanAddedS",
@@ -132,7 +133,7 @@ export function aggregateFutures(
 
   // per-hex p90 over futures
   const hexP90 = new Float32Array(hexCount);
-  const hexAddedP90 = parts.every((p) => p.hexAdded) && (lens === "access" || lens === "xharbor") ? new Float32Array(hexCount) : undefined;
+  const hexAddedP90 = parts.every((p) => p.hexAdded) && (lens === "access" || lens === "xharbor" || lens === "freight") ? new Float32Array(hexCount) : undefined;
   const col = new Float32Array(n);
   const rank = Math.min(n - 1, Math.max(0, Math.ceil(0.9 * n) - 1));
   const rows = (pick: (p: FuturesPartial) => Float32Array | undefined, target: Float32Array) => {

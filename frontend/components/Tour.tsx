@@ -31,15 +31,23 @@ function TourCard({ onClose }: { onClose: () => void }) {
   const ready = useApp((s) => s.status === "ready");
   const introOpen = useApp((s) => s.introOpen);
   const removed = useApp((s) => s.scenario.removedLinks.includes("key_bridge"));
-  const selectedHex = useApp((s) => s.selectedHex);
   const lens = useApp((s) => s.lens);
   const phase = useSearch((s) => s.m?.phase ?? "idle");
   const health = useSearch((s) => s.health);
   const finalistCount = useSearch((s) => s.m?.finalists.length ?? 0);
+  const missionLens = useSearch((s) => s.m?.mission?.lens);
+  const freightPhase = missionLens === "freight" ? phase : "idle";
+  const freightApplied = missionLens === "freight" && phase === "applied";
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const seen = useRef(new Set<LensId>(["xharbor"]));
   const [lensesSeen, setLensesSeen] = useState(1);
+  // Remember that the cross-harbor finalist was applied, even after a later freight search resets the machine.
+  const [xhApplied, setXhApplied] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (phase === "applied" && missionLens !== "freight") setXhApplied(true);
+  }, [phase, missionLens]);
 
   useEffect(() => {
     if (!seen.current.has(lens)) {
@@ -59,32 +67,25 @@ function TourCard({ onClose }: { onClose: () => void }) {
       act: async () => useApp.getState().removeBridge(),
     },
     {
-      title: "Inspect the hardest-hit place where people live",
-      body: "Opens the hexagon with the largest added cross-harbor time among populated hexagons, with its block group, Census figures and the route that changed.",
-      done: selectedHex !== null,
+      title: "Inspect the hardest-hit place, then compare the lenses",
+      body: "Opens the populated hexagon with the largest added cross-harbor time, then shows regional access (barely moves) and first response (unchanged) before returning to cross-harbor.",
+      done: lensesSeen >= 3,
       act: async () => {
         const s = useApp.getState();
         const hex = s.current?.detail?.xharbor?.headline.addedMaxPopulatedHex ?? -1;
         if (hex >= 0) await s.selectHex(hex);
-      },
-    },
-    {
-      title: "Compare the lenses",
-      body: "Regional access barely moves; first response is unchanged; cross-harbor access is where the loss is. Watch the ribbon: all three stay visible.",
-      done: lensesSeen >= 3,
-      act: async () => {
-        const s = useApp.getState();
+        await sleep(reduced ? 1200 : 3500);
         await s.selectHex(null);
         for (const l of ["access", "ems", "xharbor"] as LensId[]) {
           await s.setLens(l);
-          await sleep(reduced ? 1200 : 3200);
+          await sleep(reduced ? 1200 : 3000);
         }
       },
     },
     {
       title: "Find a better future",
       body: `${modeLabel}. Goal: keep the slow end (p90) of cross-harbor trips within 1 min of the pre-collapse network, options up to $$. Pressing "Do it" confirms that goal and runs the search.`,
-      done: phase === "finalists" || phase === "applied",
+      done: xhApplied || (missionLens !== "freight" && (phase === "finalists" || phase === "applied")),
       act: async () => {
         const app = useApp.getState();
         app.setRightOpen(true);
@@ -98,10 +99,32 @@ function TourCard({ onClose }: { onClose: () => void }) {
     {
       title: "Apply a finalist",
       body: "Opens the confirmation for the top-ranked finalist. Nothing changes until you press Apply there. The terrain then sinks outward from the option.",
-      done: phase === "applied",
+      done: xhApplied,
       act: async () => {
         const f = useSearch.getState().m?.finalists[0];
         if (f) useSearch.getState().askApply(f.bundleId);
+      },
+    },
+    {
+      title: "Optional: search the freight goal",
+      body:
+        freightPhase === "finalists" || freightPhase === "applied"
+          ? "Freight finalists are ready. Do it opens the confirmation for the top one (an escorted hazmat window); nothing changes until you press Apply there."
+          : `Hazmat trucks cannot use the harbor tunnels (MDTA), so they detour furthest. Do it confirms the goal "typical hazmat detour at most +10 min over pre-collapse, options up to $$" and runs the ${ai ? "search" : "deterministic search (no AI)"} over the freight options.`,
+      done: freightApplied,
+      act: async () => {
+        const app = useApp.getState();
+        const s = useSearch.getState();
+        if (s.m?.mission?.lens === "freight" && s.m.phase === "finalists") {
+          const f = s.m.finalists[0];
+          if (f) s.askApply(f.bundleId);
+          return;
+        }
+        app.setRightOpen(true);
+        s.resetSearch();
+        s.setDraft({ lens: "freight", metric: "p50", targetDelta: 600, maxCostTier: "$$" });
+        useSearch.setState({ stage: "confirm" });
+        await useSearch.getState().confirmAndRun();
       },
     },
   ];
@@ -116,7 +139,7 @@ function TourCard({ onClose }: { onClose: () => void }) {
   }, [cur.done, step, steps.length]);
 
   if (!ready || introOpen) return null;
-  const blocked = step === 4 && finalistCount === 0;
+  const blocked = step === 3 && finalistCount === 0 && !xhApplied;
 
   // A slim coach strip under the top bar: never over the map, always dismissible, fully keyboard reachable.
   return (
@@ -129,7 +152,7 @@ function TourCard({ onClose }: { onClose: () => void }) {
     >
       <div className="flex shrink-0 flex-col gap-1">
         <p className="label whitespace-nowrap">
-          Guided tour <span className="num">{Math.min(step + 1, 5)} / 5</span>
+          Guided tour <span className="num">{Math.min(step + 1, steps.length)} / {steps.length}</span>
         </p>
         <ol className="flex gap-1" aria-hidden>
           {steps.map((s, i) => (
@@ -144,7 +167,7 @@ function TourCard({ onClose }: { onClose: () => void }) {
           <span className="font-normal text-muted">· {modeLabel}; no recorded run is played</span>
         </h2>
         <p className="truncate text-xs text-muted" title={cur.body}>
-          {blocked ? "Run step 4 first: there are no finalists yet." : cur.body}
+          {blocked ? "Run step 3 first: there are no finalists yet." : cur.body}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">

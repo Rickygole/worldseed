@@ -25,6 +25,8 @@ import { explainHex } from "./explain";
 import { aggregateFutures, validateFuturesOptions } from "./futures";
 import { createAccessLens } from "./lenses/access";
 import { createEmsLens } from "./lenses/ems";
+import { createFreightLens } from "./lenses/freight";
+import { LENS_DISPLAY, type LensDisplay } from "./lenses/meta";
 import { createXharborLens, DEFAULT_ANCHORS_PER_SHORE, FUTURES_ANCHORS_PER_SHORE, type XharborOptions } from "./lenses/xharbor";
 import type { Lens, LensAux, LensContext } from "./lenses/types";
 import { MetricsWorkspace } from "./metrics";
@@ -76,6 +78,8 @@ export interface SnapshotInfo {
   paramSources: { fromSnapshot: string[]; defaulted: string[]; futuresFromSnapshot: string[] };
   /** Trip anchors, trip definitions and vehicle classes (null when the snapshot has none). */
   trips: import("./contract").TripsMeta | null;
+  /** The lenses this snapshot supports, with display names for their search measures (freight only when trips exist). */
+  lenses: LensDisplay[];
   futuresParams: AssumptionRecord[];
   runner: Runner;
 }
@@ -114,6 +118,7 @@ export class SimEngine {
   private readonly ctx: LensContext;
   private readonly cctx: CompileContext;
   private readonly lenses: Record<"ems" | "access", Lens>;
+  private freightLens: Lens | null = null;
   private readonly xharborLenses = new Map<string, Lens>();
   private readonly xharborAnchors: number;
   private readonly baselineCw: CompiledWorld;
@@ -163,6 +168,7 @@ export class SimEngine {
       params: this.params,
       paramSources: { ...(loaded.paramSources ?? { fromSnapshot: [], defaulted: [] }), futuresFromSnapshot: futuresUsed },
       trips: snap.trips,
+      lenses: (["xharbor", "access", "ems", ...(snap.trips ? ["freight" as const] : [])] as LensId[]).map((id) => LENS_DISPLAY[id]),
       futuresParams: describeFuturesParams(this.futuresParams, resolved.fromSnapshot),
       runner: detectRunner(),
     };
@@ -187,6 +193,10 @@ export class SimEngine {
 
   /** The lens object for `id`. xharbor takes its variant: fast anchors (default) or exact. */
   lens(id: LensId, x: Partial<XharborOptions> = {}): Lens {
+    if (id === "freight") {
+      this.freightLens ??= createFreightLens(this.ctx);
+      return this.freightLens;
+    }
     if (id !== "xharbor") return this.lenses[id];
     const o: XharborOptions = { mode: x.mode ?? "fast", anchorsPerShore: x.anchorsPerShore ?? this.xharborAnchors, rampScale: x.rampScale };
     const key = o.mode === "exact" ? "exact" : `fast:${o.anchorsPerShore}:${o.rampScale ?? "d"}`;
@@ -201,8 +211,8 @@ export class SimEngine {
   private baseline(l: Lens): { field: Float32Array; aux?: Float32Array } {
     let b = this.baselineField.get(l);
     if (!b) {
-      const H = this.snap.hexes.count;
-      b = { field: new Float32Array(H), aux: l.hasAux ? new Float32Array(H) : undefined };
+      const N = l.size ?? this.snap.hexes.count;
+      b = { field: new Float32Array(N), aux: l.hasAux ? new Float32Array(N) : undefined };
       l.field(this.baselineCw, null, b.field, b.aux);
       this.baselineField.set(l, b);
     }
@@ -213,14 +223,14 @@ export class SimEngine {
   runDeterministic(world: WorldState, lens: LensId, workers = 1, x: Partial<XharborOptions> = {}): RunResult {
     const t0 = performance.now();
     const cw = this.compileWorld(world);
-    const H = this.snap.hexes.count;
     const l = this.lens(lens, x);
+    const H = l.size ?? this.snap.hexes.count;
     const base = this.baseline(l);
     const isBase = world.mutations.length === 0;
     const field = isBase ? base.field.slice() : new Float32Array(H);
     const aux = l.hasAux ? (isBase ? (base.aux as Float32Array).slice() : new Float32Array(H)) : undefined;
     if (!isBase) l.field(cw, null, field, aux);
-    const usesBase = lens === "access" || lens === "xharbor";
+    const usesBase = lens === "access" || lens === "xharbor" || lens === "freight";
     const laux: LensAux | null = aux ? { jobs: aux, baselineJobs: base.aux ?? null, blockGroups: this.snap.blockGroups } : null;
     const metrics: LensMetrics = l.metrics(field, usesBase ? base.field : null, null, laux);
     const result: RunResult = {
@@ -231,9 +241,12 @@ export class SimEngine {
     };
     if (usesBase) {
       const added = new Float32Array(H);
-      for (let h = 0; h < H; h++) {
-        const d = field[h] - base.field[h];
-        added[h] = Number.isNaN(d) ? 0 : d;
+      if (l.addedInto) l.addedInto(field, base.field, added);
+      else {
+        for (let h = 0; h < H; h++) {
+          const d = field[h] - base.field[h];
+          added[h] = Number.isNaN(d) ? 0 : d;
+        }
       }
       result.added = added;
       result.baselineField = base.field.slice();
@@ -261,8 +274,8 @@ export class SimEngine {
   async runDeterministicMany(world: WorldState, bundles: BundleInput[], lensId: LensId, x: Partial<XharborOptions> = {}, hooks: EngineHooks = {}): Promise<BundleRow[]> {
     const l = this.lens(lensId, x);
     const base = this.baseline(l);
-    const usesBase = lensId === "access" || lensId === "xharbor";
-    const H = this.snap.hexes.count;
+    const usesBase = lensId === "access" || lensId === "xharbor" || lensId === "freight";
+    const H = l.size ?? this.snap.hexes.count;
     const field = new Float32Array(H);
     const aux = l.hasAux ? new Float32Array(H) : undefined;
     const now = new Date().toISOString();
@@ -302,9 +315,9 @@ export class SimEngine {
     if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > opts.n || start >= end) {
       throw new RangeError(`bad futures range [${start}, ${end}) for n=${opts.n}`);
     }
-    const H = this.snap.hexes.count;
     const lens = this.lens(lensId, { mode: opts.xharborMode, anchorsPerShore: opts.xharborAnchors ?? FUTURES_ANCHORS_PER_SHORE });
-    const usesRef = lensId === "access" || lensId === "xharbor";
+    const H = lens.size ?? this.snap.hexes.count;
+    const usesRef = lensId === "access" || lensId === "xharbor" || lensId === "freight";
     const cw = this.compileWorld(world);
     const refWorld = opts.referenceWorld ?? emptyWorld(this.snap.id);
     const sameAsRef = usesRef && worldKey(world) === worldKey(refWorld);
@@ -315,7 +328,7 @@ export class SimEngine {
 
     const rf = this.ctx.futures;
     const incidents = opts.incidents ?? this.futuresParams.incidents;
-    const sample = newSample(rf, H, lensId === "ems");
+    const sample = newSample(rf, this.snap.hexes.count, lensId === "ems");
     const field = new Float32Array(H);
     const aux = lens.hasAux ? new Float32Array(H) : undefined;
     const refBuf = new Float32Array(H);
@@ -355,9 +368,12 @@ export class SimEngine {
       const row = (i - start) * H;
       hexField.set(field, row);
       if (hexAdded && base) {
-        for (let h = 0; h < H; h++) {
-          const d = field[h] - base.field[h];
-          hexAdded[row + h] = Number.isNaN(d) ? 0 : d;
+        if (lens.addedInto) lens.addedInto(field, base.field, hexAdded.subarray(row, row + H));
+        else {
+          for (let h = 0; h < H; h++) {
+            const d = field[h] - base.field[h];
+            hexAdded[row + h] = Number.isNaN(d) ? 0 : d;
+          }
         }
       }
 
@@ -377,7 +393,7 @@ export class SimEngine {
   async runFutures(world: WorldState, lens: LensId, opts: FuturesOptions, hooks: EngineHooks = {}): Promise<FuturesResult> {
     const t0 = performance.now();
     const part = await this.runFuturesRange(world, lens, opts, 0, opts.n, hooks);
-    return aggregateFutures(lens, [part], this.snap.hexes.count, opts, {
+    return aggregateFutures(lens, [part], part.hexField.length / (part.end - part.start), opts, {
       runner: detectRunner(),
       workers: 1,
       ms: performance.now() - t0,
@@ -386,6 +402,7 @@ export class SimEngine {
   }
 
   explain(world: WorldState, lens: LensId, hex: number): CausalChain {
+    if (lens === "freight") throw new RangeError("explain is per hex and the freight lens has no hexes; use runTrips(includeRoutes) for trip routes");
     this.compileWorld(world); // validates the world shape
     return explainHex(this.ctx, this.cctx, lens, world, hex);
   }

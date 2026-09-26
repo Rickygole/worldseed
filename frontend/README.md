@@ -35,9 +35,13 @@ see `scripts/`.
    unavailable (no keys), the same button runs the **Deterministic search (no AI)**. Watch the futures fan grow, the
    stress-test beats, and the progress grid (real completed futures). Then Preview (violet wireframe), Compare (swipe
    slider), and Apply (confirm first; the option draws itself and the terrain changes outward from it).
+   The Mission lens can also be **Hazmat truck detours (freight)**: the 24 cross-harbor hazmat-truck trips (free-flow;
+   hazmat truck = a vehicle carrying material the tunnels prohibit). Eligible options come from the catalog's own rule
+   (today the escorted hazmat windows); "Compare trips" shows the option's trips next to doing nothing.
 6. **Exhaustive check** (Finalists): scores every bundle of one to three eligible options with one free-flow run each and
    says where the top pick ranks.
-7. **Closure notices** and **Reality check** (Scenario panel): Tavily-backed, labeled unverified; closures need an explicit
+7. **Freight** (Scenario panel or the ribbon's Freight tile): every trip, car vs hazmat truck, baseline to now, with
+   routes on the map and the MDTA tunnel rule cited. **Closure notices** and **Reality check** (Scenario panel): Tavily-backed, labeled unverified; closures need an explicit
    confirmation and a server-redeemed token before they enter the world.
 8. `?tour=keybridge` runs a five-step guided tour; every step is a real action on the live simulator.
 

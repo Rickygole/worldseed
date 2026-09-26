@@ -134,8 +134,11 @@ interface AppState {
   /** Session history of the hazmat mean added minutes (cross-harbor trips), for the ribbon sparkline. */
   tripsHistory: number[];
   /** A trip highlighted on the map from the freight drawer, with its routes per class when the simulator returns them. */
-  freightSel: { tripId: string; routes: Partial<Record<string, [number, number][]>>; ends: { o: [number, number]; d: [number, number]; oName: string; dName: string } } | null;
-  selectTrip: (tripId: string | null) => Promise<void>;
+  freightSel: { tripId: string; routes: Partial<Record<string, [number, number][]>>; ends: { o: [number, number]; d: [number, number]; oName: string; dName: string }; worldLabel?: string } | null;
+  selectTrip: (tripId: string | null, world?: { scenario: Scenario; label: string }) => Promise<void>;
+  /** A freight finalist being compared: its trips (runTrips in the option's world) next to the world on screen. */
+  freightCompare: { bundleId: string; scenario: Scenario; res: TripsResult } | null;
+  setFreightCompare: (v: { bundleId: string; scenario: Scenario; res: TripsResult } | null) => void;
   /** The last applied option, for the map's "draw itself" animation. */
   appliedFx: { id: number; candidateIds: string[] } | null;
 
@@ -249,6 +252,7 @@ export const useApp = create<AppState>((set, get) => {
     trips: null,
     tripsHistory: [],
     freightSel: null,
+    freightCompare: null,
 
     leftOpen: true,
     rightOpen: true,
@@ -339,6 +343,7 @@ export const useApp = create<AppState>((set, get) => {
           trips,
           tripsHistory: hazmatMean(trips) === null ? s.tripsHistory : [...(opts.resetHistory ? [] : s.tripsHistory), hazmatMean(trips) as number].slice(-24),
           freightSel: null,
+          freightCompare: null,
           revision: s.revision + 1,
           viewRevision: s.viewRevision + 1,
           busy: false,
@@ -444,7 +449,9 @@ export const useApp = create<AppState>((set, get) => {
       }
     },
 
-    async selectTrip(tripId) {
+    setFreightCompare: (v) => set({ freightCompare: v, freightSel: null, ...(v ? { freightOpen: true } : {}) }),
+
+    async selectTrip(tripId, world) {
       if (!tripId) {
         set({ freightSel: null });
         return;
@@ -453,15 +460,15 @@ export const useApp = create<AppState>((set, get) => {
       const t = get().trips?.trips.find((x) => x.id === tripId);
       if (!sb || !t) return;
       const ends = { o: [t.origin.lng, t.origin.lat] as [number, number], d: [t.destination.lng, t.destination.lat] as [number, number], oName: t.names.origin, dName: t.names.destination };
-      set({ freightSel: { tripId, routes: {}, ends } });
+      set({ freightSel: { tripId, routes: {}, ends, worldLabel: world?.label } });
       try {
-        const [res, coords] = await Promise.all([sb.runTrips(get().scenario, { tripIds: [tripId], includeRoutes: true }), loadNodeCoords()]);
+        const [res, coords] = await Promise.all([sb.runTrips(world?.scenario ?? get().scenario, { tripIds: [tripId], includeRoutes: true }), loadNodeCoords()]);
         const r = res.trips[0];
         const routes: Partial<Record<string, [number, number][]>> = {};
         for (const [cls, v] of Object.entries(r?.classes ?? {})) {
           if (v.route) routes[cls] = v.route.nodes.map((n) => [coords.lon[n], coords.lat[n]] as [number, number]);
         }
-        if (get().freightSel?.tripId === tripId) set({ freightSel: { tripId, routes, ends } });
+        if (get().freightSel?.tripId === tripId) set({ freightSel: { tripId, routes, ends, worldLabel: world?.label } });
       } catch {
         /* the straight schematic line stays */
       }
@@ -483,7 +490,7 @@ export const useApp = create<AppState>((set, get) => {
     setAboutOpen: (v) => set({ aboutOpen: v }),
     setClosuresOpen: (v) => set({ closuresOpen: v }),
     setEvidenceOpen: (v) => set({ evidenceOpen: v }),
-    setFreightOpen: (v) => set(v ? { freightOpen: true } : { freightOpen: false, freightSel: null }),
+    setFreightOpen: (v) => set(v ? { freightOpen: true } : { freightOpen: false, freightSel: null, freightCompare: null }),
     setLogOpen: (v) => set({ logOpen: v }),
     setGoal: (v) => set({ goal: v }),
     setBudget: (v) => set({ budget: v }),

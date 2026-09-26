@@ -1,10 +1,15 @@
 import type { GoalMetric } from "@/lib/agent/tools";
 import { fmtDur } from "@/lib/format";
+import { metricLabel as agentMetricLabel, type LensName } from "@/lib/agent/lenses";
 
-type MissionLens = "access" | "ems";
+type MissionLens = LensName;
 
 /** What each goal metric means on each mission lens (the access mission is scored on the cross-harbor lens). */
 export function metricLabel(lens: MissionLens, metric: GoalMetric): string {
+  if (lens === "freight") {
+    const t = agentMetricLabel("freight", metric);
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
   if (lens === "ems") {
     return {
       p90: "Slow-end first response (p90)",
@@ -21,7 +26,8 @@ export function metricLabel(lens: MissionLens, metric: GoalMetric): string {
   }[metric];
 }
 
-export const lensLabel = (lens: MissionLens): string => (lens === "ems" ? "First response (EMS)" : "Cross-harbor access");
+export const lensLabel = (lens: MissionLens): string =>
+  lens === "ems" ? "First response (EMS)" : lens === "freight" ? "Hazmat truck detours (freight)" : "Cross-harbor access";
 
 export const isCountMetric = (m: GoalMetric): boolean => m === "isolatedCount";
 
@@ -46,8 +52,17 @@ export function fmtMetricDelta(metric: GoalMetric, d: number): string {
 }
 
 /** Target chips (within X of the pre-collapse network in the same future). */
-export function targetChoices(metric: GoalMetric): { value: number; label: string }[] {
+export function targetChoices(metric: GoalMetric, lens: MissionLens = "access"): { value: number; label: string }[] {
   if (isCountMetric(metric)) return [0, 1, 3].map((v) => ({ value: v, label: v === 0 ? "none more" : `+${v}` }));
+  if (lens === "freight") {
+    // Hazmat detours with the bridge removed are about 14 min typical and 30+ min at the slow end, so targets of a
+    // minute or two are never met by any option; these give P(goal) room to tell options apart.
+    return [
+      { value: 300, label: "+5 min" },
+      { value: 600, label: "+10 min" },
+      { value: 900, label: "+15 min" },
+    ];
+  }
   return [
     { value: 30, label: "+30 s" },
     { value: 60, label: "+1 min" },

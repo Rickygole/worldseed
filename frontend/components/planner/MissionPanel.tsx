@@ -4,7 +4,9 @@ import { useEffect, useRef } from "react";
 import { Loader2, Sparkles, X } from "lucide-react";
 import { useApp, type BudgetTier } from "@/lib/store";
 import { useSearch } from "@/lib/ui/search";
-import { shortModel, SEARCH_FUTURES } from "@/lib/ui/agentBridge";
+import { shortModel, SEARCH_FUTURES, simLensFor } from "@/lib/ui/agentBridge";
+import { goalMetricsFor } from "@/lib/agent/lenses";
+import { eligibleCandidates } from "@/lib/agent/catalog";
 import type { CostTier } from "@/lib/agent/catalog";
 import type { GoalMetric } from "@/lib/agent/tools";
 import { fmtMetric, isCountMetric, lensLabel, metricLabel, targetChoices } from "./labels";
@@ -21,7 +23,8 @@ const TIERS: { id: CostTier; budget: BudgetTier; hint: string }[] = [
   { id: "$$$", budget: "high", hint: "High relative cost tier" },
 ];
 
-const METRICS: GoalMetric[] = ["p90", "p50", "equityGap", "isolatedCount"];
+const METRIC_ORDER: GoalMetric[] = ["p90", "p50", "equityGap", "isolatedCount"];
+const metricsFor = (lens: Parameters<typeof goalMetricsFor>[0]) => METRIC_ORDER.filter((m) => goalMetricsFor(lens).includes(m));
 
 export const AI_UNAVAILABLE = "AI planner unavailable. You can still explore scenarios manually.";
 
@@ -87,7 +90,10 @@ function GoalChips() {
   const draft = useSearch((s) => s.draft);
   const setDraft = useSearch((s) => s.setDraft);
   const setBudget = useApp((s) => s.setBudget);
-  const tChoices = targetChoices(draft.metric);
+  const catalog = useSearch((s) => s.catalog);
+  const tChoices = targetChoices(draft.metric, draft.lens);
+  // How many catalog options the mission can use, from the catalog's own eligibility rule (never hard-coded).
+  const eligible = catalog ? eligibleCandidates(catalog, { lens: draft.lens, maxCostTier: draft.maxCostTier, types: [] }) : [];
   return (
     <div className="space-y-2">
       <div>
@@ -97,22 +103,36 @@ function GoalChips() {
           value={draft.lens}
           options={[
             { v: "access", label: "Cross-harbor access" },
+            { v: "freight", label: "Hazmat truck detours (freight)" },
             { v: "ems", label: "First response (EMS)" },
           ]}
-          onChange={(v) => setDraft({ lens: v })}
+          onChange={(v) => {
+            const metric = v === "freight" ? "p50" : goalMetricsFor(v).includes(draft.metric) ? draft.metric : "p90";
+            setDraft({ lens: v, metric, targetDelta: metric === "isolatedCount" ? 0 : v === "freight" ? 600 : 60 });
+          }}
         />
+        {catalog && (
+          <p className="mt-1 text-xs text-muted">
+            <span className="num text-text">{eligible.length}</span> catalog option{eligible.length === 1 ? "" : "s"} eligible for this lens at {draft.maxCostTier}
+            {draft.lens === "freight"
+              ? ` (${eligible.map((c) => c.type === "hazmat_window" ? "escorted hazmat window" : c.type.replace(/_/g, " ")).filter((v, i, a) => a.indexOf(v) === i).join(", ")}). Corridor-flow options barely move hazmat trips, because hazmat trucks cannot use the tunnels those options speed up.`
+              : "."}
+          </p>
+        )}
       </div>
       <div>
         <p className="label mb-1">Measure</p>
         <Seg
           label="Goal measure"
           value={draft.metric}
-          options={METRICS.map((m) => ({ v: m, label: metricLabel(draft.lens, m).replace(/ \(.*\)$/, "") }))}
-          onChange={(v) => setDraft({ metric: v, targetDelta: isCountMetric(v) ? 0 : 60 })}
+          options={metricsFor(draft.lens).map((m) => ({ v: m, label: metricLabel(draft.lens, m).replace(/ \(.*\)$/, "") }))}
+          onChange={(v) => setDraft({ metric: v, targetDelta: isCountMetric(v) ? 0 : draft.lens === "freight" ? 600 : 60 })}
         />
       </div>
       <div>
-        <p className="label mb-1">Target: within this of the pre-collapse network, in the same future</p>
+        <p className="label mb-1">
+          {draft.lens === "freight" ? "Target: at most this much added to the pre-collapse trip times, in the same future" : "Target: within this of the pre-collapse network, in the same future"}
+        </p>
         <Seg label="Target" value={draft.targetDelta} options={tChoices.map((c) => ({ v: c.value, label: c.label }))} onChange={(v) => setDraft({ targetDelta: v })} />
       </div>
       <div className="flex items-center justify-between">
@@ -133,6 +153,12 @@ function GoalChips() {
 
 /** The goal as one plain sentence, from the chips (application text). */
 function goalSentence(d: ReturnType<typeof useSearch.getState>["draft"]): string {
+  if (d.lens === "freight") {
+    const t = isCountMetric(d.metric) ? (d.targetDelta === 0 ? "none" : `at most ${d.targetDelta}`) : `at most ${fmtMetric(d.metric, d.targetDelta)}`;
+    return isCountMetric(d.metric)
+      ? `Hazmat truck detours (freight): ${t} of the 24 cross-harbor hazmat trips with long detours (more than 5 min added) in each simulated future, using options up to ${d.maxCostTier}. Free-flow; hazmat truck = a vehicle carrying material the tunnels prohibit.`
+      : `Hazmat truck detours (freight): keep the ${metricLabel(d.lens, d.metric).toLowerCase()} to ${t} over the pre-collapse trip times in each simulated future, using options up to ${d.maxCostTier}. Free-flow; hazmat truck = a vehicle carrying material the tunnels prohibit.`;
+  }
   const target = isCountMetric(d.metric) ? `${d.targetDelta === 0 ? "no more than" : `at most ${d.targetDelta} more than`}` : `within ${fmtMetric(d.metric, d.targetDelta)} of`;
   return `${lensLabel(d.lens)}: keep the ${metricLabel(d.lens, d.metric).toLowerCase()} ${target} the pre-collapse network in each simulated future, using options up to ${d.maxCostTier}.`;
 }
@@ -253,8 +279,8 @@ export default function MissionPanel() {
           <GoalChips />
           <p className="text-sm leading-5">{goalSentence(draft)}</p>
           <p className="text-xs text-muted">
-            Each option is scored in the world on screen across {SEARCH_FUTURES.n[draft.lens === "ems" ? "ems" : "xharbor"]} stress futures (seed {SEARCH_FUTURES.seed}), paired with the
-            pre-collapse network and with doing nothing. {ai && phase === "confirmGoal" ? "" : "Deterministic search (no AI): up to 12 options in 3 rounds."}
+            Each option is scored in the world on screen across {SEARCH_FUTURES.n[simLensFor(draft.lens)]} stress futures (seed {SEARCH_FUTURES.seed}), paired with the
+            pre-collapse network and with doing nothing. {ai && phase === "confirmGoal" ? "" : "Deterministic search (no AI): screens every eligible bundle with one free-flow run, then scores the top 12 across the futures."}
           </p>
           <div className="flex gap-2">
             <button className="btn flex-1 border-ai text-text" onClick={() => void confirmAndRun()} data-autofocus>

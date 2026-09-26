@@ -167,13 +167,13 @@ export interface SimDetail {
   runnerText: string;
   /** Set when the lens field is an approximation (xharbor fast variant), for an honest label. */
   approximation: string | null;
-  /** What `SimOutput.minutes` holds: EMS response time, or added time versus the baseline (Access, xharbor). */
-  minutesKind: "response" | "added";
+  /** What `SimOutput.minutes` holds: EMS response time, added time versus the baseline (Access, xharbor), or "none" (freight has no terrain: `minutes` is all zeros; read `lenses.freight.freight` or runTrips). */
+  minutesKind: "response" | "added" | "none";
   /**
    * All three lenses side by side (always computed together), so the small regional number is never hidden
    * behind the cross-harbor one.
    */
-  lenses: { xharbor: LensMetrics; access: LensMetrics; ems: LensMetrics };
+  lenses: { xharbor: LensMetrics; access: LensMetrics; ems: LensMetrics; /** Present when the snapshot has trip definitions. */ freight?: LensMetrics };
   /** Present when lens is "xharbor". */
   xharbor?: XharborDetail;
 }

@@ -41,6 +41,7 @@ export function createEmsLens(ctx: LensContext): Lens {
     label: "EMS response",
     unitLabel: "min",
     variant: { mode: "standard", approximate: false, label: "Exact (one Dijkstra per run)" },
+    size: null,
     hasAux: false,
 
     field(cw: CompiledWorld, sample: FutureSample | null, out: Float32Array): void {

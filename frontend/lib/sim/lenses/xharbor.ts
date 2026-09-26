@@ -352,6 +352,7 @@ export function createXharborLens(ctx: LensContext, baselineCw: CompiledWorld, o
     label: "Cross-harbor access",
     unitLabel: "min",
     variant: xharborVariant(opts),
+    size: null,
     hasAux: true,
 
     field(cw, sample, out, aux) {

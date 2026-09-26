@@ -825,6 +825,7 @@ export default function MapStage() {
             <span className="flex items-center gap-1">
               <span className="inline-block h-1 w-5 rounded bg-warn" aria-hidden /> hazmat truck route
             </span>
+            {freightSel.worldLabel && <span className="text-muted">({freightSel.worldLabel})</span>}
           </p>
         </div>
       )}

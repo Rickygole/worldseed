@@ -9,6 +9,7 @@ import { withBundle } from "@/lib/ui/agentBridge";
 import type { TripClassResult, TripResult, TripsResult } from "@/lib/sim/trips";
 import { fmtMin } from "@/lib/format";
 import { stripHypothetical } from "./planner/labels";
+import { eligibleCandidates } from "@/lib/agent/catalog";
 
 export const MDTA_URL = "https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits";
 const CLASSES = ["car", "hazmat_truck"] as const;
@@ -42,7 +43,12 @@ function Cell({ c }: { c: TripClassResult | undefined }) {
 /** What the escorted hazmat windows would do, computed by runTrips in each option's world. */
 function EscortOptions() {
   const catalog = useSearch((s) => s.catalog);
-  const options = useSearch((s) => s.hazmatOptions);
+  const raw = useSearch((s) => s.hazmatOptions);
+  // The same eligibility rule the freight mission uses; the raw list only if the catalog cannot say.
+  const options = useMemo(() => {
+    const el = catalog ? eligibleCandidates(catalog, { lens: "freight", maxCostTier: "$$$", types: [] }) : [];
+    return el.length > 0 ? el.map((c) => ({ id: c.id, title: c.title, costTier: c.costTier })) : raw;
+  }, [catalog, raw]);
   const scenario = useApp((s) => s.scenario);
   const trips = useApp((s) => s.trips);
   const applyScenario = useApp((s) => s.applyScenario);
@@ -135,6 +141,10 @@ function Inner({ onClose }: { onClose: () => void }) {
   const trips = useApp((s) => s.trips);
   const sel = useApp((s) => s.freightSel);
   const selectTrip = useApp((s) => s.selectTrip);
+  const cmp = useApp((s) => s.freightCompare);
+  const setCmp = useApp((s) => s.setFreightCompare);
+  const catalog = useSearch((s) => s.catalog);
+  const bundles = useSearch((s) => s.bundles);
   const removed = useApp((s) => s.scenario.removedLinks.includes("key_bridge"));
 
   useEffect(() => {
@@ -147,6 +157,49 @@ function Inner({ onClose }: { onClose: () => void }) {
   const controls = trips?.trips.filter((t) => t.kind === "same_shore_control") ?? [];
   const car = trips?.summary.car;
   const hz = trips?.summary.hazmat_truck;
+
+  const cmpById = new Map((cmp?.res.trips ?? []).map((t) => [t.id, t]));
+  const delta = (a: TripClassResult | undefined, b: TripClassResult | undefined) => {
+    if (!a || !b || a.addedMinutes === null || b.addedMinutes === null) return <span className="text-muted">--</span>;
+    const d = b.addedMinutes - a.addedMinutes;
+    return (
+      <>
+        <span className="text-muted">{signed(a.addedMinutes)}</span>
+        <span className="text-muted"> → </span>
+        <span>{signed(b.addedMinutes)}</span>
+        {Math.abs(d) >= 0.05 && (
+          <span className="ml-1" style={{ color: d < 0 ? "var(--color-ok)" : "var(--color-critical)" }}>
+            ({d < 0 ? "-" : "+"}
+            {fmtMin(Math.abs(d))})
+          </span>
+        )}
+      </>
+    );
+  };
+  const cmpRows = (list: TripResult[]) => (
+    <>
+      {list.map((t) => {
+        const on = sel?.tripId === t.id;
+        const o = cmpById.get(t.id);
+        return (
+          <tr key={t.id} className="border-t border-border" style={on ? { background: "var(--color-surface-2)" } : undefined}>
+            <th scope="row" className="px-1 py-1 text-left font-normal">
+              <button
+                className="w-full truncate text-left hover:text-text"
+                aria-pressed={on}
+                onClick={() => void selectTrip(on ? null : t.id, cmp ? { scenario: cmp.scenario, label: `with ${cmp.bundleId}` } : undefined)}
+                title={`${t.names.origin} → ${t.names.destination} (show the route with ${cmp?.bundleId} on the map)`}
+              >
+                {t.names.origin} → {t.names.destination}
+              </button>
+            </th>
+            <td className="num px-1 py-1 text-right">{delta(t.classes.hazmat_truck, o?.classes.hazmat_truck)}</td>
+            <td className="num px-1 py-1 text-right">{delta(t.classes.car, o?.classes.car)}</td>
+          </tr>
+        );
+      })}
+    </>
+  );
 
   const rows = (list: TripResult[]) => (
     <>
@@ -220,6 +273,34 @@ function Inner({ onClose }: { onClose: () => void }) {
               Free-flow node-to-node drive times between real road anchors (no signals, congestion, loading or dwell). Hazmat truck = a vehicle carrying material the
               tunnels prohibit, not every truck. Baseline = the pre-collapse network. Select a trip to show it on the map.
             </p>
+            {cmp && (
+              <section aria-labelledby="cmp-h" className="card space-y-2 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 id="cmp-h" className="text-sm font-medium">
+                    Doing nothing vs with {cmp.bundleId}:{" "}
+                    {cmp.bundleId && (bundles[cmp.bundleId]?.candidateIds ?? []).map((id) => stripHypothetical(catalog?.byId.get(id)?.title ?? id)).join(" + ")}
+                  </h3>
+                  <button className="btn h-7 shrink-0 px-2 text-xs" onClick={() => setCmp(null)}>
+                    Close comparison
+                  </button>
+                </div>
+                <p className="num text-xs text-muted">
+                  Hazmat trucks: mean {signed(hz?.crossHarborMeanAddedMinutes ?? null)} → {signed(cmp.res.summary.hazmat_truck?.crossHarborMeanAddedMinutes ?? null)} min, trips over 5 min{" "}
+                  {hz?.crossHarborOver5Min ?? "--"} → {cmp.res.summary.hazmat_truck?.crossHarborOver5Min ?? "--"}. Cars: mean {signed(car?.crossHarborMeanAddedMinutes ?? null)} →{" "}
+                  {signed(cmp.res.summary.car?.crossHarborMeanAddedMinutes ?? null)} min. Added minutes versus the pre-collapse network; select a trip to see its routes with the option.
+                </p>
+                <table className="w-full table-fixed text-xs">
+                  <thead>
+                    <tr className="text-left text-muted">
+                      <th scope="col" className="w-[40%] px-1 pb-1 font-medium">Cross-harbor trip</th>
+                      <th scope="col" className="px-1 pb-1 text-right font-medium">Hazmat, added now → with</th>
+                      <th scope="col" className="px-1 pb-1 text-right font-medium">Car, added now → with</th>
+                    </tr>
+                  </thead>
+                  <tbody>{cmpRows(cross)}</tbody>
+                </table>
+              </section>
+            )}
             <table className="w-full table-fixed text-xs">
               <caption className="label mb-1 text-left">Cross-harbor trips ({cross.length})</caption>
               <thead>
@@ -244,7 +325,8 @@ function Inner({ onClose }: { onClose: () => void }) {
                 Options that act on hazmat trips
               </h3>
               <p className="mb-2 text-xs text-muted">
-                Escorted hazmat windows through a tunnel (hypothetical). The planner searches cross-harbor access options, so these are shown here with their trip numbers.
+                The catalog options eligible for a freight mission (hypothetical escorted windows through a tunnel). A freight search in the Planner scores them the
+                same way; this list applies one directly, after a confirmation.
               </p>
               <EscortOptions />
             </section>

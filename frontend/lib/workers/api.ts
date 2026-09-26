@@ -94,8 +94,9 @@ export function createWorkerApi(options: WorkerApiOptions = {}): WorkerApi {
       return need().runTrips(world, req);
     },
 
-    async warm(lenses = ["ems", "access", "xharbor"]) {
+    async warm(lenses) {
       const e = need();
+      lenses ??= ["ems", "access", "xharbor", ...(e.snap.trips ? (["freight"] as LensId[]) : [])];
       const empty = { snapshotId: e.snap.id, mutations: [] };
       for (const l of lenses) {
         e.runDeterministic(empty, l);

@@ -11,7 +11,7 @@
  *     `A-CALL-TO-WHEELS` (seconds). In code it is `ModelParams.call_to_wheels_delay_min` (minutes).
  */
 
-export type LensId = "access" | "ems" | "xharbor";
+export type LensId = "access" | "ems" | "xharbor" | "freight";
 export type TimeOfDay = "am" | "mid" | "pm" | "night";
 export type Origin = "user" | "agent" | "tavily" | "tour";
 
@@ -325,7 +325,36 @@ export interface LensMetrics {
   unreachableHexes?: number;
   /** xharbor only: the full cross-harbor metric set. */
   xharbor?: XharborMetrics;
+  /** freight only: the per-trip detours behind p50S / p90S / isolatedCount. */
+  freight?: FreightMetrics;
 }
+
+/**
+ * Freight lens: the 24 cross-harbor trips of the hazmat_truck class. For each trip
+ *   addedS = time(world, same future) - time(pre-collapse baseline: no closures, no candidates, same future)
+ * SIGNED (an option can only make a trip faster than pre-collapse if it beats the pre-collapse network; it is
+ * reported, not floored). A trip with no route in the world counts as FREIGHT_UNREACHABLE_ADDED_S (7200 s) added;
+ * a trip unreachable in the reference cannot be measured and counts 0.
+ * Search rows: p50S = median addedS, p90S = 90th percentile addedS (both nearest-rank over the 24 trips),
+ * isolatedCount = trips with addedS > FREIGHT_LONG_DETOUR_S (300 s), equityGapS = 0 (not applicable).
+ * In `LensMetrics.isolatedBg` the freight lens lists the INDICES INTO `tripIds` of those long-detour trips.
+ */
+export interface FreightMetrics {
+  vehicleClass: string;
+  tripIds: string[];
+  /** Signed added seconds per trip, in tripIds order. */
+  tripAddedS: number[];
+  meanAddedS: number;
+  maxAddedS: number;
+  worstTripId: string | null;
+  /** Trips with no route in the world. */
+  unreachableTrips: number;
+  longDetourS: number;
+  capS: number;
+}
+
+export const FREIGHT_LONG_DETOUR_S = 300;
+export const FREIGHT_UNREACHABLE_ADDED_S = 7200;
 
 /**
  * Cross-harbor lens metrics (pipeline xharbor.py `summarize`, same names). Population and low-wage weights
@@ -417,9 +446,13 @@ export interface RunMeta {
 }
 
 export interface RunResult {
-  /** Per-hex seconds (lens field). xharbor: mean cross-harbor travel time; NaN for non-origin hexes. Transferable. */
+  /**
+   * Per-hex seconds (lens field). xharbor: mean cross-harbor travel time; NaN for non-origin hexes. FREIGHT has no
+   * terrain: `field` is per TRIP (length = tripIds.length, in tripIds order): the world's hazmat travel time in seconds
+   * (Infinity = no route), `added` is the signed per-trip detour, `baselineField` the pre-collapse times. Transferable.
+   */
   field: Float32Array;
-  /** Access and xharbor: per-hex added seconds versus the snapshot baseline (0 for non-origin hexes). Transferable. */
+  /** Access, xharbor and freight: added seconds versus the snapshot baseline (per hex; per trip for freight; 0 for non-origin hexes). Transferable. */
   added?: Float32Array;
   /** Access and xharbor: the snapshot-baseline lens field the added time is measured from (seconds). Transferable. */
   baselineField?: Float32Array;

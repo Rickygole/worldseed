@@ -26,6 +26,16 @@ export interface Lens {
   label: string;
   unitLabel: string;
   variant: LensVariant;
+  /**
+   * Length of the `field` array this lens fills, or null for one value per hex. Freight fills one value per trip
+   * (there is no terrain for it).
+   */
+  size: number | null;
+  /**
+   * Optional per-value "added" rule when it is not simply field - baseline (freight: unreachable trips count as a
+   * fixed detour). Fills `out` (same length as the field).
+   */
+  addedInto?(field: Float32Array, baseline: Float32Array, out: Float32Array): void;
   /** true when `field` also fills the secondary per-hex array (`aux`), as xharbor does with jobs within 30 min. */
   hasAux: boolean;
   /** Per-hex seconds for (world, future). `sample` null = free-flow, no noise. */

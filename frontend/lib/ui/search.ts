@@ -14,6 +14,7 @@ import { buildCatalog, type Catalog, type CostTier } from "../agent/catalog";
 import { createFetchAgentApi } from "../agent/api";
 import { AgentMachine, type MachineState } from "../agent/machine";
 import type { ConfirmedMission, GoalMetric, ParsedMission } from "../agent/tools";
+import type { LensName } from "../agent/lenses";
 import type { SimOutput } from "../sim/types";
 import { scenarioKey, snapshotSimulator, useApp } from "../store";
 import {
@@ -38,7 +39,7 @@ export type HealthState =
   | { status: "unreachable"; checkedAt: number };
 
 export interface GoalDraft {
-  lens: "access" | "ems";
+  lens: LensName;
   metric: GoalMetric;
   /** Seconds for time metrics, block groups for isolatedCount. */
   targetDelta: number;
@@ -337,8 +338,10 @@ export const useSearch = create<SearchState>((set, get) => {
         },
       });
       // The map follows the mission's lens so the terrain shows what is being scored.
+      // Freight has no terrain: the map keeps its lens and the freight panel shows the trips.
       const mapLens = simLensFor(get().draft.lens);
-      if (app.lens !== mapLens) void app.setLens(mapLens);
+      if (mapLens === "freight") app.setFreightOpen(false);
+      else if (app.lens !== mapLens) void app.setLens(mapLens);
       const mission = missionFrom(get().draft, st.parsed);
       if (st.phase === "confirmGoal") await m.confirmGoal(mission);
       else if (st.phase === "idle") await m.runDeterministic(mission);
@@ -371,6 +374,21 @@ export const useSearch = create<SearchState>((set, get) => {
       const b = get().bundles[bundleId];
       const app = useApp.getState();
       if (!b) return;
+      // A freight option has no terrain: compare its trips (runTrips in the option's world) in the freight panel.
+      if (get().m?.mission?.lens === "freight") {
+        const sim = snapshotSimulator();
+        if (!sim) return;
+        const scenario = withBundle(app.scenario, bundleId, b.candidateIds, "user", get().catalog);
+        set({ preview: { bundleId, status: "loading" }, compare: null });
+        try {
+          const res = await sim.runTrips(scenario);
+          app.setFreightCompare({ bundleId, scenario, res });
+          set({ preview: null });
+        } catch (e) {
+          set({ preview: { bundleId, status: "error", error: e instanceof Error ? e.message : String(e) } });
+        }
+        return;
+      }
       set({ preview: { bundleId, status: "loading" }, compare: null });
       try {
         const out = await app.peek(withBundle(app.scenario, bundleId, b.candidateIds, "user", get().catalog), app.lens);

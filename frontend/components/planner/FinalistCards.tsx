@@ -238,7 +238,7 @@ export default function FinalistCards() {
                   <Stat label="Chance of meeting the goal" value={b.pGoal === null ? "--" : `${Math.round(b.pGoal * 100)}%`} note={refs?.nothingPGoal != null ? `doing nothing: ${Math.round(refs.nothingPGoal * 100)}%` : undefined} />
                   <Stat label={`Change vs doing nothing (median)`} value={fmtMetricDelta(metric, median(b.vsNothing))} note={metricLabel(lens, metric).replace(/ \(.*\)$/, "").toLowerCase()} />
                   <Stat label="Worst 10% of futures" value={fmtMetric(metric, worst)} note={`doing nothing: ${fmtMetric(metric, worstNothing)}`} />
-                  <Stat label="Equity gap change" value={lens === "ems" ? fmtMetricDelta("p90", eq) : fmtMetricDelta("equityGap", eq)} note={lens === "ems" ? "zero-vehicle households minus everyone" : "low-wage workers minus everyone"} />
+                  {lens !== "freight" && <Stat label="Equity gap change" value={lens === "ems" ? fmtMetricDelta("p90", eq) : fmtMetricDelta("equityGap", eq)} note={lens === "ems" ? "zero-vehicle households minus everyone" : "low-wage workers minus everyone"} />}
                   {gt10 !== null && gt10n !== null && (
                     <div className="col-span-2">
                       <Stat label="Residents losing >10% of cross-harbor jobs (median stress future)" value={`about ${fmtAbout(gt10)}`} note={`doing nothing: about ${fmtAbout(gt10n)}`} />
@@ -306,11 +306,11 @@ export default function FinalistCards() {
                 </details>
               )}
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className={`mt-3 grid gap-2 ${lens === "freight" ? "grid-cols-2" : "grid-cols-3"}`}>
                 <button className="btn h-8 px-2 text-xs" aria-pressed={isPreview} disabled={!b || worldBusy || applied} onClick={() => void setPreview(f.bundleId)} style={isPreview ? { borderColor: "var(--color-future)", color: "var(--color-future)" } : undefined}>
-                  <Eye size={14} aria-hidden /> {isPreview ? (preview?.status === "loading" ? "Loading" : "Hide") : "Preview"}
+                  <Eye size={14} aria-hidden /> {lens === "freight" ? (isPreview ? "Loading" : "Compare trips") : isPreview ? (preview?.status === "loading" ? "Loading" : "Hide") : "Preview"}
                 </button>
-                <button className="btn h-8 px-2 text-xs" aria-pressed={isCompare} disabled={!b || worldBusy || applied} onClick={() => void setCompare(f.bundleId)} style={isCompare ? { borderColor: "var(--color-future)", color: "var(--color-future)" } : undefined}>
+                <button className={`btn h-8 px-2 text-xs ${lens === "freight" ? "hidden" : ""}`} aria-pressed={isCompare} disabled={!b || worldBusy || applied} onClick={() => void setCompare(f.bundleId)} style={isCompare ? { borderColor: "var(--color-future)", color: "var(--color-future)" } : undefined}>
                   <Columns2 size={14} aria-hidden /> {isCompare ? "Close" : "Compare"}
                 </button>
                 <button

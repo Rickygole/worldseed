@@ -555,7 +555,7 @@ export class SimPool {
 
     try {
       const partials: FuturesPartial[] = await Promise.race([Promise.all(calls), stopped]);
-      return aggregateFutures(lens, partials, this.info.hexCount, opts, {
+      return aggregateFutures(lens, partials, partials[0].hexField.length / (partials[0].end - partials[0].start), opts, {
         runner: detectRunner(),
         workers: ranges.length,
         ms: performance.now() - t0,

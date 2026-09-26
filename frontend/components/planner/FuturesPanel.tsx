@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { scaleLinear } from "d3";
 import { GitFork, Zap } from "lucide-react";
-import { shortModel } from "@/lib/ui/agentBridge";
+import { shortModel, simLensFor } from "@/lib/ui/agentBridge";
 import { useReducedMotion } from "framer-motion";
 import { FUTURES_MODEL_LABEL } from "@/lib/sim/sample";
 import { useSearch } from "@/lib/ui/search";
@@ -176,7 +176,8 @@ export default function FuturesPanel() {
     return items;
   }, [chart, finalistIds]);
 
-  const runningFrac = f.roundTotal > 0 && running ? (f.roundDone % SEARCH_FUTURES.n[lens === "ems" ? "ems" : "xharbor"]) / SEARCH_FUTURES.n[lens === "ems" ? "ems" : "xharbor"] : 0;
+  const nPer = SEARCH_FUTURES.n[simLensFor(lens)];
+  const runningFrac = f.roundTotal > 0 && running ? (f.roundDone % nPer) / nPer : 0;
 
   return (
     <section className="border-t border-border p-4" aria-labelledby="futures-h">

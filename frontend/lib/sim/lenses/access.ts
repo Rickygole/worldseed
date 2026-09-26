@@ -45,6 +45,7 @@ export function createAccessLens(ctx: LensContext): Lens {
     label: "Regional access",
     unitLabel: "min",
     variant: { mode: "standard", approximate: false, label: "Exact (one Dijkstra per run)" },
+    size: null,
     hasAux: false,
 
     field(cw: CompiledWorld, sample: FutureSample | null, out: Float32Array): void {

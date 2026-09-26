@@ -130,7 +130,7 @@ function CommandBarInner() {
         note: `Read by the AI parser (${out.model}). You pick the target and confirm before anything runs.`,
         run: () => {
           const s = useSearch.getState();
-          s.setDraft({ lens: p.lens, metric: p.goal.metric, maxCostTier: p.constraints.maxCostTier });
+          s.setDraft({ lens: p.lens, metric: p.goal.metric, maxCostTier: p.constraints.maxCostTier, targetDelta: p.goal.metric === "isolatedCount" ? 0 : p.lens === "freight" ? 600 : 60 });
           app.setGoal(t);
           app.setRightOpen(true);
           useSearch.setState({ stage: "confirm" });
