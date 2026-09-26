@@ -1,1 +1,947 @@
-[]
+[
+ {
+  "id": "TL-SHUTTLE-TRADEPOINT-HAWKINS",
+  "type": "temp_link",
+  "kind": "temporary_link",
+  "title": "Hypothetical scenario option: harbor shuttle link, Tradepoint Atlantic to Hawkins Point",
+  "mechanism": "Adds a scenario-only shuttle connection between the Tradepoint Atlantic road network on the north bank and the Fort Armistead road network at Hawkins Point on the south bank, roughly where the Key Bridge used to cross. It is modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline; enabling it lets cross-harbor trips skip the long drive around the harbor.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "enable_edges",
+   "edges": [
+    81437,
+    81438
+   ]
+  },
+  "refs": {
+   "nodes": [
+    35673,
+    8565
+   ],
+   "osmNodes": [
+    9222322309,
+    49379171
+   ],
+   "sites": [
+    "Tradepoint Atlantic, Tradepoint Avenue at Plate Mill Road",
+    "Dock Road at Fort Armistead Road, Hawkins Point"
+   ],
+   "mode": "shuttle",
+   "lenM": 5762.2,
+   "timeS": 1560.4
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-SHUTTLE-SPEED",
+   "A-SHUTTLE-WAIT"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "TL-SHUTTLE-BROENING-CURTISBAY",
+  "type": "temp_link",
+  "kind": "temporary_link",
+  "title": "Hypothetical scenario option: harbor shuttle link, Broening Highway southern end to Curtis Bay",
+  "mechanism": "Adds a scenario-only shuttle connection between the southern end of Broening Highway on the north bank and Pennington Avenue in Curtis Bay on the south bank, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. The crossing is longer than the one at the old bridge site, so it mainly helps trips between the Dundalk port area and Curtis Bay.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "enable_edges",
+   "edges": [
+    81439,
+    81440
+   ]
+  },
+  "refs": {
+   "nodes": [
+    1446,
+    14163
+   ],
+   "osmNodes": [
+    37283045,
+    49506822
+   ],
+   "sites": [
+    "Southern end of Broening Highway",
+    "Pennington Avenue, Curtis Bay"
+   ],
+   "mode": "shuttle",
+   "lenM": 7466.9,
+   "timeS": 1844.5
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-SHUTTLE-SPEED",
+   "A-SHUTTLE-WAIT"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "TL-SHUTTLE-EDGEMERE-RIVIERA",
+  "type": "temp_link",
+  "kind": "temporary_link",
+  "title": "Hypothetical scenario option: river-mouth shuttle link, Edgemere to Riviera Beach",
+  "mechanism": "Adds a scenario-only shuttle connection across the mouth of the Patapsco between the Edgemere area on the north bank and Fort Smallwood Road at Riviera Beach on the south bank, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. It is the longest water crossing in the catalog and serves the far eastern and southern ends of the study area.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "enable_edges",
+   "edges": [
+    81441,
+    81442
+   ]
+  },
+  "refs": {
+   "nodes": [
+    5636,
+    18475
+   ],
+   "osmNodes": [
+    37700343,
+    102577441
+   ],
+   "sites": [
+    "Sparrows Point Road at Armistead Road, Edgemere",
+    "Fort Smallwood Road at Kingsway Drive, Riviera Beach"
+   ],
+   "mode": "shuttle",
+   "lenM": 10473.3,
+   "timeS": 2345.5
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-SHUTTLE-SPEED",
+   "A-SHUTTLE-WAIT"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "TL-SHUTTLE-CANTON-FAIRFIELD",
+  "type": "temp_link",
+  "kind": "temporary_link",
+  "title": "Hypothetical scenario option: inner-harbor shuttle link, Canton to Fairfield",
+  "mechanism": "Adds a scenario-only shuttle connection between the Canton waterfront on the north bank and East Patapsco Avenue in Fairfield on the south bank, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. It sits west of the old bridge site and mostly serves inner-harbor neighborhoods rather than the Sparrows Point and Dundalk side.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "enable_edges",
+   "edges": [
+    81443,
+    81444
+   ]
+  },
+  "refs": {
+   "nodes": [
+    30625,
+    33304
+   ],
+   "osmNodes": [
+    3292944991,
+    5270570880
+   ],
+   "sites": [
+    "Canton waterfront, Baylis Street",
+    "East Patapsco Avenue, Fairfield"
+   ],
+   "mode": "shuttle",
+   "lenM": 5399.2,
+   "timeS": 1499.9
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-SHUTTLE-SPEED",
+   "A-SHUTTLE-WAIT"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "TL-SHUTTLE-CANTON-LOCUSTPOINT",
+  "type": "temp_link",
+  "kind": "temporary_link",
+  "title": "Hypothetical scenario option: same-bank water link, Canton to Locust Point",
+  "mechanism": "Adds a scenario-only shuttle connection between the Canton waterfront and East Fort Avenue in Locust Point, both on the north bank of the Patapsco, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. Both ends are on the same shore, so it does not connect the two banks and is expected to do little for cross-harbor access.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "enable_edges",
+   "edges": [
+    81445,
+    81446
+   ]
+  },
+  "refs": {
+   "nodes": [
+    30625,
+    36241
+   ],
+   "osmNodes": [
+    3292944991,
+    9964148679
+   ],
+   "sites": [
+    "Canton waterfront, Baylis Street",
+    "East Fort Avenue, Locust Point"
+   ],
+   "mode": "shuttle",
+   "lenM": 2104.0,
+   "timeS": 950.7
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-SHUTTLE-SPEED",
+   "A-SHUTTLE-WAIT"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "TL-CONNECTOR-BROENING-TRADEPOINT",
+  "type": "temp_link",
+  "kind": "temporary_link",
+  "title": "Hypothetical scenario option: new road connector, Broening Highway to Tradepoint Atlantic",
+  "mechanism": "Adds a scenario-only local road connection between the southern end of Broening Highway and Tradepoint Avenue at Tradepoint Atlantic, both on the north bank, driven at a constant local-road speed in both directions. Disabled in the baseline. It shortens trips between the Dundalk port area and the Sparrows Point peninsula but does not cross the river.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "enable_edges",
+   "edges": [
+    81447,
+    81448
+   ]
+  },
+  "refs": {
+   "nodes": [
+    1446,
+    35673
+   ],
+   "osmNodes": [
+    37283045,
+    9222322309
+   ],
+   "sites": [
+    "Southern end of Broening Highway",
+    "Tradepoint Avenue at Plate Mill Road"
+   ],
+   "mode": "road",
+   "lenM": 2201.2,
+   "timeS": 197.0
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CONNECTOR-SPEED"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "TL-CONNECTOR-DUNDALK-TRADEPOINT",
+  "type": "temp_link",
+  "kind": "temporary_link",
+  "title": "Hypothetical scenario option: new road connector, Dundalk Avenue to Tradepoint Atlantic",
+  "mechanism": "Adds a scenario-only local road connection between Dundalk Avenue and Tradepoint Avenue at Tradepoint Atlantic, both on the north bank, driven at a constant local-road speed in both directions. Disabled in the baseline. It gives the Dundalk neighborhood a more direct route onto the Sparrows Point peninsula but does not cross the river.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "enable_edges",
+   "edges": [
+    81449,
+    81450
+   ]
+  },
+  "refs": {
+   "nodes": [
+    2034,
+    35673
+   ],
+   "osmNodes": [
+    37454486,
+    9222322309
+   ],
+   "sites": [
+    "Dundalk Avenue north of Broening Highway",
+    "Tradepoint Avenue at Plate Mill Road"
+   ],
+   "mode": "road",
+   "lenM": 2408.5,
+   "timeS": 215.5
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CONNECTOR-SPEED"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-BELTWAY-FLOW",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: flow management on the Baltimore Beltway",
+  "mechanism": "Applies faster clearance of incidents and smoother merging along the whole Baltimore Beltway corridor, including the western arc that becomes the detour when the Key Bridge is gone. Every road segment of the corridor gets a modest speed gain. It only helps trips that use the Beltway.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-I695",
+   "factor": 1.05
+  },
+  "params": {
+   "factor": {
+    "default": 1.05,
+    "min": 1.0,
+    "max": 1.15,
+    "assumption": "A-CORRIDOR-FACTOR-FREEWAY"
+   }
+  },
+  "refs": {
+   "corridor": "C-I695",
+   "corridorIndex": 2,
+   "edgeCount": 334
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-FREEWAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-HARBOR-TUNNEL-BORES",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: tunnel flow management, Harbor Tunnel",
+  "mechanism": "Applies faster incident clearance and traffic metering to the tunnel bores of the Harbor Tunnel only, not to its approaches. Every tunnel segment gets a modest speed gain. It helps trips that cross the harbor by tunnel.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-I895-TUNNEL",
+   "factor": 1.05
+  },
+  "params": {
+   "factor": {
+    "default": 1.05,
+    "min": 1.0,
+    "max": 1.15,
+    "assumption": "A-CORRIDOR-FACTOR-FREEWAY"
+   }
+  },
+  "refs": {
+   "corridor": "C-I895-TUNNEL",
+   "corridorIndex": 0,
+   "edgeCount": 6
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-FREEWAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-HARBOR-TUNNEL-APPROACHES",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: approach flow management, Harbor Tunnel corridor",
+  "mechanism": "Applies faster incident clearance and ramp metering along the highway that feeds the Harbor Tunnel, outside the tunnel bores themselves. Every approach segment gets a modest speed gain. It helps trips that reach the tunnel from either side.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-I895",
+   "factor": 1.05
+  },
+  "params": {
+   "factor": {
+    "default": 1.05,
+    "min": 1.0,
+    "max": 1.15,
+    "assumption": "A-CORRIDOR-FACTOR-FREEWAY"
+   }
+  },
+  "refs": {
+   "corridor": "C-I895",
+   "corridorIndex": 4,
+   "edgeCount": 188
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-FREEWAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-FORT-MCHENRY-TUNNEL-BORES",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: tunnel flow management, Fort McHenry Tunnel",
+  "mechanism": "Applies faster incident clearance and traffic metering to the tunnel bores of the Fort McHenry Tunnel only. Every tunnel segment gets a modest speed gain. It helps trips that cross the harbor by that tunnel.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-I95-TUNNEL",
+   "factor": 1.05
+  },
+  "params": {
+   "factor": {
+    "default": 1.05,
+    "min": 1.0,
+    "max": 1.15,
+    "assumption": "A-CORRIDOR-FACTOR-FREEWAY"
+   }
+  },
+  "refs": {
+   "corridor": "C-I95-TUNNEL",
+   "corridorIndex": 1,
+   "edgeCount": 4
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-FREEWAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-I95-FLOW",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: flow management on the north-south interstate corridor",
+  "mechanism": "Applies faster incident clearance and smoother merging along the interstate that runs through the Fort McHenry Tunnel approaches, outside the tunnel bores. Every road segment of the corridor gets a modest speed gain. It helps long north-south trips more than harbor-crossing trips.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "months",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-I95",
+   "factor": 1.05
+  },
+  "params": {
+   "factor": {
+    "default": 1.05,
+    "min": 1.0,
+    "max": 1.15,
+    "assumption": "A-CORRIDOR-FACTOR-FREEWAY"
+   }
+  },
+  "refs": {
+   "corridor": "C-I95",
+   "corridorIndex": 3,
+   "edgeCount": 187
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-FREEWAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-BROENING-SIGNALS",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: signal retiming on Broening Highway",
+  "mechanism": "Retimes signals along Broening Highway, the surface route between the Dundalk port area and the tunnels. Every road segment of the corridor gets a moderate speed gain. It helps freight and commuter trips that use that surface route.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "days",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-BROENING",
+   "factor": 1.1
+  },
+  "params": {
+   "factor": {
+    "default": 1.1,
+    "min": 1.0,
+    "max": 1.25,
+    "assumption": "A-CORRIDOR-FACTOR-SURFACE"
+   }
+  },
+  "refs": {
+   "corridor": "C-BROENING",
+   "corridorIndex": 6,
+   "edgeCount": 78
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-SURFACE"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-HANOVER-SIGNALS",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: signal retiming on Hanover Street",
+  "mechanism": "Retimes signals along Hanover Street, the surface route that links South Baltimore with the southern neighborhoods. Every road segment of the corridor gets a moderate speed gain. It is west of the harbor crossings and helps trips that use that street.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "days",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-HANOVER",
+   "factor": 1.1
+  },
+  "params": {
+   "factor": {
+    "default": 1.1,
+    "min": 1.0,
+    "max": 1.25,
+    "assumption": "A-CORRIDOR-FACTOR-SURFACE"
+   }
+  },
+  "refs": {
+   "corridor": "C-HANOVER",
+   "corridorIndex": 7,
+   "edgeCount": 121
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-SURFACE"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "CP-I97-FLOW",
+  "type": "signal_priority",
+  "kind": "corridor_priority",
+  "title": "Hypothetical scenario option: flow management on the downtown spur interstate",
+  "mechanism": "Applies faster incident clearance and smoother merging along the short interstate spur into downtown from the south. Every road segment of the corridor gets a modest speed gain. It is far from the Key Bridge site and is included as a control option.",
+  "lens": [
+   "access",
+   "xharbor",
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "corridor_speed",
+   "corridor": "C-I97",
+   "factor": 1.05
+  },
+  "params": {
+   "factor": {
+    "default": 1.05,
+    "min": 1.0,
+    "max": 1.15,
+    "assumption": "A-CORRIDOR-FACTOR-FREEWAY"
+   }
+  },
+  "refs": {
+   "corridor": "C-I97",
+   "corridorIndex": 5,
+   "edgeCount": 44
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-CORRIDOR-FACTOR-FREEWAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-HAWKINS-POINT",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at Hawkins Point",
+  "mechanism": "Places a scenario-only staging location for response units at Dock Road and Fort Armistead Road on the south bank near the old bridge abutment. The EMS lens treats it as one more station. It matters where the nearest existing station is far away.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.208202,
+    "lng": -76.542595,
+    "node": 8565
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 49379171,
+   "node": 8565
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-TRADEPOINT",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at Tradepoint Atlantic",
+  "mechanism": "Places a scenario-only staging location for response units at Tradepoint Avenue on the Sparrows Point peninsula. The EMS lens treats it as one more station. It matters for the industrial peninsula, where population is sparse.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.226147,
+    "lng": -76.479843,
+    "node": 35673
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 9222322309,
+   "node": 35673
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-EDGEMERE",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at Edgemere",
+  "mechanism": "Places a scenario-only staging location for response units on Sparrows Point Road at Armistead Road in Edgemere, at the eastern end of the peninsula. The EMS lens treats it as one more station.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.237442,
+    "lng": -76.44873,
+    "node": 5636
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 37700343,
+   "node": 5636
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-BROENING-SOUTH",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at the southern end of Broening Highway",
+  "mechanism": "Places a scenario-only staging location for response units at the southern end of Broening Highway near the Dundalk port area. The EMS lens treats it as one more station.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.233063,
+    "lng": -76.503792,
+    "node": 1446
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 37283045,
+   "node": 1446
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-CURTIS-BAY",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at Curtis Bay",
+  "mechanism": "Places a scenario-only staging location for response units on Pennington Avenue in Curtis Bay on the south bank. The EMS lens treats it as one more station.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.215843,
+    "lng": -76.587578,
+    "node": 14163
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 49506822,
+   "node": 14163
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-FAIRFIELD",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at Fairfield",
+  "mechanism": "Places a scenario-only staging location for response units on East Patapsco Avenue in Fairfield on the south bank. The EMS lens treats it as one more station.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.23233,
+    "lng": -76.584564,
+    "node": 33304
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 5270570880,
+   "node": 33304
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-RIVIERA-BEACH",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at Riviera Beach",
+  "mechanism": "Places a scenario-only staging location for response units on Fort Smallwood Road at Riviera Beach, on the south bank near the river mouth. The EMS lens treats it as one more station.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.170815,
+    "lng": -76.534637,
+    "node": 18475
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 102577441,
+   "node": 18475
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-HOSPITAL-HARBOR",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at MedStar Harbor Hospital",
+  "mechanism": "Places a scenario-only staging location for response units at MedStar Harbor Hospital in South Baltimore. The EMS lens treats it as one more station.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.251798,
+    "lng": -76.614619,
+    "node": 30378
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "facility": "F-HOSP-002",
+   "facilityName": "MedStar Harbor Hospital",
+   "node": 30378
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ },
+ {
+  "id": "SS-CANTON",
+  "type": "prepos_site",
+  "kind": "staging_site",
+  "title": "Hypothetical scenario option: staging site at the Canton waterfront",
+  "mechanism": "Places a scenario-only staging location for response units at Baylis Street on the Canton waterfront, in an area that already has several stations nearby. The EMS lens treats it as one more station. It is included as a control option.",
+  "lens": [
+   "ems"
+  ],
+  "costTier": "$",
+  "costSource": null,
+  "leadTime": "weeks",
+  "hypothetical": true,
+  "effect": {
+   "op": "add_source",
+   "facilityLike": {
+    "lat": 39.279079,
+    "lng": -76.567612,
+    "node": 30625
+   },
+   "delayS": 0
+  },
+  "refs": {
+   "osmNode": 3292944991,
+   "node": 30625
+  },
+  "assumptions": [
+   "A-CANDIDATES-HYPOTHETICAL",
+   "A-STAGING-DELAY"
+  ],
+  "sources": [],
+  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
+ }
+]

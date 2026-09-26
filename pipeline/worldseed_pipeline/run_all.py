@@ -7,8 +7,9 @@ from __future__ import annotations
 import sys
 import time
 
-from . import (analysis_access, assumptions, build_destinations, build_facilities, build_graph, build_hexes, config, fetch_census,
-               fetch_osm, golden, manifest, placeholders, snapshot_license)
+from . import (analysis_access, assumptions, build_candidates, build_destinations, build_facilities, build_gazetteer,
+               build_graph, build_hexes, candidate_effects, config, fetch_census, fetch_osm, golden, manifest,
+               snapshot_license)
 
 
 def step(name: str, fn) -> None:
@@ -27,9 +28,11 @@ def main() -> None:
     step("build_facilities (OSM + Maryland iMAP)", build_facilities.run)
     step("build_hexes (H3 res 9, block groups)", build_hexes.run)
     step("build_destinations (Access anchors)", build_destinations.run)
-    step("placeholders (candidates, gazetteer)", placeholders.run)
+    step("build_candidates (candidates.json; edges were appended by build_graph)", build_candidates.run)
+    step("build_gazetteer", build_gazetteer.run)
     step("assumptions.json", assumptions.run)
-    step("golden (networkx reference)", golden.run)
+    step("golden (regional + xharbor reference)", golden.run)
+    step("candidate effects (reference code, 2 contexts)", candidate_effects.run)
     step("access sensitivity (informational)", analysis_access.run)
     step("LICENSE.md", snapshot_license.run)
     step("manifest", manifest.run)

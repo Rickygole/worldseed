@@ -122,9 +122,67 @@ destination = nearest street node to the cluster's job-weighted medoid block, we
 % pop with added <= 5 min; "cut-off" block groups (pop-weighted BG median added > 10 min); equity gap =
 low-wage-worker-weighted mean added minus pop-weighted mean added.
 
-## 8. Known gaps
+### Cross-harbor lens `xharbor` (added in round 2; the contract lens above is unchanged)
 
-- Candidates catalog and gazetteer are empty placeholders (later task).
+**Why it exists.** The region-wide job-access average barely moves when the Key Bridge is removed (about +3 s per
+person), because most trips in the region never use the bridge. The bridge's actual function is crossing the
+Patapsco, so the question that matches that function is: what happens to people whose jobs are on the other
+shore? The lens was defined before its results were seen, from that function and from fixed inputs (the `shore`
+field, LODES jobs, standard cumulative-opportunity accessibility). The primary threshold (30 minutes) and every
+destination set are fixed by the definition; 20 and 40 minutes are reported as sensitivity, not chosen after the
+fact. The regional lens stays in `golden.json` next to it so both can be read together.
+
+**Definition** (exact text in the `worldseed_pipeline/xharbor.py` docstring and assumptions `A-XHARBOR-*`):
+- Origins: hexes with shore 0 or 1. Destinations: hexes with jobs > 0 on the OPPOSITE shore. Hexes with shore 2
+  (ambiguous, 31 hexes with about 4,200 residents and 1,500 jobs) are neither origins nor destinations.
+- Travel time between hexes: `snapS(origin) + drive time node to node + snapS(destination)`, free-flow.
+- `jobsWithin1800(h)` = sum of opposite-shore jobs (LODES WAC C000) with time <= 1,800 s. Companion
+  `meanTimeS(h)` = job-weighted mean of the time to ALL opposite-shore jobs, each time capped at 7,200 s
+  (unreachable counts as the cap).
+- Loss = (baseline jobs - world jobs) / baseline jobs (hexes with no baseline jobs count as no loss and are
+  reported). Added = world mean time - baseline mean time.
+- Metrics: pop-weighted mean jobs and p10/p50/p90 (quantile definition above), people and low-wage workers with
+  loss > 5, 10, 25, 50 percent, mean loss (pop and low-wage) and the gap between them, added-time p50/p90/p99/max,
+  people and low-wage workers with more than 60 s and 300 s added, split by origin shore.
+- Simulator tolerance: `meanTimeS` within 0.5 s per hex. `jobsWithin1800` exact, except for hexes listed in the
+  `boundary` array, where any value in `[lo, hi]` (the counts at 1,799.5 s and 1,800.5 s) is accepted. Reference
+  engine: scipy csgraph (independent of the networkx code used for the regional lens); a test recomputes sample
+  hexes with networkx.
+
+## 8. Candidate catalog and gazetteer (round 2)
+
+`pipeline/candidates.yaml` is the source of truth; `build_candidates.py` writes `candidates.json` and fails the
+build on any unresolved OSM node id, node/way-name mismatch, unknown corridor or facility, digits or dollar
+figures in title/mechanism text, or a title that does not start with "Hypothetical scenario option".
+- 24 entries: 7 temporary links (`temp_link`; 5 shuttle links between terminal road nodes and 2 local road
+  connectors; their edges are appended to `graph.bin` AFTER every real edge with class `candidate` and flag
+  `CANDIDATE`, so all existing edge indices are unchanged), 8 corridor priorities (`signal_priority`; a speed
+  factor on a registered corridor with declared bounds) and 9 staging sites (`prepos_site`; a new EMS source).
+  The contract's three type names are used; `kind` (`temporary_link`, `corridor_priority`, `staging_site`) is an
+  additive readable alias.
+- All are hypothetical scenario options. None was proposed, studied or endorsed by any agency. Cost tiers are
+  relative labels only ($, $$, $$$), with no dollar figures; `costSource` is null.
+- Numeric effects (shuttle speed and wait, connector speed, corridor speed factors) are labeled assumptions
+  (`A-SHUTTLE-*`, `A-CONNECTOR-SPEED`, `A-CORRIDOR-FACTOR-*`); nothing is sourced from an agency study.
+  Corridors are exclusive (first match wins): `C-I895-TUNNEL` are the tunnel bores only and `C-I895` the rest of
+  I-895; the Beltway candidate acts on the whole `C-I695` corridor, including the western arc.
+- `candidate_effects.json` measures every candidate alone, in the baseline and in the bridge-removed world, on the
+  regional Access lens, the xharbor lens and the EMS lens, with the reference code (definitions and materiality
+  thresholds in the `candidate_effects.py` docstring). It also lists dominated entries (same or lower cost tier
+  and at least as good on every benefit).
+
+`gazetteer.json` (455 neighborhoods from OSM place nodes with hexes assigned to the nearest place within 3 km,
+325 roads (motorway to secondary) with canonical edge lists, 86 facilities, 3 links, 8 corridors) carries
+normalized aliases that resolve to exactly one entry; collisions keep the higher-priority kind
+(link, corridor, facility, road, neighborhood) or the larger footprint. `gazetteer_match.py` is the reference
+matcher (longest whole-word alias in the text). Neighborhood hex sets are nearest-place cells, not official
+boundaries.
+
+## 9. Known gaps
+
+- Shuttle links are modeled as one graph edge with a baked wait, in a car-drive-time model: they only help trips
+  whose best route passes through both terminal nodes. Mode change, vehicle boarding and schedules are not modeled.
+- Neighborhood extents in the gazetteer are approximations (nearest place node), not boundaries.
 - Shore assignment (`shore.py`) uses county membership plus a hand-drawn harbor divider for Baltimore city;
   cells within 250 m of the divider are "other". Checked against the Key Bridge abutments and tunnel portals,
   not against a water polygon.

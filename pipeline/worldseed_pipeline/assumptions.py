@@ -15,6 +15,9 @@ def run() -> list[dict]:
         assert a["status"] in ("assumption", "sourced"), a["id"]
         rec = {"id": a["id"], "label": a["label"], "value": a["value"], "unit": a.get("unit"),
                "status": a["status"], "source": a.get("source")}
+        for k in ("min", "max"):
+            if k in a:
+                rec[k] = a[k]
         if a.get("note"):
             rec["note"] = " ".join(str(a["note"]).split())
         out.append(rec)

@@ -14,10 +14,12 @@ uv run --python 3.12 pytest -q
 
 - First run downloads (Overpass attic queries, Census Reporter, TIGER, LODES, Maryland iMAP) into `data/raw/`
   (gitignored). Overpass is slow and flaky: the first fetch took ~2.5 minutes with a few automatic retries.
-  Once `data/raw/` is populated, a full run needs no network and takes about 90 seconds.
+  Once `data/raw/` is populated, a full run needs no network and takes about 5 minutes (candidate effects and the
+  golden reference use up to 8 worker processes).
 - Individual stages: `uv run --python 3.12 python -m worldseed_pipeline.<module>` for `fetch_osm`,
-  `fetch_census`, `build_graph`, `build_facilities`, `build_hexes`, `build_destinations`, `placeholders`,
-  `assumptions`, `golden`, `analysis_access`, `snapshot_license`, `manifest` (this is the run order).
+  `fetch_census`, `build_graph`, `build_facilities`, `build_hexes`, `build_destinations`, `build_candidates`,
+  `build_gazetteer`, `assumptions`, `golden`, `candidate_effects`, `analysis_access`, `snapshot_license`, `manifest`
+  (this is the run order; `build_candidates` needs the graph, whose candidate edges come from `candidates.yaml`).
 - Optional: `CENSUS_API_KEY=<key>` switches ACS to the official `api.census.gov` (untested in this build).
 - Deterministic: with the same `data/raw/`, every artifact except `manifest.json`'s `builtAt` is byte-identical
   between runs (checked by `tests/test_snapshot.py::test_golden_reproducible` and the manifest hashes).
@@ -35,9 +37,12 @@ uv run --python 3.12 pytest -q
 | `fetch_census.py` | ACS (Census Reporter or official API), TIGER block groups, LODES8 WAC/RAC/crosswalk |
 | `build_hexes.py`, `shore.py` | H3 res-9 apportionment, snap, shore -> `hexes.bin`, `blockgroups.json/.geojson` |
 | `build_destinations.py` | 8 job-weighted Access anchors -> `destinations.json` |
-| `golden.py` | networkx reference fields and metrics for 6 worlds -> `golden.json` |
+| `golden.py`, `worlds.py`, `xharbor.py`, `golden_util.py` | networkx (regional, EMS) and scipy (xharbor) reference fields and metrics for 6 worlds -> `golden.json` |
+| `build_candidates.py`, `candidates.yaml` | hypothetical scenario catalog; temp-link edges are appended by `build_graph`; writes `candidates.json` |
+| `build_gazetteer.py`, `gazetteer_match.py` | name/alias index and reference matcher -> `gazetteer.json` |
+| `candidate_effects.py` | effect of each candidate alone, baseline and bridge-removed -> `candidate_effects.json` |
 | `analysis_access.py` | informational effect-size sensitivity -> `access_sensitivity.json` |
-| `assumptions.py`, `placeholders.py`, `snapshot_license.py`, `manifest.py` | assumptions.json, empty candidates/gazetteer, LICENSE.md, sha256 manifest |
+| `assumptions.py`, `snapshot_license.py`, `manifest.py` | assumptions.json, LICENSE.md, sha256 manifest |
 
 ## Binary layouts
 
@@ -71,3 +76,22 @@ runtime disables them in the baseline. `hexes.bin` uses the same packing (`hexes
   per-hex `hexTimeS` (seconds, 2 decimals; `null` = unreachable) for EMS and Access, plus metrics. The TS
   simulator must read `graph.bin`/`hexes.bin` as f32 (as written) and match within 0.5 s per hex. Lens
   definitions: `worldseed_pipeline/golden.py` docstring, `assumptions.yaml`, `docs/DATA_SOURCES.md` section 7.
+
+## Round 2 additions (all additive)
+
+- `golden.json`: the existing keys are byte-identical to round 1; a new top-level `xharbor` key holds the
+  cross-harbor lens for the same 6 worlds (definition: `xharbor.py` docstring, `docs/DATA_SOURCES.md`).
+  Per world: `jobsWithin1800` (per hex, null for shore-2 hexes), `meanTimeS` (per hex, seconds), `boundary`
+  (hexes where the count at T -/+ 0.5 s differs; any value in `[lo, hi]` is accepted there), `metrics`, `sensitivity`
+  (T = 20, 30, 40 min). Tolerances: 0.5 s for `meanTimeS`, exact jobs counts except `boundary` hexes.
+- `graph.bin` / `graph.meta.json`: 14 candidate edges appended after the 81,437 real edges (edgeCount 81,451;
+  class `candidate` = 8, flag `CANDIDATE` = 16). Existing edge indices, node indices and link edge lists are
+  unchanged. `graph.meta.json` gains `candidateLinks` [{id, edges, nodes}]. The runtime must disable CANDIDATE
+  edges in the baseline (the reference code does).
+- `links.geojson`: 7 extra LineString features with `kind: "candidate"`.
+- New files: `candidates.json` (was `[]`), `gazetteer.json` (was `[]`), `candidate_effects.json`.
+- `assumptions.json`: new entries `A-XHARBOR-*`, `A-CANDIDATES-HYPOTHETICAL`, `A-SHUTTLE-*`, `A-CONNECTOR-SPEED`,
+  `A-CORRIDOR-FACTOR-*`, `A-STAGING-DELAY`; entries may carry `min`/`max`.
+- Candidate effect semantics for the simulator: `enable_edges` sets the listed edges enabled; `corridor_speed`
+  divides the time of every edge of that corridor by `factor`; `add_source` adds a source at `facilityLike.node`
+  with delay `delayS` (in addition to the call-processing delay, so 0 means "behaves like a station").

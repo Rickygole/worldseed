@@ -157,3 +157,99 @@ assumptions:
     unit: null
     status: sourced
     source: Overpass attic query on overpass-api.de
+  # ---- cross-harbor lens (xharbor) -----------------------------------------------------------------
+  - id: A-XHARBOR-WHY
+    label: Why the cross-harbor lens exists
+    value: the bridge's function is crossing the Patapsco
+    unit: null
+    status: assumption
+    source: null
+    note: >
+      The region-wide job-access average barely moves when the Key Bridge is removed, because most trips never
+      use it. The lens asks the question that matches the bridge's function: what happens to people whose jobs
+      are on the other shore. It was defined before its results were seen; the primary threshold and every
+      destination set are fixed by the definitions below, not tuned to results.
+  - id: A-XHARBOR-T
+    label: Cross-harbor cumulative-opportunity time budget (primary)
+    value: 1800
+    unit: s
+    status: assumption
+    source: null
+    note: 30 minutes of free-flow drive time. Sensitivity at 1200 s and 2400 s is reported alongside.
+  - id: A-XHARBOR-DEST
+    label: Cross-harbor destination and origin sets
+    value: origins = hexes with shore 0 or 1; destinations = hexes with jobs > 0 on the opposite shore (WAC C000)
+    unit: null
+    status: assumption
+    source: null
+    note: >
+      Ambiguous (shore 2) hexes are neither origins nor destinations: 31 hexes with about 4,200 residents and
+      1,500 jobs are left out.
+  - id: A-XHARBOR-TIME
+    label: Cross-harbor travel time between hexes
+    value: snapS(origin) + drive time node to node + snapS(destination)
+    unit: s
+    status: assumption
+    source: null
+    note: Companion metric is the job-weighted mean of that time over all opposite-shore jobs, each time capped at 7200 s.
+  - id: A-XHARBOR-TOL
+    label: Tolerance for the simulator match on xharbor
+    value: 0.5 s per hex for mean time; job counts exact except hexes whose count at T +/- 0.5 s differs (accepted range lo..hi)
+    unit: null
+    status: assumption
+    source: null
+  # ---- candidate catalog ----------------------------------------------------------------------------
+  - id: A-CANDIDATES-HYPOTHETICAL
+    label: Every catalog entry is a hypothetical scenario option
+    value: true
+    unit: null
+    status: assumption
+    source: null
+    note: No entry was proposed, studied or endorsed by any agency. Cost tiers are relative ($, $$, $$$) and carry no dollar figures.
+  - id: A-SHUTTLE-SPEED
+    label: Cross-water shuttle link speed (straight-line crossing)
+    value: 6.0
+    unit: m/s
+    status: assumption
+    source: null
+    note: Roughly a slow harbor craft. Straight-line distance between the two terminal nodes, no channel routing.
+  - id: A-SHUTTLE-WAIT
+    label: Shuttle link fixed wait (boarding, headway, unloading), added to the crossing time
+    value: 600
+    unit: s
+    status: assumption
+    source: null
+    min: 300
+    max: 1200
+    note: Baked into the candidate edge time. Bounds are declared for documentation; the simulator uses the value.
+  - id: A-CONNECTOR-SPEED
+    label: New local road connector speed
+    value: 25
+    unit: mph
+    status: assumption
+    source: null
+    note: Same as the default residential class speed; time = straight-line length / speed.
+  - id: A-CORRIDOR-FACTOR-SURFACE
+    label: Speed factor for retimed signals on a surface corridor
+    value: 1.10
+    unit: x
+    status: assumption
+    source: null
+    min: 1.0
+    max: 1.25
+    note: Edge time is divided by the factor on every edge of the corridor.
+  - id: A-CORRIDOR-FACTOR-FREEWAY
+    label: Speed factor for incident-clearance and flow management on a freeway corridor
+    value: 1.05
+    unit: x
+    status: assumption
+    source: null
+    min: 1.0
+    max: 1.15
+    note: Free-flow freeway speeds are already high, so the bound is lower than for surface corridors.
+  - id: A-STAGING-DELAY
+    label: A staging site behaves like a station (same call-processing and turnout delay, no extra delay)
+    value: 0
+    unit: s
+    status: assumption
+    source: null

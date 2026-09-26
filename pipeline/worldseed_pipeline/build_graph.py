@@ -18,7 +18,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 
-from . import config, fetch_osm, fix_keybridge, graphio
+from . import build_candidates, config, fetch_osm, fix_keybridge, graphio
 from .geo import hav_scalar
 
 CLASS_ID = {c: i for i, c in enumerate(config.CLASSES)}
@@ -101,7 +101,7 @@ def corridor_of(tags: dict, wid: int, compiled) -> int:
     return config.NO_CORRIDOR
 
 
-def build(candidate_edges: list[dict] | None = None) -> tuple[graphio.Graph, dict, dict]:
+def build() -> tuple[graphio.Graph, dict, dict]:
     ways = load_ways()
     kb_info = fix_keybridge.verify_keybridge(ways)
     tun_info = fix_keybridge.verify_tunnels(ways)
@@ -175,8 +175,10 @@ def build(candidate_edges: list[dict] | None = None) -> tuple[graphio.Graph, dic
         e_way[k] = wid
         geom_ref.append((wid, a, b, rev))
 
-    # --- candidate edge slots (later task appends here; disabled at runtime by CANDIDATE flag) ----
-    cand = candidate_edges or []
+    # --- candidate edge slots: temporary links from candidates.yaml, appended AFTER all real edges so every
+    # existing edge index is unchanged. Disabled at runtime by the CANDIDATE flag. ----------------------
+    cand, cand_infos = build_candidates.temp_link_edges(nodes_osm, lat, lon, ways)
+    n_real = len(e_from)
     if cand:
         ce = len(cand)
         e_from = np.concatenate([e_from, np.array([c["from"] for c in cand], dtype=np.uint32)])
@@ -223,16 +225,18 @@ def build(candidate_edges: list[dict] | None = None) -> tuple[graphio.Graph, dic
         "corridors": corridors,
         "links": links,
         "candidateEdgeCount": len(cand),
+        "candidateLinks": [{"id": cid, "edges": [n_real + o for o in info["offsets"]], "nodes": info["nodes"]}
+                           for cid, info in cand_infos.items()],
         "units": {"edgeTimeS": "seconds free-flow", "edgeLenM": "metres"},
     }
     diag = {"stats": stats, "keybridge": kb_info, "tunnels": tun_info,
             "corridorEdgeCounts": {config.CORRIDORS[k]["id"]: c for k, c in sorted(cor_counts.items())},
             "classCounts": {config.CLASSES[k]: int(c) for k, c in enumerate(np.bincount(e_cls, minlength=len(config.CLASSES)))}}
     g.meta = meta
-    return g, diag, {"ways": ways, "geom_ref": geom_ref}
+    return g, diag, {"ways": ways, "geom_ref": geom_ref, "cand_infos": cand_infos}
 
 
-def links_geojson(g: graphio.Graph, ways: dict, geom_ref: list) -> dict:
+def links_geojson(g: graphio.Graph, ways: dict, geom_ref: list, cand_infos: dict | None = None) -> dict:
     """LineStrings for named links and corridors (highlight rendering). Coordinates rounded to 5 dp."""
     def edge_line(i: int):
         wid, a, b, rev = geom_ref[i]
@@ -257,13 +261,16 @@ def links_geojson(g: graphio.Graph, ways: dict, geom_ref: list) -> dict:
         if lines:
             feats.append({"type": "Feature", "properties": {"id": c["id"], "name": c["name"], "kind": "corridor"},
                           "geometry": {"type": "MultiLineString", "coordinates": lines}})
+    for cid, info in (cand_infos or {}).items():
+        feats.append({"type": "Feature", "properties": {"id": cid, "name": cid, "kind": "candidate"},
+                      "geometry": {"type": "LineString", "coordinates": [[round(x, 5), round(y, 5)] for x, y in info["geometry"]]}})
     return {"type": "FeatureCollection", "features": feats}
 
 
 def run() -> dict:
     g, diag, aux = build()
     graphio.write_graph(g, g.meta, config.SNAP)
-    gj = links_geojson(g, aux["ways"], aux["geom_ref"])
+    gj = links_geojson(g, aux["ways"], aux["geom_ref"], aux["cand_infos"])
     (config.SNAP / "links.geojson").write_text(json.dumps(gj, separators=(",", ":")) + "\n")
     (config.RAW / "interim").mkdir(parents=True, exist_ok=True)
     (config.RAW / "interim" / "graph_diag.json").write_text(json.dumps(diag, indent=1, default=str))

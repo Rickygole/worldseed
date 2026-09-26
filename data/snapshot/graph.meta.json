@@ -90,13 +90,92 @@
    ]
   }
  ],
- "candidateEdgeCount": 0,
+ "candidateEdgeCount": 14,
+ "candidateLinks": [
+  {
+   "id": "TL-SHUTTLE-TRADEPOINT-HAWKINS",
+   "edges": [
+    81437,
+    81438
+   ],
+   "nodes": [
+    35673,
+    8565
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-BROENING-CURTISBAY",
+   "edges": [
+    81439,
+    81440
+   ],
+   "nodes": [
+    1446,
+    14163
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-EDGEMERE-RIVIERA",
+   "edges": [
+    81441,
+    81442
+   ],
+   "nodes": [
+    5636,
+    18475
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-CANTON-FAIRFIELD",
+   "edges": [
+    81443,
+    81444
+   ],
+   "nodes": [
+    30625,
+    33304
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-CANTON-LOCUSTPOINT",
+   "edges": [
+    81445,
+    81446
+   ],
+   "nodes": [
+    30625,
+    36241
+   ]
+  },
+  {
+   "id": "TL-CONNECTOR-BROENING-TRADEPOINT",
+   "edges": [
+    81447,
+    81448
+   ],
+   "nodes": [
+    1446,
+    35673
+   ]
+  },
+  {
+   "id": "TL-CONNECTOR-DUNDALK-TRADEPOINT",
+   "edges": [
+    81449,
+    81450
+   ],
+   "nodes": [
+    2034,
+    35673
+   ]
+  }
+ ],
  "units": {
   "edgeTimeS": "seconds free-flow",
   "edgeLenM": "metres"
  },
  "nodeCount": 36610,
- "edgeCount": 81437,
+ "edgeCount": 81451,
  "buffers": {
   "nodeOsmId": {
    "offset": 0,
@@ -105,76 +184,76 @@
   },
   "edgeOsmWay": {
    "offset": 292880,
-   "length": 81437,
+   "length": 81451,
    "type": "f64"
   },
   "nodeLon": {
-   "offset": 944376,
+   "offset": 944488,
    "length": 36610,
    "type": "f32"
   },
   "nodeLat": {
-   "offset": 1090816,
+   "offset": 1090928,
    "length": 36610,
    "type": "f32"
   },
   "edgeFrom": {
-   "offset": 1237256,
-   "length": 81437,
+   "offset": 1237368,
+   "length": 81451,
    "type": "u32"
   },
   "edgeTo": {
-   "offset": 1563008,
-   "length": 81437,
+   "offset": 1563176,
+   "length": 81451,
    "type": "u32"
   },
   "edgeTimeS": {
-   "offset": 1888760,
-   "length": 81437,
+   "offset": 1888984,
+   "length": 81451,
    "type": "f32"
   },
   "edgeLenM": {
-   "offset": 2214512,
-   "length": 81437,
+   "offset": 2214792,
+   "length": 81451,
    "type": "f32"
   },
   "edgeCorridor": {
-   "offset": 2540264,
-   "length": 81437,
+   "offset": 2540600,
+   "length": 81451,
    "type": "u16"
   },
   "edgeClass": {
-   "offset": 2703144,
-   "length": 81437,
+   "offset": 2703504,
+   "length": 81451,
    "type": "u8"
   },
   "edgeFlags": {
-   "offset": 2784584,
-   "length": 81437,
+   "offset": 2784960,
+   "length": 81451,
    "type": "u8"
   },
   "fwdOff": {
-   "offset": 2866024,
+   "offset": 2866416,
    "length": 36611,
    "type": "u32"
   },
   "fwdEdge": {
-   "offset": 3012472,
-   "length": 81437,
+   "offset": 3012864,
+   "length": 81451,
    "type": "u32"
   },
   "revOff": {
-   "offset": 3338224,
+   "offset": 3338672,
    "length": 36611,
    "type": "u32"
   },
   "revEdge": {
-   "offset": 3484672,
-   "length": 81437,
+   "offset": 3485120,
+   "length": 81451,
    "type": "u32"
   }
  },
- "byteLength": 3810424,
+ "byteLength": 3810928,
  "littleEndian": true,
  "alignment": 8
 }

@@ -38,8 +38,9 @@ Legal conclusions here are drafts to be confirmed by legal review.
 (c) OpenStreetMap contributors. https://www.openstreetmap.org/copyright
 
 The road network (`graph.bin`, `graph.meta.json`, `links.geojson`), the facility locations taken from
-OpenStreetMap (`facilities.json`), and the place names used to label destinations (`destinations.json`) are a
-Derived Database of OpenStreetMap data, made available under the Open Database License (ODbL) 1.0,
+OpenStreetMap (`facilities.json`), the place names used to label destinations (`destinations.json`), the
+place, road and facility names and their edge and hex references in `gazetteer.json`, and the OSM node ids and
+site names pinned in `candidates.json` are a Derived Database of OpenStreetMap data, made available under the Open Database License (ODbL) 1.0,
 https://opendatacommons.org/licenses/odbl/1-0/. The individual contents of the database are licensed under the
 Database Contents License (DbCL) 1.0, https://opendatacommons.org/licenses/dbcl/1-0/.
 
@@ -51,13 +52,15 @@ Database Contents License (DbCL) 1.0, https://opendatacommons.org/licenses/dbcl/
   file in this directory.
 - Changes made: the drivable ways were filtered by highway class, split into a directed graph of intersection
   nodes and edges, reduced to the largest strongly connected component, given free-flow travel times, and tagged
-  with bridge/tunnel/hazmat flags and named links. `pipeline/` is the complete description of these changes.
+  with bridge/tunnel/hazmat flags and named links; hypothetical scenario edges (`candidates.json`, flagged
+  `CANDIDATE`, disabled by default) were appended to the graph. `pipeline/` is the complete description of these
+  changes.
 
 WorldSeed is not endorsed by the OpenStreetMap Foundation.
 
 ## Maryland iMAP (State of Maryland open data)
 
-Fire station and hospital locations in `facilities.json` were merged from Maryland iMAP layers
+Fire station and hospital locations and names in `facilities.json` (and the facility names in `gazetteer.json`) were merged from Maryland iMAP layers
 (https://mdgeodata.md.gov/imap/rest/services): "Maryland Fire" (MD iMAP, DoIT, MCAC, MSFA) and "Maryland
 Hospitals" (MD iMAP, DHMH OHCQ). The data are provided "as is" without warranty; the State of Maryland
 asks that data derived from them acknowledge the State of Maryland. Retrieved 2026-09-26. Records that matched an
@@ -88,6 +91,12 @@ block internal points). They are not official Census Bureau figures. Block-group
 are the published ACS estimates (with sampling error) rounded to integers.
 
 WorldSeed is not endorsed by the U.S. Census Bureau.
+
+## Scenario catalog
+
+`candidates.json` and `candidate_effects.json` are WorldSeed's own hypothetical scenario options and the modeled
+effect of each. No entry was proposed, studied or endorsed by any agency, and the effects are model outputs,
+not forecasts.
 
 ## Files
 

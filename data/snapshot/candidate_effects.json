@@ -1,0 +1,2361 @@
+{
+ "snapshotId": "keybridge-2024-03-01-v1",
+ "note": "Effects of each candidate alone, measured by the reference code (see candidate_effects.py docstring). Positive benefit = better. Hypothetical scenario options; not forecasts.",
+ "materiality": {
+  "timeS": 1,
+  "jobs": 100,
+  "emsPctWithinPoints": 0.01
+ },
+ "reference": {
+  "baseline": {
+   "access": {
+    "popMeanAddedS": 0.0,
+    "p50S": 907.533,
+    "p90S": 1270.256,
+    "popAddedGt60s": 0.0
+   },
+   "xharbor": {
+    "popMeanJobs": 252928.091,
+    "popMeanLossPct": 0.0,
+    "lowWageMeanLossPct": 0.0,
+    "popLossGt10pct": 0.0,
+    "popLossGt25pct": 0.0,
+    "lowWageLossGt10pct": 0.0,
+    "popMeanAddedS": 0.0,
+    "popAddedGt60s": 0.0
+   },
+   "ems": {
+    "p50S": 201.801,
+    "p90S": 367.523,
+    "pctWithin": 96.2195,
+    "zvhWithin": 99.529,
+    "isolatedBgCount": 31
+   }
+  },
+  "keybridge_removed": {
+   "access": {
+    "popMeanAddedS": 2.946,
+    "p50S": 908.201,
+    "p90S": 1280.792,
+    "popAddedGt60s": 15202.6
+   },
+   "xharbor": {
+    "popMeanJobs": 249495.815,
+    "popMeanLossPct": 1.497,
+    "lowWageMeanLossPct": 1.438,
+    "popLossGt10pct": 19705.469,
+    "popLossGt25pct": 11622.728,
+    "lowWageLossGt10pct": 1370.605,
+    "popMeanAddedS": 13.629,
+    "popAddedGt60s": 32679.021
+   },
+   "ems": {
+    "p50S": 201.801,
+    "p90S": 367.523,
+    "pctWithin": 96.2195,
+    "zvhWithin": 99.529,
+    "isolatedBgCount": 31
+   }
+  }
+ },
+ "candidates": [
+  {
+   "id": "TL-SHUTTLE-TRADEPOINT-HAWKINS",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 949.8,
+      "with": 949.8
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.826,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.1,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 1866.6,
+      "with": 1560.4
+     }
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-BELTWAY-FLOW",
+    "CP-HARBOR-TUNNEL-APPROACHES",
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I95-FLOW",
+    "CP-I97-FLOW",
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-BROENING-CURTISBAY",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 510.5,
+      "with": 510.5
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 1064.9,
+      "with": 1064.9
+     }
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-BELTWAY-FLOW",
+    "CP-HARBOR-TUNNEL-APPROACHES",
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I95-FLOW",
+    "CP-I97-FLOW",
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-EDGEMERE-RIVIERA",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 985.9,
+      "with": 985.9
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 1794.9,
+      "with": 1794.9
+     }
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-BELTWAY-FLOW",
+    "CP-HARBOR-TUNNEL-APPROACHES",
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I95-FLOW",
+    "CP-I97-FLOW",
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-CANTON-FAIRFIELD",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 502.7,
+      "with": 502.7
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 502.7,
+      "with": 502.7
+     }
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-BELTWAY-FLOW",
+    "CP-HARBOR-TUNNEL-APPROACHES",
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I95-FLOW",
+    "CP-I97-FLOW",
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "TL-SHUTTLE-CANTON-LOCUSTPOINT",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 518.8,
+      "with": 518.8
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 518.8,
+      "with": 518.8
+     }
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-BELTWAY-FLOW",
+    "CP-HARBOR-TUNNEL-APPROACHES",
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I95-FLOW",
+    "CP-I97-FLOW",
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "TL-CONNECTOR-BROENING-TRADEPOINT",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.004,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252966.962,
+      "popMeanLossPct": -0.013,
+      "lowWageMeanLossPct": -0.012,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.12,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.12,
+     "xharborJobsGain": 38.9,
+     "accessTimeSavedS": 0.004,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 92.6,
+     "popXharborSaved60s": 50.0,
+     "hexesXharborSaved60s": 5,
+     "terminalPairTimeS": {
+      "without": 597.8,
+      "with": 197.0
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.94,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249649.89,
+      "popMeanLossPct": 1.459,
+      "lowWageMeanLossPct": 1.398,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.218,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.411,
+     "xharborJobsGain": 154.1,
+     "accessTimeSavedS": 0.006,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0302
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 102.8,
+     "popXharborSaved60s": 50.0,
+     "hexesXharborSaved60s": 5,
+     "terminalPairTimeS": {
+      "without": 597.8,
+      "with": 197.0
+     }
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": [
+    "CP-BELTWAY-FLOW",
+    "CP-HARBOR-TUNNEL-APPROACHES",
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I95-FLOW",
+    "CP-I97-FLOW"
+   ]
+  },
+  {
+   "id": "TL-CONNECTOR-DUNDALK-TRADEPOINT",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.002,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.002,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.9,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 736.2,
+      "with": 215.5
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.944,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249534.261,
+      "popMeanLossPct": 1.487,
+      "lowWageMeanLossPct": 1.427,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.501,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.128,
+     "xharborJobsGain": 38.4,
+     "accessTimeSavedS": 0.002,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0094
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 71.6,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 1,
+     "terminalPairTimeS": {
+      "without": 736.2,
+      "with": 215.5
+     }
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-BELTWAY-FLOW",
+    "CP-HARBOR-TUNNEL-APPROACHES",
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I95-FLOW",
+    "CP-I97-FLOW",
+    "TL-CONNECTOR-BROENING-TRADEPOINT"
+   ]
+  },
+  {
+   "id": "CP-BELTWAY-FLOW",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -3.201,
+      "p50S": 904.928,
+      "p90S": 1263.854,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253572.863,
+      "popMeanLossPct": -0.316,
+      "lowWageMeanLossPct": -0.309,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -5.92,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 5.92,
+     "xharborJobsGain": 644.8,
+     "accessTimeSavedS": 3.201,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 31.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.268,
+      "p50S": 905.102,
+      "p90S": 1275.726,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249824.075,
+      "popMeanLossPct": 1.336,
+      "lowWageMeanLossPct": 1.278,
+      "popLossGt10pct": 18944.534,
+      "popLossGt25pct": 10708.935,
+      "lowWageLossGt10pct": 1312.841,
+      "popMeanAddedS": 9.307,
+      "popAddedGt60s": 32673.356
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 4.322,
+     "xharborJobsGain": 328.3,
+     "accessTimeSavedS": 2.678,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.3171
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 22.8,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": [
+    "CP-I95-FLOW"
+   ]
+  },
+  {
+   "id": "CP-HARBOR-TUNNEL-BORES",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.525,
+      "p50S": 906.613,
+      "p90S": 1269.675,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253029.201,
+      "popMeanLossPct": -0.065,
+      "lowWageMeanLossPct": -0.07,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.873,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.873,
+     "xharborJobsGain": 101.1,
+     "accessTimeSavedS": 0.525,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 4.8,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.353,
+      "p50S": 907.168,
+      "p90S": 1280.162,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249652.943,
+      "popMeanLossPct": 1.407,
+      "lowWageMeanLossPct": 1.344,
+      "popLossGt10pct": 18676.051,
+      "popLossGt25pct": 11429.818,
+      "lowWageLossGt10pct": 1301.542,
+      "popMeanAddedS": 12.516,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 1.113,
+     "xharborJobsGain": 157.1,
+     "accessTimeSavedS": 0.593,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0817
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 4.8,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": [
+    "CP-I97-FLOW"
+   ]
+  },
+  {
+   "id": "CP-HARBOR-TUNNEL-APPROACHES",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -2.332,
+      "p50S": 904.081,
+      "p90S": 1268.231,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253445.707,
+      "popMeanLossPct": -0.352,
+      "lowWageMeanLossPct": -0.372,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -3.799,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 3.799,
+     "xharborJobsGain": 517.6,
+     "accessTimeSavedS": 2.332,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 24.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.411,
+      "p50S": 904.081,
+      "p90S": 1277.537,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 250183.353,
+      "popMeanLossPct": 1.072,
+      "lowWageMeanLossPct": 0.995,
+      "popLossGt10pct": 17408.237,
+      "popLossGt25pct": 11174.805,
+      "lowWageLossGt10pct": 1216.75,
+      "popMeanAddedS": 9.171,
+      "popAddedGt60s": 31072.839
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 4.458,
+     "xharborJobsGain": 687.5,
+     "accessTimeSavedS": 2.535,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.3271
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 24.3,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-FORT-MCHENRY-TUNNEL-BORES",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.237,
+      "p50S": 907.454,
+      "p90S": 1270.196,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252985.871,
+      "popMeanLossPct": -0.045,
+      "lowWageMeanLossPct": -0.048,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.258,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.258,
+     "xharborJobsGain": 57.8,
+     "accessTimeSavedS": 0.237,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 2.9,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.682,
+      "p50S": 908.079,
+      "p90S": 1280.132,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249565.863,
+      "popMeanLossPct": 1.446,
+      "lowWageMeanLossPct": 1.384,
+      "popLossGt10pct": 19504.813,
+      "popLossGt25pct": 11594.161,
+      "lowWageLossGt10pct": 1357.86,
+      "popMeanAddedS": 13.318,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.311,
+     "xharborJobsGain": 70.0,
+     "accessTimeSavedS": 0.264,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0228
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 2.9,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I97-FLOW"
+   ]
+  },
+  {
+   "id": "CP-I95-FLOW",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -3.122,
+      "p50S": 904.249,
+      "p90S": 1269.395,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253509.916,
+      "popMeanLossPct": -0.398,
+      "lowWageMeanLossPct": -0.415,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -5.141,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 5.141,
+     "xharborJobsGain": 581.8,
+     "accessTimeSavedS": 3.122,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 28.5,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.298,
+      "p50S": 904.249,
+      "p90S": 1277.522,
+      "popAddedGt60s": 14683.8
+     },
+     "xharbor": {
+      "popMeanJobs": 250125.529,
+      "popMeanLossPct": 1.071,
+      "lowWageMeanLossPct": 0.995,
+      "popLossGt10pct": 18090.416,
+      "popLossGt25pct": 11477.005,
+      "lowWageLossGt10pct": 1265.334,
+      "popMeanAddedS": 8.247,
+      "popAddedGt60s": 32260.91
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 5.382,
+     "xharborJobsGain": 629.7,
+     "accessTimeSavedS": 3.244,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.3949
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 28.4,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-BROENING-SIGNALS",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.374,
+      "p50S": 907.039,
+      "p90S": 1269.999,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252970.57,
+      "popMeanLossPct": -0.036,
+      "lowWageMeanLossPct": -0.035,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.445,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.445,
+     "xharborJobsGain": 42.5,
+     "accessTimeSavedS": 0.374,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 15.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.728,
+      "p50S": 908.079,
+      "p90S": 1280.367,
+      "popAddedGt60s": 14547.1
+     },
+     "xharbor": {
+      "popMeanJobs": 249522.137,
+      "popMeanLossPct": 1.485,
+      "lowWageMeanLossPct": 1.426,
+      "popLossGt10pct": 19171.584,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1337.931,
+      "popMeanAddedS": 13.432,
+      "popAddedGt60s": 32260.91
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.197,
+     "xharborJobsGain": 26.3,
+     "accessTimeSavedS": 0.218,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0145
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 33.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-HANOVER-SIGNALS",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.585,
+      "p50S": 907.05,
+      "p90S": 1270.196,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252947.892,
+      "popMeanLossPct": -0.016,
+      "lowWageMeanLossPct": -0.015,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.926,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.783,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.926,
+     "xharborJobsGain": 19.8,
+     "accessTimeSavedS": 0.585,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 16.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.361,
+      "p50S": 907.848,
+      "p90S": 1280.367,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249515.649,
+      "popMeanLossPct": 1.481,
+      "lowWageMeanLossPct": 1.423,
+      "popLossGt10pct": 19490.921,
+      "popLossGt25pct": 11481.237,
+      "lowWageLossGt10pct": 1354.273,
+      "popMeanAddedS": 12.7,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.783,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.929,
+     "xharborJobsGain": 19.8,
+     "accessTimeSavedS": 0.585,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0682
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 16.1,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I97-FLOW"
+   ]
+  },
+  {
+   "id": "CP-I97-FLOW",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.747,
+      "p50S": 906.004,
+      "p90S": 1269.291,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253090.459,
+      "popMeanLossPct": -0.105,
+      "lowWageMeanLossPct": -0.104,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -1.564,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 1.564,
+     "xharborJobsGain": 162.4,
+     "accessTimeSavedS": 0.747,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 12.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.198,
+      "p50S": 906.313,
+      "p90S": 1278.477,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249663.068,
+      "popMeanLossPct": 1.393,
+      "lowWageMeanLossPct": 1.335,
+      "popLossGt10pct": 18703.525,
+      "popLossGt25pct": 10636.995,
+      "lowWageLossGt10pct": 1298.986,
+      "popMeanAddedS": 12.059,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 1.57,
+     "xharborJobsGain": 167.3,
+     "accessTimeSavedS": 0.748,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.1152
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 12.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "SS-HAWKINS-POINT",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.266,
+      "pctWithin": 96.2258,
+      "zvhWithin": 99.5293,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0063
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.266,
+      "pctWithin": 96.2258,
+      "zvhWithin": 99.5293,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0063,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "SS-TRADEPOINT",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.246,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.277,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.246,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.277,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "SS-EDGEMERE",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "CP-HARBOR-TUNNEL-BORES",
+    "CP-I97-FLOW",
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "SS-BROENING-SOUTH",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.689,
+      "p90S": 366.84,
+      "pctWithin": 96.2196,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.683,
+     "emsPctWithinGain": 0.0001
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.689,
+      "p90S": 366.84,
+      "pctWithin": 96.2196,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.683,
+     "emsPctWithinGain": 0.0001,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": []
+  },
+  {
+   "id": "SS-CURTIS-BAY",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.713,
+      "p90S": 367.132,
+      "pctWithin": 96.2327,
+      "zvhWithin": 99.5315,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.391,
+     "emsPctWithinGain": 0.0132
+    },
+    "helps": [
+     "ems"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.713,
+      "p90S": 367.132,
+      "pctWithin": 96.2327,
+      "zvhWithin": 99.5315,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.391,
+     "emsPctWithinGain": 0.0132,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [
+     "ems"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "SS-FAIRFIELD",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.689,
+      "p90S": 367.336,
+      "pctWithin": 96.2203,
+      "zvhWithin": 99.5292,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.187,
+     "emsPctWithinGain": 0.0008
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.689,
+      "p90S": 367.336,
+      "pctWithin": 96.2203,
+      "zvhWithin": 99.5292,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.187,
+     "emsPctWithinGain": 0.0008,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "SS-RIVIERA-BEACH",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.644,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.644,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "SS-HOSPITAL-HARBOR",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.222,
+      "p90S": 367.336,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.187,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.222,
+      "p90S": 367.336,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.187,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "SS-CURTIS-BAY"
+   ]
+  },
+  {
+   "id": "SS-CANTON",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.703,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.703,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
+    "SS-CURTIS-BAY"
+   ]
+  }
+ ]
+}

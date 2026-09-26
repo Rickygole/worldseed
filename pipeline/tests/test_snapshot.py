@@ -195,11 +195,6 @@ def test_destinations_contract():
     assert len({x["id"] for x in d}) == len(d)
 
 
-def test_placeholders_valid():
-    assert json.loads((SNAP / "candidates.json").read_text()) == []
-    assert json.loads((SNAP / "gazetteer.json").read_text()) == []
-
-
 # ---------------------------------------------------------------------------- golden
 def test_golden_shape_and_monotone(gold, hx):
     ids = [w["id"] for w in gold["worlds"]]

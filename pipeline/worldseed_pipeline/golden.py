@@ -33,12 +33,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
+from concurrent.futures import ProcessPoolExecutor
 
 import networkx as nx
 import numpy as np
 
-from . import binio, config
+from . import binio, config, xharbor
+from . import worlds as worlds_mod
+from .worlds import World
+from .golden_util import wquantile  # noqa: F401  (re-exported; tests import golden.wquantile)
 from .graphio import Graph, load_graph
 
 ACCESS_ADDED_OK_S = 300.0
@@ -65,34 +70,9 @@ def load_hexes() -> dict[str, np.ndarray]:
     return arr
 
 
-def wquantile(v: np.ndarray, w: np.ndarray, q: float):
-    """Weighted quantile as specified in the module docstring. v may contain inf (=unreachable)."""
-    tot = float(w.sum())
-    if tot <= 0:
-        return None
-    order = np.lexsort((np.arange(len(v)), v))
-    cw = np.cumsum(w[order])
-    k = int(np.searchsorted(cw, q * tot, side="left"))
-    k = min(k, len(v) - 1)
-    val = v[order][k]
-    return None if not np.isfinite(val) else float(val)
-
-
-def digraph(g: Graph, disabled: set[int]) -> nx.DiGraph:
-    """DiGraph over enabled, non-candidate edges; parallel edges keep the minimum time."""
-    G = nx.DiGraph()
-    G.add_nodes_from(range(g.n))
-    cand = config.FLAGS["CANDIDATE"]
-    for i in range(g.e):
-        if i in disabled or g.edgeFlags[i] & cand:
-            continue
-        u, v, t = int(g.edgeFrom[i]), int(g.edgeTo[i]), float(g.edgeTimeS[i])
-        if G.has_edge(u, v):
-            if t < G[u][v]["weight"]:
-                G[u][v]["weight"] = t
-        else:
-            G.add_edge(u, v, weight=t)
-    return G
+def digraph(g: Graph, disabled: set[int], world: World | None = None) -> nx.DiGraph:
+    """DiGraph over enabled, non-candidate edges (plus the world's enabled candidates); parallel edges keep the minimum time."""
+    return worlds_mod.digraph(g, world or World(disabled=frozenset(disabled)))
 
 
 def _bg_median_flags(bg: np.ndarray, pop: np.ndarray, val: np.ndarray, thr: float) -> list[int]:
@@ -165,6 +145,68 @@ def added_stats(added: np.ndarray, hx: dict) -> dict:
     return out
 
 
+def worst_block_groups(base: dict, arr: dict, hx: dict, bgs: list, top: int = 10) -> dict:
+    ok = ~np.isnan(arr["mean"])
+    loss = xharbor._loss(np.where(ok, base["J1800"], 0.0), np.where(ok, arr["J1800"], 0.0))
+    added = np.where(ok, arr["mean"] - base["mean"], 0.0)
+    rows = []
+    for b in bgs:
+        hs = [h for h in b["hexes"] if ok[h]]
+        if not hs or b["pop"] < 200:
+            continue
+        p = hx["pop"][hs]
+        if p.sum() <= 0:
+            continue
+        rows.append({"geoid": b["geoid"], "i": b["i"], "county": b["county"], "pop": b["pop"],
+                     "meanLossPct": float(100 * (loss[hs] * p).sum() / p.sum()),
+                     "meanAddedS": float((added[hs] * p).sum() / p.sum()),
+                     "meanBaselineJobs": float((base["J1800"][hs] * p).sum() / p.sum())})
+    return {"byLossPct": sorted(rows, key=lambda r: (-r["meanLossPct"], r["geoid"]))[:top],
+            "byAddedS": sorted(rows, key=lambda r: (-r["meanAddedS"], r["geoid"]))[:top]}
+
+
+def workers() -> int:
+    return max(1, min(8, (os.cpu_count() or 2) - 1))
+
+
+def compute_xharbor(g: Graph, hx: dict, links: dict, verbose: bool = True) -> dict:
+    """Cross-harbor lens (xharbor.py docstring) for every golden world."""
+    t0 = time.time()
+    prep = xharbor.prepare(hx)
+    bgs = json.loads((config.SNAP / "blockgroups.json").read_text())
+    arrays = {}
+    with ProcessPoolExecutor(max_workers=workers()) as ex:
+        for wd in WORLDS:
+            w = World(id=wd["id"], disabled=frozenset(e for lid in wd["closedLinks"] for e in links[lid]))
+            arrays[wd["id"]] = xharbor.compute_arrays(worlds_mod.matrix(g, w), hx, prep, executor=ex)
+            if verbose:
+                print(f"  xharbor world {wd['id']} ({time.time() - t0:.0f}s)")
+    base = arrays["baseline"]
+    shore = hx["shore"]
+    out_worlds = []
+    for wd in WORLDS:
+        a = arrays[wd["id"]]
+        rec = {"id": wd["id"], **xharbor.per_hex_payload(a), "metrics": xharbor.summarize(a, base, hx),
+               "sensitivity": xharbor.sensitivity(a, base, hx)}
+        out_worlds.append(rec)
+    return {
+        "lens": "xharbor",
+        "definition": "worldseed_pipeline/xharbor.py docstring; assumptions A-XHARBOR-*",
+        "constants": {"tMainS": xharbor.T_MAIN, "tSensitivityS": list(xharbor.T_SENS), "accessCapS": config.ACCESS_CAP_S,
+                      "boundS": xharbor.BOUND_S},
+        "tolerance": {"meanTimeS": 0.5, "jobsWithin1800": "exact, except hexes in `boundary` where any value in [lo, hi] is accepted"},
+        "shore": {"originHexes": int((shore < 2).sum()), "ambiguousHexes": int((shore == 2).sum()),
+                  "ambiguousPop": float(hx["pop"][shore == 2].sum()),
+                  "ambiguousJobsExcludedAsDestinations": float(hx["jobs"][shore == 2].sum()),
+                  "destinationHexes": int(len(prep["dest"])),
+                  "jobsByShore": {str(s): float(hx["jobs"][shore == s].sum()) for s in (0, 1, 2)},
+                  "popByShore": {str(s): float(hx["pop"][shore == s].sum()) for s in (0, 1, 2)}},
+        "worlds": out_worlds,
+        "worstBlockGroups": {wid: worst_block_groups(base, arrays[wid], hx, bgs)
+                             for wid in ("keybridge_removed", "keybridge_and_harbor_tunnel_closed")},
+    }
+
+
 def compute(verbose: bool = True) -> dict:
     t0 = time.time()
     g = load_graph()
@@ -212,6 +254,8 @@ def compute(verbose: bool = True) -> dict:
                      "medianAddedS": wquantile(added_kb[hs], p, 0.5)})
     rows.sort(key=lambda r: (-r["meanAddedS"], r["geoid"]))
 
+    xh = compute_xharbor(g, hx, links, verbose)
+
     out = {
         "snapshotId": config.SNAPSHOT_ID,
         "tolerance": {"perHexS": 0.5, "note": "TS simulator must match hexTimeS within 0.5 s per hex"},
@@ -223,6 +267,7 @@ def compute(verbose: bool = True) -> dict:
         "hexCount": len(hx["node"]),
         "worlds": worlds,
         "keybridgeWorstBlockGroups": rows[:15],
+        "xharbor": xh,
     }
     return out
 
