@@ -201,6 +201,13 @@ export function buildHarbor(W = 12, Hh = 8, candidateStyle: "links" | "candidate
       zvh[h] = Math.floor(pop[h] * (0.05 + 0.2 * rnd()));
       lowWage[h] = Math.floor(pop[h] * (0.1 + 0.3 * rnd()));
       jobs[h] = Math.floor(rnd() * 100) + (x === 0 && y === 0 ? 50 : 0);
+      if (x === 3 && y === 7) {
+        // job-only cell (an industrial site): nobody lives here
+        pop[h] = 0;
+        zvh[h] = 0;
+        lowWage[h] = 0;
+        jobs[h] = 500;
+      }
       shore[h] = x === 0 && y === 0 ? 2 : x < half ? 1 : 0; // one ambiguous hex (neither origin nor destination)
     }
   }

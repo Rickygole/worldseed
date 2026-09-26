@@ -13,9 +13,11 @@
 import { emptyWorld, compile, type CompileContext } from "./compile";
 import { walkPred } from "./dijkstra";
 import { accessWeights, runAccessDijkstra } from "./lenses/access";
+import { buildAnchors, XHARBOR_T_MAIN_S, xharborStatic, type AnchorSet } from "./lenses/xharbor";
 import { runEmsDijkstra } from "./lenses/ems";
 import type { LensContext } from "./lenses/types";
-import type { CausalChain, CompiledWorld, Graph, LensId, RouteSummary, WorldState } from "./contract";
+import type { CausalChain, CompiledWorld, Graph, Hexes, LensId, RouteSummary, WorldState } from "./contract";
+import { prepareEdges } from "./sample";
 
 function summarize(g: Graph, edges: number[], nodes: number[], timeS: number, reachable: boolean): RouteSummary {
   const links: string[] = [];
@@ -95,7 +97,7 @@ export function explainHex(
       template: "",
       slots: {},
     };
-  } else {
+  } else if (lens === "access") {
     const K = snap.destinations.length;
     const w = accessWeights(ctx);
     const cap = params.accessCapS;
@@ -155,6 +157,8 @@ export function explainHex(
       template: "",
       slots: {},
     };
+  } else {
+    chain = explainXharbor(ctx, hex, before, after);
   }
 
   chain.slots = {
@@ -164,9 +168,10 @@ export function explainHex(
     "after.min": fmtMin(chain.after.timeS),
     deltaMin: fmtSigned(chain.deltaS),
   };
+  const across = lens === "xharbor" ? "Fastest route across the harbor" : "Fastest route";
   chain.template = chain.routeChanged
-    ? "Fastest route used {{before.via}}; now via {{after.via}}. Change {{deltaMin}} min."
-    : "Fastest route unchanged (via {{after.via}}). Change {{deltaMin}} min.";
+    ? `${across} used {{before.via}}; now via {{after.via}}. Change {{deltaMin}} min.`
+    : `${across} unchanged (via {{after.via}}). Change {{deltaMin}} min.`;
   return chain;
 }
 
@@ -184,4 +189,134 @@ function lost(baseRoute: RouteSummary, world: CompiledWorld, g: Graph): string[]
     if (li >= 0 && world.edgeEnabled[e] === 0 && !out.includes(g.links[li].id)) out.push(g.links[li].id);
   }
   return out;
+}
+
+// ---- cross-harbor -------------------------------------------------------------------------------------------
+
+/** Coarse enough that a cluster reads as "a job center", fine enough to keep routes specific. */
+export const EXPLAIN_CLUSTERS_PER_SHORE = 24;
+
+const clusterCache = new WeakMap<Hexes, AnchorSet>();
+
+function clusters(h: Hexes): AnchorSet {
+  let a = clusterCache.get(h);
+  if (!a) {
+    a = buildAnchors(h, EXPLAIN_CLUSTERS_PER_SHORE);
+    clusterCache.set(h, a);
+  }
+  return a;
+}
+
+/**
+ * Cross-harbor chain for an origin hex. The opposite-shore jobs are grouped into job clusters (the same
+ * deterministic clustering as the fast lens, coarser). One forward Dijkstra from the origin per world gives the
+ * exact travel time to every destination hex, so per cluster we know the job-weighted time before and after.
+ * The cluster whose job-weighted time grew the most is the focus (if nothing grew: the cluster with the most
+ * jobs), and the routes returned are the baseline and world routes from the origin to that cluster's anchor.
+ * `before.timeS` / `after.timeS` / `deltaS` are the hex's exact mean cross-harbor time (the lens value).
+ */
+function explainXharbor(ctx: LensContext, hex: number, before: CompiledWorld, after: CompiledWorld): CausalChain {
+  const { snap, params } = ctx;
+  const g = snap.graph;
+  const H = snap.hexes;
+  const shore = H.shore[hex];
+  if (shore > 1) throw new RangeError(`hex ${hex} is on the ambiguous shore: it is not a cross-harbor origin`);
+  const st = xharborStatic(H);
+  const cap = params.accessCapS;
+  const T = XHARBOR_T_MAIN_S;
+  const dshore = 1 - shore;
+  const A = clusters(H);
+  const nodes = A.node[dshore];
+  const members = A.members[dshore];
+  const C = nodes.length;
+  const node = H.node[hex];
+  const snapS = H.snapS[hex];
+
+  const run = (cw: CompiledWorld) => {
+    const { enabled, mul } = prepareEdges(g, ctx.futures, cw, null, ctx.scratch);
+    const dist = ctx.dj.run({ reverse: false, sources: [node], enabled, costMul: mul, maxCost: cap, wantPred: true });
+    const sum = new Float64Array(C);
+    let total = 0;
+    let jobsW = 0;
+    let within = 0;
+    for (let c = 0; c < C; c++) {
+      for (const k of members[c]) {
+        const D = snapS + dist[st.destNode[k]] + st.destSnap[k];
+        const t = D > cap ? cap : D;
+        sum[c] += st.destJobs[k] * t;
+        total += st.destJobs[k] * t;
+        jobsW += st.destJobs[k];
+        if (D <= T) within += st.destJobs[k];
+      }
+    }
+    return { sum, mean: total / jobsW, within, pred: ctx.dj.pred.slice(), anchorDist: Float64Array.from(nodes, (n) => dist[n]) };
+  };
+  const b = run(before);
+  const a = run(after);
+
+  const W = Float64Array.from(A.jobs[dshore]);
+  const totalJobs = W.reduce((x, y) => x + y, 0);
+  let focus = 0;
+  let best = -Infinity;
+  for (let c = 0; c < C; c++) {
+    const score = a.sum[c] - b.sum[c];
+    if (score > best) {
+      best = score;
+      focus = c;
+    }
+  }
+  if (!(best > 0)) {
+    focus = 0;
+    for (let c = 1; c < C; c++) if (W[c] > W[focus]) focus = c;
+  }
+
+  const route = (r: { pred: Int32Array; anchorDist: Float64Array }): RouteSummary => {
+    const d = r.anchorDist[focus];
+    if (!Number.isFinite(d)) return summarize(g, [], [], d, false);
+    const p = walkPred(g, r.pred, nodes[focus], false);
+    // forward pred walks anchor -> origin; present it origin -> anchor
+    return summarize(g, p.edges.slice().reverse(), p.nodes.slice().reverse(), d, true);
+  };
+  const rb = route(b);
+  const ra = route(a);
+
+  // anchor hex of the focus cluster: its heaviest member on the anchor node (for lat/lng/h3)
+  let anchorHex = st.destHex[members[focus][0]];
+  let heavy = -1;
+  for (const k of members[focus]) {
+    if (st.destNode[k] === nodes[focus] && st.destJobs[k] > heavy) {
+      heavy = st.destJobs[k];
+      anchorHex = st.destHex[k];
+    }
+  }
+  const clusterMean = (sum: Float64Array, c: number) => sum[c] / W[c];
+  const order = Array.from({ length: C }, (_, c) => c).sort((x, y) => (a.sum[y] - b.sum[y]) - (a.sum[x] - b.sum[x]) || x - y);
+  const shoreName = dshore === 0 ? "North/east" : "South/west";
+  const idOf = (c: number) => `XH-${dshore}-${c}`;
+  const nameOf = () => `${shoreName} shore job cluster`;
+  const meanB = b.mean;
+  const meanA = a.mean;
+  return {
+    lens: "xharbor",
+    hex,
+    h3: H.h3[hex],
+    snapshotId: snap.id,
+    before: { timeS: meanB, viaLinks: rb.viaLinks, route: rb },
+    after: { timeS: meanA, viaLinks: ra.viaLinks, route: ra },
+    deltaS: meanA - meanB,
+    routeChanged: !sameEdges(rb.edges, ra.edges),
+    lostLinks: lost(rb, after, g),
+    focus: {
+      kind: "destination",
+      id: idOf(focus),
+      name: nameOf(),
+      weight: W[focus] / totalJobs,
+      deltaS: clusterMean(a.sum, focus) - clusterMean(b.sum, focus),
+      cluster: { shore: dshore, lat: H.lat[anchorHex], lng: H.lng[anchorHex], h3: H.h3[anchorHex], jobs: W[focus], hexes: members[focus].length },
+    },
+    perDestination: order.slice(0, 10).map((c) => ({ id: idOf(c), name: nameOf(), weight: W[c] / totalJobs, beforeS: clusterMean(b.sum, c), afterS: clusterMean(a.sum, c) })),
+    crossHarbor: { originShore: shore, jobsWithinBefore: b.within, jobsWithinAfter: a.within, lossFrac: b.within > 0 ? (b.within - a.within) / b.within : 0 },
+    template: "",
+    slots: {},
+  };
 }

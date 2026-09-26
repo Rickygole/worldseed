@@ -60,10 +60,30 @@ export function defaultWorkerCount(hardwareConcurrency?: number, max = 4): numbe
   return Math.max(1, Math.min(max, hc - 1));
 }
 
-function abortError(): Error {
+export function abortError(): Error {
   const e = new Error("computation cancelled");
   e.name = "AbortError";
   return e;
+}
+
+/** Reject with an AbortError as soon as `signal` aborts; otherwise settle like `p`. */
+function raceAbort<T>(p: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return p;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    if (signal.aborted) return onAbort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    p.then(
+      (v) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(v);
+      },
+      (e) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(e);
+      },
+    );
+  });
 }
 
 function browserWorker(): WorkerLike {
@@ -129,20 +149,70 @@ export class SimPool {
     return Promise.all(this.workers.map((w) => w.api.warm(lenses))).then(() => undefined, () => undefined);
   }
 
-  private rr = 0;
+  // ---- deterministic-run scheduling -----------------------------------------------------------------
+  // At most one deterministic run is sent to a worker at a time, and the caller's AbortSignal is
+  // checked before each send, so cancelling stops the runs that have not started yet (a run that is
+  // already computing cannot be interrupted, but its result is dropped and the caller is released at once).
+  private busy: boolean[] = [];
+  private waiters: { resolve: (i: number) => void; reject: (e: Error) => void }[] = [];
+
+  private acquire(signal?: AbortSignal): Promise<number> {
+    if (this.busy.length !== this.workers.length) this.busy = this.workers.map(() => false);
+    const free = this.busy.indexOf(false);
+    if (free >= 0) {
+      this.busy[free] = true;
+      return Promise.resolve(free);
+    }
+    return new Promise<number>((resolve, reject) => {
+      const waiter = { resolve, reject };
+      this.waiters.push(waiter);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          const k = this.waiters.indexOf(waiter);
+          if (k >= 0) {
+            this.waiters.splice(k, 1);
+            reject(abortError());
+          }
+        },
+        { once: true },
+      );
+    });
+  }
+
+  private release(i: number): void {
+    const next = this.waiters.shift();
+    if (next) next.resolve(i); // the worker stays marked busy for the next run
+    else this.busy[i] = false;
+  }
 
   /**
-   * Free-flow run on one worker (round-robin, so parallel calls for different lenses land on different
-   * workers). `meta.workers` is 1; `xharbor` picks that lens's variant.
+   * Free-flow run on one worker (`meta.workers` is 1); `xharbor` picks that lens's variant. Rejects with an
+   * AbortError if `signal` is aborted before the run starts or while it computes.
    */
   async runDeterministic(world: WorldState, lens: LensId, opts: RunOptions & { xharbor?: Partial<XharborOptions> } = {}): Promise<RunResult> {
     this.live();
     if (opts.signal?.aborted) throw abortError();
     const t0 = performance.now();
-    const w = this.workers[this.rr++ % this.workers.length];
-    const r = await w.api.runDeterministic(world, lens, opts.xharbor);
+    const i = await this.acquire(opts.signal);
+    let call: Promise<RunResult>;
+    try {
+      if (opts.signal?.aborted) throw abortError();
+      this.live();
+      call = this.workers[i].api.runDeterministic(world, lens, opts.xharbor);
+    } catch (e) {
+      this.release(i);
+      throw e;
+    }
+    call.then(() => this.release(i), () => this.release(i));
+    const r = await raceAbort(call, opts.signal);
     // ms is the round trip the user waited for (worker compute + transfer)
     return { ...r, meta: { ...r.meta, ms: performance.now() - t0, workers: 1, runner: detectRunner() } };
+  }
+
+  /** Several deterministic runs of one world (different lenses). Runs in parallel up to the worker count. */
+  runDeterministicBatch(world: WorldState, requests: { lens: LensId; xharbor?: Partial<XharborOptions> }[], opts: RunOptions = {}): Promise<RunResult[]> {
+    return Promise.all(requests.map((q) => this.runDeterministic(world, q.lens, { signal: opts.signal, xharbor: q.xharbor })));
   }
 
   async runFutures(world: WorldState, lens: LensId, opts: FuturesOptions, run: FuturesRunOptions = {}): Promise<FuturesResult> {
@@ -205,6 +275,7 @@ export class SimPool {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    for (const w of this.waiters.splice(0)) w.reject(new Error("pool has been disposed"));
     for (const w of this.workers) w.terminate();
   }
 }

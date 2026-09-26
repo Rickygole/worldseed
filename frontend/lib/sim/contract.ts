@@ -321,7 +321,22 @@ export interface XharborMetrics {
   addedP50S: number;
   addedP90S: number;
   addedP99S: number;
+  /**
+   * UNWEIGHTED maximum over all hexes, including hexes nobody lives in (industrial land, ports). Kept for
+   * golden parity; for a headline "worst place" use the populated variants below.
+   */
   addedMaxS: number;
+  /** Maximum added time among origin hexes with residents (pop > 0), and that hex's index (-1 if none). */
+  addedMaxPopulatedS: number;
+  addedMaxPopulatedHex: number;
+  /**
+   * 99th percentile of added time across origin hexes with residents, one vote per hex (nearest rank). The
+   * population-weighted addedP99S already ignores empty hexes; this one answers "how bad is the worst 1% of
+   * populated places" without weighting by how many people live in each.
+   */
+  addedP99PopulatedS: number;
+  /** Number of origin hexes with residents (the denominator of addedP99PopulatedS). */
+  populatedHexes: number;
   popAddedGt60s: number;
   lowWageAddedGt60s: number;
   popAddedGt300s: number;
@@ -369,6 +384,10 @@ export interface RunResult {
   field: Float32Array;
   /** Access and xharbor: per-hex added seconds versus the snapshot baseline (0 for non-origin hexes). Transferable. */
   added?: Float32Array;
+  /** Access and xharbor: the snapshot-baseline lens field the added time is measured from (seconds). Transferable. */
+  baselineField?: Float32Array;
+  /** xharbor: baseline jobs within 30 min per hex (NaN for non-origin hexes). Transferable. */
+  baselineJobsWithin?: Float32Array;
   /** xharbor: per-hex jobs within 30 min (opposite shore); NaN for non-origin hexes. Transferable. */
   jobsWithin?: Float32Array;
   /** xharbor: per-hex fraction (0..1) of baseline cross-harbor jobs within 30 min that are lost; 0 if none. Transferable. */
@@ -498,7 +517,17 @@ export interface CausalChain {
   lostLinks: string[];
   focus:
     | { kind: "station"; facilityId: string | null; name: string | null; node: number }
-    | { kind: "destination"; id: string; name: string; weight: number; deltaS: number };
+    | {
+        kind: "destination";
+        id: string;
+        name: string;
+        weight: number;
+        deltaS: number;
+        /** xharbor: the opposite-shore job cluster (its anchor hex) the route goes to. */
+        cluster?: { shore: number; lat: number; lng: number; h3: string; jobs: number; hexes: number };
+      };
+  /** xharbor: exact jobs within 30 min for this origin hex before and after, and the fraction lost. */
+  crossHarbor?: { originShore: number; jobsWithinBefore: number; jobsWithinAfter: number; lossFrac: number };
   /** Access only: every destination with weight and baseline/world times. */
   perDestination?: { id: string; name: string; weight: number; beforeS: number; afterS: number }[];
   template: string;

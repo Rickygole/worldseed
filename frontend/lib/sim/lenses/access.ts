@@ -42,7 +42,7 @@ export function createAccessLens(ctx: LensContext): Lens {
 
   return {
     id: "access",
-    label: "Cross-harbor access",
+    label: "Regional access",
     unitLabel: "min",
     variant: { mode: "standard", approximate: false, label: "Exact (one Dijkstra per run)" },
     hasAux: false,

@@ -63,7 +63,7 @@ export function createWorkerApi(options: WorkerApiOptions = {}): WorkerApi {
       const r = need().runDeterministic(world, lens, 1, x);
       if (!xfer) return r;
       const buffers: ArrayBuffer[] = [r.field.buffer as ArrayBuffer];
-      for (const a of [r.added, r.jobsWithin, r.lossFrac]) if (a) buffers.push(a.buffer as ArrayBuffer);
+      for (const a of [r.added, r.jobsWithin, r.lossFrac, r.baselineField, r.baselineJobsWithin]) if (a) buffers.push(a.buffer as ArrayBuffer);
       return Comlink.transfer(r, buffers);
     },
 

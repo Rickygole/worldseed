@@ -21,7 +21,7 @@ import type { AssumptionRecord, FuturesOptions, FuturesResult, Hexes, LensId, Le
 import { formatRunnerLabel } from "./runner";
 import { fetchReader, parseHexes, SnapshotMissingError, type SnapshotReader } from "./snapshot";
 import type { SnapshotInfo } from "./engine";
-import { SimPool, type FuturesRunOptions, type PoolOptions } from "../workers/pool";
+import { abortError, SimPool, type FuturesRunOptions, type PoolOptions } from "../workers/pool";
 import type { Assumption, Cell, RunOptions, Scenario, SimOutput, Simulator, SimulatorMeta, World, WorstBlockGroupNamed, XharborDetail } from "./types";
 
 /**
@@ -71,7 +71,7 @@ function buildCells(h: Hexes): { cells: Cell[]; maxBridgeKm: number } {
     maxBridgeKm = Math.max(maxBridgeKm, bridgeKm);
     // Cosmetic: fade the plain toward the edge of the study area (geometry only, not data).
     const edgeFade = r < 0.72 ? 1 : Math.max(0.12, 1 - smooth((r - 0.72) / 0.28));
-    cells.push({ id: h.h3[i], lat, lng, bridgeKm, edgeFade });
+    cells.push({ id: h.h3[i], lat, lng, bridgeKm, edgeFade, residents: h.pop[i], lowWageResidents: h.lowWage[i], jobs: h.jobs[i] });
   }
   return { cells, maxBridgeKm };
 }
@@ -114,15 +114,21 @@ function bgName(geoid: string | null, county: string | null): string {
   return `${county ?? "County " + geoid.slice(2, 5)}, Tract ${tract}, Block Group ${geoid.slice(11)}`;
 }
 
-function xharborDetail(r: RunResult, metricsOf: LensMetrics): XharborDetail {
+function xharborDetail(r: RunResult, metricsOf: LensMetrics, hx: Hexes): XharborDetail {
   const xm = metricsOf.xharbor;
-  if (!xm || !r.added || !r.jobsWithin || !r.lossFrac) throw new Error("xharbor result is missing its detail arrays");
+  if (!xm || !r.added || !r.jobsWithin || !r.lossFrac || !r.baselineField || !r.baselineJobsWithin) throw new Error("xharbor result is missing its detail arrays");
   const n = r.field.length;
   const addedMin = new Float32Array(n);
   const isOrigin = new Uint8Array(n);
+  const isPopulated = new Uint8Array(n);
+  const meanBeforeMin = new Float32Array(n);
+  const meanAfterMin = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     addedMin[i] = r.added[i] / 60;
     isOrigin[i] = Number.isNaN(r.field[i]) ? 0 : 1;
+    isPopulated[i] = isOrigin[i] === 1 && hx.pop[i] > 0 ? 1 : 0;
+    meanBeforeMin[i] = r.baselineField[i] / 60; // NaN stays NaN
+    meanAfterMin[i] = r.field[i] / 60;
   }
   const pct = (a: number, b: number) => (b > 0 ? (100 * a) / b : 0);
   const named = (rows: WorstBlockGroup[] | undefined): WorstBlockGroupNamed[] =>
@@ -134,6 +140,13 @@ function xharborDetail(r: RunResult, metricsOf: LensMetrics): XharborDetail {
     addedMin,
     lossFrac: r.lossFrac,
     jobsWithin: r.jobsWithin,
+    meanBeforeMin,
+    meanAfterMin,
+    baselineJobsWithin: r.baselineJobsWithin,
+    residents: hx.pop,
+    lowWageResidents: hx.lowWage,
+    jobsHere: hx.jobs,
+    isPopulated,
     isOrigin,
     metrics: xm,
     headline: {
@@ -151,6 +164,10 @@ function xharborDetail(r: RunResult, metricsOf: LensMetrics): XharborDetail {
       addedP90Min: xm.addedP90S / 60,
       addedP99Min: xm.addedP99S / 60,
       addedMaxMin: xm.addedMaxS / 60,
+      addedMaxPopulatedMin: xm.addedMaxPopulatedS / 60,
+      addedMaxPopulatedHex: xm.addedMaxPopulatedHex,
+      addedP99PopulatedMin: xm.addedP99PopulatedS / 60,
+      populatedHexes: xm.populatedHexes,
       baselineMeanJobs,
       worldMeanJobs: xm.popMeanJobs,
       popCovered: xm.popCovered,
@@ -176,6 +193,7 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
   let pool: SimPool | null = null;
   let loading: Promise<World> | null = null;
   let snapshotInfo: SnapshotInfo | null = null;
+  let mainHexes: Hexes | null = null;
 
   const need = (): SimPool => {
     if (!pool) throw new Error("simulator not loaded: call loadWorld() first");
@@ -215,6 +233,7 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
       throw e;
     }
     snapshotInfo = pool.info;
+    mainHexes = view.hexes;
     void pool.warm(); // baselines and anchors in the background; the first real request is then fast
     if (view.hexes.count !== pool.info.hexCount) {
       throw new Error(`main thread and workers disagree on the hex count (${view.hexes.count} vs ${pool.info.hexCount})`);
@@ -251,7 +270,9 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
       // are never hidden behind the cross-harbor one.
       const t0 = performance.now();
       const all: LensId[] = ["xharbor", "access", "ems"];
-      const results = await Promise.all(all.map((l) => p.runDeterministic(ws, l, l === "xharbor" ? { xharbor: x } : {})));
+      if (opts.signal?.aborted) throw abortError();
+      const results = await p.runDeterministicBatch(ws, all.map((l) => ({ lens: l, xharbor: l === "xharbor" ? x : undefined })), { signal: opts.signal });
+      if (opts.signal?.aborted) throw abortError();
       const wall = performance.now() - t0;
       const by = Object.fromEntries(all.map((l, i) => [l, results[i]])) as Record<LensId, RunResult>;
       const r = by[lens];
@@ -289,7 +310,7 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
           lenses: { xharbor: by.xharbor.metrics, access: by.access.metrics, ems: by.ems.metrics },
         },
       };
-      if (lens === "xharbor") out.detail!.xharbor = xharborDetail(r, by.xharbor.metrics);
+      if (lens === "xharbor") out.detail!.xharbor = xharborDetail(r, by.xharbor.metrics, mainHexes as Hexes);
       return out;
     },
 

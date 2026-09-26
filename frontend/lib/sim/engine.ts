@@ -221,6 +221,8 @@ export class SimEngine {
         added[h] = Number.isNaN(d) ? 0 : d;
       }
       result.added = added;
+      result.baselineField = base.field.slice();
+      if (base.aux) result.baselineJobsWithin = base.aux.slice();
     }
     if (aux && base.aux) {
       result.jobsWithin = aux;

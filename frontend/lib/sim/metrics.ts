@@ -318,6 +318,22 @@ export class MetricsWorkspace {
     const orderA = this.sortBy(added);
     [m.addedP50S, m.addedP90S, m.addedP99S] = this.quantilesMany(orderA, added, pop, popT, [0.5, 0.9, 0.99]);
     m.addedMaxS = addedMax;
+    let maxPop = -Infinity;
+    let maxPopHex = -1;
+    const populated: number[] = [];
+    for (let h = 0; h < H; h++) {
+      if (!(pop[h] > 0)) continue;
+      populated.push(added[h]);
+      if (added[h] > maxPop) {
+        maxPop = added[h];
+        maxPopHex = h;
+      }
+    }
+    populated.sort((a, b) => a - b);
+    m.populatedHexes = populated.length;
+    m.addedMaxPopulatedS = populated.length ? maxPop : 0;
+    m.addedMaxPopulatedHex = maxPopHex;
+    m.addedP99PopulatedS = populated.length ? quantileSortedRank(populated, 0.99) : 0;
     m.popAddedGt60s = gt(added, 60, pop);
     m.lowWageAddedGt60s = gt(added, 60, lw);
     m.popAddedGt300s = gt(added, 300, pop);

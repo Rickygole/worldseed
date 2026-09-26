@@ -41,7 +41,7 @@ export const DEFAULT_ANCHORS_PER_SHORE = 64;
 /** Futures run a world and its reference under every future, so they default to half the anchors (measured in xharborGolden.test.ts). */
 export const FUTURES_ANCHORS_PER_SHORE = 32;
 
-interface XStatic {
+export interface XStatic {
   origins: Uint32Array[]; // [shore] -> origin hex indices
   destHex: Uint32Array;
   destNode: Uint32Array;
@@ -145,7 +145,7 @@ function finish(hx: Hexes, st: XStatic, meanSum: Float64Array, J: Float64Array, 
 
 // ---- fast anchors -----------------------------------------------------------------------------------------
 
-interface AnchorSet {
+export interface AnchorSet {
   k: number;
   /** anchors per destination shore */
   node: Uint32Array[];

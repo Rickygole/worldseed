@@ -31,6 +31,10 @@ export interface Cell {
   bridgeKm: number;
   /** 0..1 opacity factor so the plain fades out at the region edge. */
   edgeFade: number;
+  /** Residents, low-wage residents and jobs located in the hex. Set by the snapshot-backed simulator only. */
+  residents?: number;
+  lowWageResidents?: number;
+  jobs?: number;
 }
 
 export interface Assumption {
@@ -65,6 +69,12 @@ export interface RunOptions {
   lens?: LensId;
   /** xharbor variant: "fast" (default, job-weighted anchors) or "exact" (all pairs, about 8 s per world in Node). */
   xharborMode?: "fast" | "exact";
+  /**
+   * Cancels the run. Checked before it starts, before each lens is sent to a worker, and while waiting
+   * for results: `run()` then rejects with an Error named "AbortError". A lens already computing in a worker
+   * finishes (a fast run is about 0.4 s) but its result is dropped.
+   */
+  signal?: AbortSignal;
 }
 
 /** Cross-harbor headline numbers, unit-converted for display (minutes, people, percent). */
@@ -85,7 +95,13 @@ export interface XharborHeadline {
   addedP50Min: number;
   addedP90Min: number;
   addedP99Min: number;
+  /** UNWEIGHTED maximum over every hex, including hexes with no residents (industrial land). Prefer the populated variants. */
   addedMaxMin: number;
+  /** Worst added time among hexes with residents, the hex it happens in (-1 if none), and the per-hex p99 among populated hexes. */
+  addedMaxPopulatedMin: number;
+  addedMaxPopulatedHex: number;
+  addedP99PopulatedMin: number;
+  populatedHexes: number;
   /** Baseline mean cross-harbor jobs within 30 min per person, and in the world. */
   baselineMeanJobs: number;
   worldMeanJobs: number;
@@ -120,6 +136,17 @@ export interface XharborDetail {
   lossFrac: Float32Array;
   /** Per hex, jobs within 30 min in this world (NaN for hexes that are not origins). */
   jobsWithin: Float32Array;
+  /** Per hex, minutes: ABSOLUTE mean cross-harbor travel time in the baseline and in this world (NaN for non-origin hexes). */
+  meanBeforeMin: Float32Array;
+  meanAfterMin: Float32Array;
+  /** Per hex: baseline jobs within 30 min (NaN for non-origin hexes). */
+  baselineJobsWithin: Float32Array;
+  /** Per hex: residents (population), low-wage residents, and jobs located in the hex (LODES). */
+  residents: Float32Array;
+  lowWageResidents: Float32Array;
+  jobsHere: Float32Array;
+  /** Per hex: 1 when the hex has residents (residents > 0). Job-only cells (ports, industrial land) are 0. */
+  isPopulated: Uint8Array;
   /** Per hex: false for hexes on the ambiguous shore (not origins; terrain shows 0 there). */
   isOrigin: Uint8Array;
   headline: XharborHeadline;
