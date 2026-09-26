@@ -1,8 +1,8 @@
 # WorldSeed pitches and judge Q&A
 
-Markers: **[VERIFY]** depends on something that was not live on 2026-09-26 (the AI
-planner on live Nemotron models, the finalist / futures flow, the Tavily lookup on the
-deployed site). **[PLANNED]** does not exist yet. Resolve or cut both before you say
+Markers: **[VERIFY]** depends on something that was not verified live on 2026-09-26
+(the AI planner and critic on live Nemotron models, the finalist / futures flow, the
+Tavily lookups on the deployed site). **[PLANNED]** does not exist yet. Resolve or cut both before you say
 the sentence out loud. Tone: confident, sober, no hype. This is built on a real loss.
 
 Thesis: **Regional averages hide local disasters, and a good tool also shows what
@@ -51,8 +51,10 @@ catalog of twenty-four hypothetical scenario options, only by catalog ID. The si
 scores each bundle across many stress futures in your browser. Validators reject
 anything outside the catalog. The model's explanation is a choice from a fixed list
 that the application renders in a labeled log, and every result sentence is written by
-a template. **[VERIFY: planner live on Nemotron; finalists, futures and Apply flow
-working.]** The honest result is that it does not find a fix: only about four of the
+a template. Between rounds a critic picks one stress test from a closed set, such as a
+tunnel closed at rush hour, and the simulator re-scores the leaders under it before the
+planner refines. **[VERIFY: planner and critic live on Nemotron; finalists, futures and
+Apply flow working.]** The honest result is that it does not find a fix: only about four of the
 twenty-four options meaningfully help, shuttle links did not, and the best one recovers
 about forty percent of the loss on an assumed corridor speed. **[VERIFY: figure.]**
 
@@ -95,18 +97,26 @@ before showing it.
 Search over a space the model cannot score. The number of possible bundles of options is
 awkward for a person to explore, so the planner proposes bundles, the simulator scores
 them across many futures, and the planner refines. The model chooses catalog IDs and a
-rationale from a fixed list; it does not write results. Constraining it that way is
-what makes the output safe to show and easy to test. **[VERIFY: this describes the live
-run only after the planner is verified on Nemotron.]**
+rationale from a fixed list; it does not write results. The critic picks a stress test
+from a closed set, and the simulator re-scores the leaders under it. One labeled
+exception: an optional raw reasoning string appears in a collapsed section of the
+decision log, checked only for plain-text form, never used for a decision and never on
+a card. Constraining the model this way is what makes the output safe to show and easy
+to test. **[VERIFY: this describes the live run only after the planner and critic are
+verified on Nemotron.]**
 
 **3. What is live, and what is not?**
 Live: the road graph and snapshot, the browser simulator, removing the link, the
 side-by-side lenses, the inspector, the assumptions drawer. Not verified yet as of
 2026-09-26: the planner against live Nemotron models on Token Factory (implemented and
-tested with a fake provider; no key deployed), the Tavily lookup on the deployed site,
-and the finalist flow. Planned, not built: an adversarial critic loop, screening other
-crossings, a hazmat and freight lens, and a cited reality check. **[VERIFY: update this
-answer to the state on the day.]**
+tested with a fake provider; no key deployed), the Tavily lookups on the deployed site,
+and the finalist flow. Built in code, pending live verification: the adversarial critic
+loop (with a deterministic no-AI critic as the fallback), a reality-check endpoint that
+lists Tavily sources about the 2024 detours, and an exhaustive-search check of the AI's
+finalists against the true optimum; the last two are not yet wired into the interface.
+Planned, not built: screening other crossings, a freight and hazmat trip lens, and a
+quantitative comparison to observations. **[VERIFY: update this answer to the state on
+the day.]**
 
 **4. How do you know the numbers are right?**
 Two ways, with one caveat. The TypeScript simulator is tested against an independent
@@ -115,8 +125,11 @@ inputs are labeled, and every constant is listed in the Assumptions drawer. The 
 the cross-harbor lens in the app is a faster variant of the exact all-pairs version, and
 its headline counts differ slightly (about 19,700 versus about 20,100 residents losing
 more than 10%). We have not compared the model to observed traffic after the collapse;
-a cited reality check is **[PLANNED]**, and we do not claim the results are validated
-against real-world traffic.
+the reality-check endpoint only lists published sources, unverified, and a quantitative
+comparison is **[PLANNED]**, so we do not claim the results are validated against
+real-world traffic. Separately, an exhaustive-search check (built, interface wiring in
+progress) scores every bundle of up to three options to test the AI's finalists against
+the true optimum. That checks the planner, not the road model.
 
 **5. Three seconds is tiny. Is your model just missing congestion?**
 Partly, and we say so. The deterministic run uses free-flow speeds, so tunnel and

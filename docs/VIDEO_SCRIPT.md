@@ -3,11 +3,12 @@
 Status as of 2026-09-26: **the video cannot be recorded yet.** Moments 3 to 5 depend
 on things that were not live: the AI planner verified against live Nemotron models on
 Token Factory (no key deployed yet), the futures view, finalist cards and the search
-flow being finished, and, for the critic's stress test, a feature that does not exist
-yet. Do not record until the checklist at the end passes. Every marker below means
-the same as in docs/DEVPOST.md:
+flow being finished, and the critic's stress-test loop, which is built in code but
+unverified against live models. Do not record until the checklist at the end passes.
+Every marker below means the same as in docs/DEVPOST.md:
 
-- **[VERIFY]** depends on something not live yet. Confirm it on the deployed site.
+- **[VERIFY]** depends on something built or planned that is not verified live yet.
+  Confirm it on the deployed site, and cut it if it does not work.
 - **[PLANNED]** does not exist yet. Cut it from the recording unless it has shipped.
 
 Rules this script follows (docs/LEGAL.md rule 7, docs/DEDICATION.md):
@@ -91,19 +92,25 @@ submit this cut; see the fallback at the end of this moment.
      reads "AI rationale (unverified; not a result)".
   4. The futures progress grid fills. This is real: the count is futures computed in
      the browser.
-  5. **[PLANNED]** The critic attacks the shortlist with a stress test, and the
-     planner refines. Until that loop exists, the current critic role only reads the
-     results table and flags or vetoes bundles; show that if it appears in the log
-     and use the alternate sentence below.
+  5. **[VERIFY]** The critic picks a stress test from a closed set (a tunnel closed
+     and/or a time of day), the log names it in an application-written label, the
+     simulator re-scores the leaders under it, and the planner refines. This loop is
+     built in code but not verified live. If the AI critic's answer is rejected, the
+     deterministic (no-AI) critic runs the same step; the log says so, and the
+     voiceover must then say so too.
+  6. Optionally expand the collapsed "Model reasoning (raw, unverified; not a
+     result)" section in the decision log for 2 s, to show it is labeled and set
+     apart. Do not read it aloud or claim it is correct.
 - **Voiceover.**
   > Now the planner. I describe a goal in plain language. A small Nemotron model on
   > Nebius Token Factory parses it into a structured goal, which I confirm. The
   > planner, the largest Nemotron model available, proposes bundles of options, but
   > only by catalog ID. The simulator scores every bundle across many futures, computed
-  > here in the browser. **[PLANNED: A critic then attacks the shortlist with a stress
-  > test, and the planner refines.]** Here are the model names and the token counts.
-  > None of it writes a number.
-- **Alternate sentence until the adversarial loop exists.** "A critic model reads the
+  > here in the browser. **[VERIFY: A critic then picks a stress test, such as a tunnel
+  > closed at rush hour, the simulator re-scores the leaders under it, and the planner
+  > refines.]** Here are the model names and the token counts. None of it writes a
+  > number.
+- **Alternate sentence if the stress step does not run live.** "A critic model reads the
   results and can veto a bundle, and the planner refines." Say only what the recording
   shows.
 - **Fallback if the AI planner is not verified.** Show the button labeled
@@ -177,8 +184,10 @@ submit this cut; see the fallback at the end of this moment.
 > Nebius Token Factory parses it into a structured goal, which I confirm. The planner,
 > the largest Nemotron model available, proposes bundles of options, but only by
 > catalog ID. The simulator scores every bundle across many futures, computed here in
-> the browser. Here are the model names and the token counts. None of it writes a
-> number.
+> the browser. [VERIFY, keep only if the stress step ran live: A critic then picks a
+> stress test, such as a tunnel closed at rush hour, the simulator re-scores the
+> leaders under it, and the planner refines.] Here are the model names and the token
+> counts. None of it writes a number.
 >
 > The guardrail: a proposal that broke the rules was rejected by the validator, and you
 > can see it in the log. The model proposes, the simulator scores, and the model can
@@ -194,8 +203,9 @@ submit this cut; see the fallback at the end of this moment.
 > Simulated, not measured, not dispatch, and a human decides. WorldSeed: don't predict
 > the future, simulate it.
 
-The block above omits the [PLANNED] critic sentence on purpose. Add it only if the
-adversarial loop has shipped.
+The bracketed critic sentence is a [VERIFY] item: keep it only if the stress step
+actually ran, on camera, in the recording. If the deterministic (no-AI) critic ran
+instead, say so in its place.
 
 ## On-screen captions (small, lower left, plain text)
 
@@ -216,7 +226,7 @@ Record as separate takes so any moment can be redone without redoing the rest.
 5. Mission entry, goal chips confirmed (moment 3). **[VERIFY]**
 6. Decision log with the proposal, model name, token counts, and the rationale label (moment 3). **[VERIFY]**
 7. Futures progress grid filling to completion (moment 3). **[VERIFY]**
-8. **[PLANNED]** Critic stress test and the planner's refinement (moment 3). Only if shipped.
+8. **[VERIFY]** Critic stress test, the re-scored leaders and the planner's refinement (moment 3). Only if it ran live.
 9. A real validator rejection in the decision log, or the validator test output labeled as a test (moment 4).
 10. Architecture text slide, or the rendered README diagram with highlights (moment 4).
 11. Finalist cards with fan charts, Compare slider (moment 5). **[VERIFY]**
@@ -257,7 +267,8 @@ recording.
 - [ ] A real validator rejection has been captured in the decision log (or the test-output fallback is prepared and labeled as a test).
 - [ ] The decision log shows the "AI rationale (unverified; not a result)" label, and no model-written number appears anywhere on a card.
 - [ ] The residual cross-harbor loss after Apply is readable on screen, and the "about forty percent" figure matches what the app or the candidate-effects data shows. If not, say the real figure.
-- [ ] The critic's stress-test step exists. If not, use the alternate sentence or cut it.
+- [ ] The critic's stress-test step runs end to end on the deployed site (AI critic, or the labeled deterministic critic). If not, use the alternate sentence or cut it.
+- [ ] The collapsed "Model reasoning (raw, unverified; not a result)" section appears in the decision log and shows no digits, links or markup. Do not read it aloud.
 - [ ] Tavily: the closures lookup returns a real result (or an honest "no closures found") on the deployed site. Only then keep the Tavily sentence and the optional insert.
 - [ ] The daily AI budget has room for several takes. Check the budget state, and raise the ceiling temporarily only if the project owner agrees.
 - [ ] Nothing in the recording shows an API key, an `.env` file, a terminal with secrets, or a personal email.

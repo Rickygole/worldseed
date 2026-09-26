@@ -99,7 +99,7 @@ flowchart LR
   end
 
   subgraph Server["Next.js route handlers (keys live here)"]
-    RT["Routes: parse, plan, critique, narrate, closures<br/>server-built prompts, zod schemas,<br/>validators, budgets, rate limits"]
+    RT["Routes: parse, plan, critique, closures, evidence<br/>server-built prompts, zod schemas,<br/>validators, budgets, rate limits"]
   end
 
   UI -- "structured request:<br/>mission, catalog IDs, simulator results" --> RT
@@ -127,7 +127,7 @@ Design rules that shape the code:
 
 WorldSeed calls NVIDIA Nemotron models through the OpenAI-compatible endpoint of
 Nebius Token Factory (`https://api.tokenfactory.nebius.com/v1/`), server-side only.
-Five roles each have an ordered candidate list of models in
+Four roles (planner, critic, parser, extractor) each have an ordered candidate list of models in
 `frontend/lib/server/models.ts`. Model IDs are resolved at runtime from the
 account's `/models` list (`/api/health` reports which one each role got), so the app
 shows the model that actually ran. The candidate IDs were read from the public
@@ -135,14 +135,22 @@ catalog; none has answered a real call yet.
 
 | Role | Model class | What it does | What it does NOT do |
 | --- | --- | --- | --- |
-| Planner | Largest available Nemotron reasoning model | Proposes, refines and finalizes bundles of 1-3 options, chosen only from catalog IDs, at most 3 rounds and 12 evaluated bundles per mission. Picks a rationale kind from a fixed list. | Write any number, any result, any free text that reaches a reader, or an ID that is not in the catalog. Bundle IDs are minted by the application. |
-| Critic | Largest available Nemotron reasoning model | Reads the simulator's evaluation table, flags concerns by fixed kind (worst case, equity, cost, feasibility) and may veto evaluated bundles. | Score anything or introduce bundles that were not evaluated. |
+| Planner | Largest available Nemotron reasoning model | Proposes, refines and finalizes bundles of 1-3 options, chosen only from catalog IDs, at most 3 rounds and 12 evaluated bundles per mission. Picks a rationale kind from a fixed list. | Write any number or result, name an ID that is not in the catalog, or put text on a card. Bundle IDs are minted by the application. Its optional raw reasoning is shown only in a collapsed, labeled log section (see below). |
+| Critic | Largest available Nemotron reasoning model | Reads the simulator's evaluation table and picks one stress test from a closed set (a tunnel or corridor closed and/or a time of day); flags concerns by fixed kind (worst case, equity, cost, feasibility); may veto evaluated bundles. | Score anything, describe a stress in its own words, or introduce bundles that were not evaluated. The simulator re-scores the leaders under the stress it picked. |
 | Parser | Small Nemotron model | Turns a plain-language mission into a structured goal (lens, metric, constraints). You confirm it as chips. | Set the numeric target; that comes from a picker you control. |
 | Extractor | Small Nemotron model | Reads Tavily search results and extracts closure claims with a verbatim quote. | Decide what is a closure: the quote must appear in the source text, is screened, and roads are matched to the model area by deterministic code. |
-| Narrator | Small Nemotron model | Optional. Selects a rationale kind for each finalist, using the same fixed list. | Write card text. Finalist cards contain no model-written text. |
 
-Model overrides: `WS_MODEL_PLANNER`, `WS_MODEL_CRITIC`, `WS_MODEL_PARSER`,
-`WS_MODEL_NARRATOR` and `WS_MODEL_EXTRACTOR`.
+Model overrides: `WS_MODEL_PLANNER`, `WS_MODEL_CRITIC`, `WS_MODEL_PARSER` and
+`WS_MODEL_EXTRACTOR`.
+
+**The search loop.** Propose, simulate, stress, refine, finalize. The planner proposes
+bundles; the browser simulator scores them across many futures; the critic picks one
+stress test from a closed set (a tunnel closed and/or a time of day); the simulator
+re-scores the leaders under that stress; the planner refines; then it finalizes three
+finalists. When the AI is unavailable or its output is rejected, a deterministic
+(no-AI) critic runs the same stress step by re-scoring the leaders under each
+single-link closure and choosing the one that hurts them most, and the loop continues,
+labeled "not AI".
 
 **The guardrails that make this safe to demo:**
 
@@ -155,6 +163,13 @@ Model overrides: `WS_MODEL_PLANNER`, `WS_MODEL_CRITIC`, `WS_MODEL_PARSER`,
   kinds (for example "worst case first"). The application renders the sentence, and
   it appears only in the decision log, labeled "AI rationale (unverified; not a
   result)". Finalist cards and all result text are application templates.
+- **One labeled exception: raw reasoning.** A planner or critic reply may carry an
+  optional reasoning string. It appears only in a collapsed section of the decision log
+  labeled "Model reasoning (raw, unverified; not a result)", with the model name, token
+  counts and latency. It is checked only for plain-text form (length, plain characters,
+  no digits, no links, no markup); it is not checked for truth. It is never used for a
+  decision and never appears on a card. If it fails the screen it is blanked and the log
+  says so; the answer itself is still used.
 - **Strict validators, in the browser and again on the server.** Unknown keys are
   rejected; every candidate must exist in the catalog, match the lens, and respect the
   cost tier; finalists must be three distinct bundles that were actually evaluated.
@@ -168,14 +183,14 @@ Model overrides: `WS_MODEL_PLANNER`, `WS_MODEL_CRITIC`, `WS_MODEL_PARSER`,
   went through several adversarial review rounds; fixes are pinned by regression
   tests (`frontend/test/ai/round*.test.ts`, `frontend/test/sim/round4.test.ts`).
 
-**Not yet built.** [PLANNED] An adversarial critic loop, in which the critic attacks
-the planner's shortlist with a stress test before the planner refines. Today the
-critic role reads the evaluation table and flags or vetoes bundles; it does not run
-its own tests.
+**Exhaustive-search check (built, UI wiring in progress).** `frontend/lib/agent/exhaustive.ts`
+scores every bundle of up to three eligible catalog options with the simulator's
+deterministic run and reports the true optimum, so the AI's finalists can be ranked
+against it. It never calls a model. It is not yet wired into the interface.
 
-**Verification status, stated plainly.** The planner, critic, parser, extractor and
-narrator paths are implemented and covered by tests that use a fake provider. They
-have **not yet been verified against live Nemotron models on Token Factory**: no API
+**Verification status, stated plainly.** The planner, critic (including the adversarial
+stress step), parser and extractor paths, and the deterministic critic, are built and
+covered by tests that use a fake provider. They have **not yet been verified against live Nemotron models on Token Factory**: no API
 key is deployed on the demo yet and model availability on our account is
 unconfirmed. Until that is done the live site shows that AI planner setup is in
 progress, and the deterministic search is the path that works without a key. This
@@ -199,6 +214,13 @@ Status: implemented and tested; live lookup pending a deployed key.
 
 If nothing qualifies, the app says so. Results are cached, capped per day, and never
 written to the repository.
+
+**Reality-check evidence (built, live lookup pending a key; interface wiring in
+progress).** `/api/evidence` runs one fixed Tavily search per topic (detours, traffic
+or freight after the 2024 collapse) and returns sources only: title, domain, date,
+snippet and link, all labeled unverified. It makes no model call, extracts no claims,
+and does not compare anything to the simulator's numbers. It exists so a reader can
+check the model's picture against published reporting.
 
 ## How the simulation and its assumptions work
 
@@ -328,16 +350,17 @@ A guided version of this walk-through (`?tour=keybridge`) is in progress; see
   (job-weighted anchors); the exact all-pairs version is the test oracle, and its
   headline counts differ slightly (for example about 19,700 versus about 20,100
   residents losing more than 10%).
-- **[PLANNED]** A cited reality check that compares model output to published
-  observations of the 2024 detours. It does not exist yet, and nothing here should
-  be read as validated against observed traffic.
+- **Not validated against observed traffic.** An evidence endpoint can list published
+  sources about the 2024 detours (sources only, unverified; see the Tavily section),
+  but nothing compares the model's numbers to observations, and nothing here should be
+  read as validated against observed traffic.
 
 ## Known modeling limitations
 
 - Free-flow driving only in the deterministic run: no signals, turn delays or
   congestion, so tunnel and bridge-approach delays are understated; congestion enters
   only through stress futures. Cars only: no transit, walking or freight schedules.
-  Hazmat and freight routing is [PLANNED], not modeled.
+  Freight and hazmat trip routing is [PLANNED] (pipeline work in progress), not modeled.
 - The first-response lens counts every fire station as a source and does not model
   unit counts, staffing, availability or stations outside the study area
   (bbox W -76.80, S 39.10, E -76.40, N 39.34), which can make edge block groups look
@@ -385,10 +408,12 @@ means it does not exist yet.
 - [ ] **In progress.** Futures fan, finalist cards and deterministic search UI (Compare and Apply flow)
 - [ ] **In progress.** Tavily closure feed on the deployed site (code and tests complete; live lookup pending a deployed key)
 - [ ] **In progress.** Guided tour (`?tour=keybridge`): runs live actions, no recorded playback exists
-- [ ] **Planned.** Adversarial critic loop (the critic stress-tests the planner's shortlist)
+- [ ] **In progress.** Adversarial critic loop (propose, simulate, stress, refine, finalize; with a deterministic no-AI critic): built, pending live verification
+- [ ] **In progress.** Reality-check evidence endpoint (Tavily sources only, unverified): built, live lookup pending a key, interface wiring in progress
+- [ ] **In progress.** Exhaustive-search check of the AI's finalists against the true optimum: built, interface wiring in progress
 - [ ] **Planned.** Screening other crossings from the app (the pipeline is bbox-configurable today)
-- [ ] **Planned.** Hazmat and freight lens
-- [ ] **Planned.** Cited reality check against published observations
+- [ ] **Planned.** Freight and hazmat trip lens (pipeline work in progress)
+- [ ] **Planned.** Quantitative comparison of model output to published observations
 - [ ] **Not done.** Demo video (under 3:00) and final Devpost submission
 - [ ] **Not done.** Written Nebius and NVIDIA feedback, compiled from the notes file
 
