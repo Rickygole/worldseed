@@ -41,14 +41,16 @@ describe.skipIf(!snapshotExists)(`candidate edges on the real graph${snapshotExi
     const cls = g.meta.classes.indexOf("candidate");
     expect(g.flag.CANDIDATE).toBe(16);
     expect(cls).toBe(8);
-    expect(flagged.length).toBe(14);
-    expect(flagged[0]).toBe(g.edgeCount - 14);
-    expect(flagged).toEqual(Array.from({ length: 14 }, (_, i) => g.edgeCount - 14 + i));
+    const nCand = flagged.length;
+    expect(nCand).toBe(6); // round 3: 3 kept temporary links x 2 directions
+    expect(g.edgeCount).toBe(81443);
+    expect(flagged[0]).toBe(g.edgeCount - nCand);
+    expect(flagged).toEqual(Array.from({ length: nCand }, (_, i) => g.edgeCount - nCand + i));
     for (const e of flagged) expect(g.edgeClass[e]).toBe(cls);
-    for (let e = 0; e < g.edgeCount - 14; e++) expect(g.edgeClass[e]).not.toBe(cls);
+    for (let e = 0; e < g.edgeCount - flagged.length; e++) expect(g.edgeClass[e]).not.toBe(cls);
     const fromLinks = g.links.filter((l) => l.candidate).flatMap((l) => l.edges).sort((a, b) => a - b);
     expect(fromLinks).toEqual(flagged);
-    expect(g.links.filter((l) => l.candidate)).toHaveLength(7);
+    expect(g.links.filter((l) => l.candidate)).toHaveLength(3);
     for (const l of g.links.filter((x) => x.candidate)) expect(l.edges).toHaveLength(2);
   });
 
@@ -83,11 +85,12 @@ describe.skipIf(!snapshotExists)(`candidate edges on the real graph${snapshotExi
     }
   });
 
-  it("apply_candidate enables exactly the right edges, cost factor or source for all 24 candidates", () => {
+  it("apply_candidate enables exactly the right edges, cost factor or source for all 16 kept candidates", () => {
     const g = engine.snap.graph;
     let enable = 0;
     let speed = 0;
     let source = 0;
+    let hazmat = 0;
     for (const c of engine.snap.candidates) {
       const cw = compile({ snapshotId: engine.snap.id, mutations: [rec("a", { kind: "apply_candidate", candidateId: c.id })] }, ctx);
       const ef = c.effect;
@@ -100,6 +103,9 @@ describe.skipIf(!snapshotExists)(`candidate edges on the real graph${snapshotExi
         // the same edges are what a candidate link of the same name opens
         const link = g.links.find((l) => l.id === c.id || l.edges.join() === ef.edges.join());
         expect(link?.candidate, `${c.id} maps to a candidate link`).toBe(true);
+        // shuttles carry HAZMAT_PROHIBITED as well (a hazmat vehicle cannot ride a shuttle); connectors do not
+        const prohibited = ef.edges.every((e) => (g.edgeFlags[e] & g.flag.HAZMAT_PROHIBITED) !== 0);
+        expect(prohibited, c.id).toBe(c.id.startsWith("TL-SHUTTLE"));
       } else if (ef.op === "corridor_speed") {
         speed++;
         expect(diff(cw), c.id).toEqual([]);
@@ -112,14 +118,26 @@ describe.skipIf(!snapshotExists)(`candidate edges on the real graph${snapshotExi
           } else expect(cw.edgeCostMul[e]).toBe(1);
         }
         expect(n).toBeGreaterThan(0);
+      } else if (ef.op === "allow_class_on") {
+        hazmat++;
+        // cars: nothing changes. hazmat: every listed edge is allowed, only the penalty edges pay the delay
+        expect(diff(cw), c.id).toEqual([]);
+        expect(cw.edgeCostMul.every((x) => x === 1)).toBe(true);
+        const allowed = [...cw.hazmatAllowed.keys()].filter((e) => cw.hazmatAllowed[e] === 1);
+        expect(allowed, c.id).toEqual(ef.edges.slice().sort((a, b) => a - b));
+        const paying = [...cw.hazmatPenaltyS.keys()].filter((e) => cw.hazmatPenaltyS[e] > 0);
+        expect(paying, c.id).toEqual((ef.penaltyEdges ?? ef.edges).slice().sort((a, b) => a - b));
+        for (const e of paying) expect(cw.hazmatPenaltyS[e]).toBe(ef.timePenaltyS);
+        for (const e of ef.penaltyEdges ?? []) expect(ef.edges).toContain(e);
       } else if (ef.op === "add_source") {
         source++;
         expect(diff(cw), c.id).toEqual([]);
         expect(cw.extraSources).toEqual([{ node: ef.facilityLike.node, delayS: ef.delayS ?? 0 }]);
       }
     }
-    expect(enable + speed + source).toBe(engine.snap.candidates.length);
-    expect(enable).toBe(7);
+    expect(enable + speed + source + hazmat).toBe(engine.snap.candidates.length);
+    expect(engine.snap.candidates).toHaveLength(16);
+    expect([enable, speed, source, hazmat]).toEqual([3, 8, 3, 2]);
   });
 
   it("closing then reopening the Key Bridge restores the baseline exactly; opening a candidate never touches real edges", () => {

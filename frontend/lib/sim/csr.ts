@@ -11,6 +11,9 @@
 import { z } from "zod";
 import { NO_CORRIDOR, type Graph, type GraphMeta, type LinkInfo } from "./contract";
 
+/** Link ids the app uses for corridors the snapshot has only as corridors. */
+export const CORRIDOR_LINK_ALIASES: Record<string, string> = { "L-HANOVER": "C-HANOVER", "L-BROENING": "C-BROENING" };
+
 export class ContractError extends Error {
   constructor(message: string) {
     super(`snapshot contract violation: ${message}`);
@@ -141,6 +144,18 @@ export function parseGraph(metaJson: unknown, raw: ArrayBuffer): Graph {
     if (g.corridorIndex.has(c.id)) throw new ContractError(`duplicate corridor id ${c.id}`);
     g.corridorIndex.set(c.id, i);
   });
+  // Stress tests and random closures name "Hanover Street corridor" and "Broening Highway corridor" as links
+  // (L-HANOVER, L-BROENING). The snapshot models them as corridors, so those two ids alias the corridor: closing
+  // the alias closes every edge of the corridor. Real links of the same id win; edgeLink is not touched.
+  for (const [alias, corridor] of Object.entries(CORRIDOR_LINK_ALIASES)) {
+    const ci = g.corridorIndex.get(corridor);
+    if (g.linkIndex.has(alias) || ci === undefined) continue;
+    const edges: number[] = [];
+    for (let e = 0; e < E; e++) if (g.edgeCorridor[e] === ci) edges.push(e);
+    if (edges.length === 0) continue;
+    g.linkIndex.set(alias, g.links.length);
+    g.links.push({ id: alias, name: `${meta.corridors[ci].name} (whole corridor)`, edges, candidate: false, alias: true });
+  }
 
   validateGraph(g);
   return g;

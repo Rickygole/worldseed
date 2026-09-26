@@ -22,6 +22,8 @@ export interface DijkstraRun {
   enabled: Uint8Array;
   /** Optional per-edge cost multiplier. */
   costMul?: Float32Array;
+  /** Optional per-edge seconds added after the multiplier (e.g. an escort delay on a tunnel bore). */
+  costAdd?: Float32Array;
   /** Do not settle nodes farther than this (seconds). Default Infinity. */
   maxCost?: number;
   /** Fill `pred`. */
@@ -56,6 +58,7 @@ export class DijkstraWorkspace {
     const n = g.nodeCount;
     const enabled = opts.enabled;
     const mul = opts.costMul;
+    const add = opts.costAdd;
     const maxCost = opts.maxCost ?? Infinity;
     const wantPred = opts.wantPred === true;
     const off = opts.reverse ? g.revOff : g.fwdOff;
@@ -87,7 +90,8 @@ export class DijkstraWorkspace {
       for (let i = off[u]; i < end; i++) {
         const e = adj[i];
         if (enabled[e] === 0) continue;
-        const w = mul ? time[e] * mul[e] : time[e];
+        let w = mul ? time[e] * mul[e] : time[e];
+        if (add) w += add[e];
         const nd = du + w;
         if (nd > maxCost) continue;
         const v = far[e];

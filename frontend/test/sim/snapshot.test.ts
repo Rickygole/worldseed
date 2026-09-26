@@ -15,7 +15,7 @@ describe("loadSnapshot", () => {
     expect(Array.from(snapshot.hexes.pop)).toEqual(Array.from(h.snap.hexes.pop));
     expect(snapshot.hexes.h3[3]).toBe("fx-3");
     expect(snapshot.facilities).toHaveLength(4);
-    expect(snapshot.candidates).toHaveLength(4);
+    expect(snapshot.candidates).toHaveLength(5);
     // values come from assumptions.json, converted to the neutral internal unit
     expect(params.call_to_wheels_delay_min).toBe(1.5);
     expect(params.emsThresholdS).toBe(420);

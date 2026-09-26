@@ -3,7 +3,7 @@
  * and a small two-shore "harbor" snapshot (bridge, tunnel, detour, one disabled candidate link).
  */
 import { parseGraph } from "../../lib/sim/csr";
-import type { BlockGroup, Candidate, Destination, Facility, Graph, GraphMeta, Hexes, Snapshot } from "../../lib/sim/contract";
+import type { BlockGroup, Candidate, TripsMeta, Destination, Facility, Graph, GraphMeta, Hexes, Snapshot } from "../../lib/sim/contract";
 import type { ModelParams } from "../../lib/sim/contract";
 import { CONTRACT_MODEL_DEFAULTS } from "../../lib/sim/snapshot";
 
@@ -226,6 +226,7 @@ export function buildHarbor(W = 12, Hh = 8, candidateStyle: "links" | "candidate
     { id: "TL-TEMP", type: "temp_link", title: "Temporary link", lens: ["access", "ems"], costTier: "$$", effect: { op: "enable_edges", edges: candEdges }, hypothetical: true },
     { id: "SP-TUNNEL", type: "signal_priority", title: "Tunnel corridor speed", lens: ["access"], costTier: "$", effect: { op: "corridor_speed", corridor: "C-I895-TUNNEL", factor: 2 }, hypothetical: true },
     { id: "PP-SITE", type: "prepos_site", title: "Pre-positioned unit", lens: ["ems"], costTier: "$$", effect: { op: "add_source", facilityLike: { lat: 39.2, lng: -76.5, node: node(W - 1, 4) } }, hypothetical: true },
+    { id: "HW-TUNNEL", type: "hazmat_window", title: "Hazmat window", lens: ["freight"], costTier: "$$", effect: { op: "allow_class_on", edges: tunnelEdges, vehicleClass: "hazmat", timePenaltyS: 30, penaltyEdges: tunnelEdges }, hypothetical: true },
     { id: "IM-TUNNEL", type: "incident_mgmt", title: "Incident management", lens: ["access"], costTier: "$$", effect: { op: "congestion_sigma", corridor: "C-I895-TUNNEL", scale: 0.5 }, hypothetical: true },
   ];
   const blockGroups: BlockGroup[] = [];
@@ -234,7 +235,21 @@ export function buildHarbor(W = 12, Hh = 8, candidateStyle: "links" | "candidate
     const hs = [...Array(H).keys()].filter((i) => bg[i] === b);
     blockGroups.push({ geoid: `2451000${String(b).padStart(2, "0")}001`, i: b, county: b < 4 ? "Fixture County A" : "Fixture County B", pop: Math.round(hs.reduce((a, i) => a + pop[i], 0)), households: 0, zvh: 0, lowWageWorkers: 0, centroid: [-76.5, 39.2], hexes: hs });
   }
+  const anchor = (id: string, x: number, y: number, shore: number) => ({ id, name: `Anchor ${id}`, shore, node: node(x, y), lat: 39.2 + y * 0.003, lng: -76.55 + x * 0.004 });
+  const anchors = [anchor("W1", 1, 2, 1), anchor("W2", 2, 6, 1), anchor("E1", 10, 2, 0), anchor("E2", 9, 6, 0)];
+  const trip = (o: string, d: string) => {
+    const a = anchors.find((x) => x.id === o) as (typeof anchors)[number];
+    const b = anchors.find((x) => x.id === d) as (typeof anchors)[number];
+    return { id: `${o}>${d}`, origin: o, destination: d, kind: (a.shore === b.shore ? "same_shore_control" : "cross_harbor") as "cross_harbor" | "same_shore_control", originNode: a.node, destinationNode: b.node };
+  };
+  const trips: TripsMeta = {
+    anchors,
+    trips: [trip("W1", "E1"), trip("E1", "W1"), trip("W1", "E2"), trip("E2", "W1"), trip("W2", "E1"), trip("E1", "W2"), trip("W1", "W2"), trip("W2", "W1")],
+    classes: { car: { removesFlag: null }, hazmat_truck: { removesFlag: "HAZMAT_PROHIBITED" } },
+    toleranceS: 0.5,
+  };
   const snap: Snapshot = {
+    trips,
     id: HARBOR_ID,
     manifest: null,
     graph,
@@ -313,6 +328,7 @@ export function harborReader(h: Harbor, extra: Record<string, unknown> = {}, omi
     ]),
     "manifest.json": json({ snapshotId: h.snap.id, pipelineVersion: "test" }),
     "blockgroups.json": json(h.snap.blockGroups),
+    "trips.json": json({ anchors: h.snap.trips?.anchors, trips: h.snap.trips?.trips, classes: h.snap.trips?.classes, tolerance: { timeS: 0.5 } }),
   };
   for (const [k, v] of Object.entries(extra)) files[k] = v instanceof ArrayBuffer ? v : json(v);
   return async (file) => {

@@ -3,18 +3,21 @@
 //
 //  - Checks every shipped file listed in manifest.json against its sha256 and size. A mismatch is a warning,
 //    or a failure when WS_REQUIRE_SNAPSHOT=1.
-//  - Skips golden.json and access_sensitivity.json: they are for tests and pipeline analysis, not the app.
+//  - Skips golden.json, access_sensitivity.json and candidate_effects.json: tests and pipeline analysis, not the app.
+//  - Writes public/snapshot/trips.json (trip anchors, trip definitions, vehicle classes) from the `trips` key of
+//    golden.json when the pipeline has not shipped a trips.json of its own. Results are NOT copied, only the
+//    definitions the simulator needs.
 //  - If the snapshot has not been built yet it warns and exits 0, and the app falls back to the DEMO mock
 //    (its footer shows "Demo data"). Set WS_REQUIRE_SNAPSHOT=1 (CI, production deploys) to fail instead.
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(root, "..", "data", "snapshot");
 const dest = join(root, "public", "snapshot");
-const DEV_ONLY = new Set(["golden.json", "access_sensitivity.json"]);
+const DEV_ONLY = new Set(["golden.json", "access_sensitivity.json", "candidate_effects.json"]);
 const required = process.env.WS_REQUIRE_SNAPSHOT === "1";
 
 function stop(message) {
@@ -64,5 +67,16 @@ for (const f of readdirSync(src)) {
   copyFileSync(p, join(dest, f));
   n++;
   bytes += statSync(p).size;
+}
+if (!existsSync(join(src, "trips.json")) && existsSync(join(src, "golden.json"))) {
+  const trips = JSON.parse(readFileSync(join(src, "golden.json"), "utf8")).trips;
+  if (trips && Array.isArray(trips.anchors) && Array.isArray(trips.trips)) {
+    const out = { anchors: trips.anchors, trips: trips.trips.map((t) => Object.fromEntries(Object.entries(t).filter(([k]) => k !== "results"))), classes: trips.classes, tolerance: trips.tolerance };
+    const text = JSON.stringify(out);
+    writeFileSync(join(dest, "trips.json"), text + "\n");
+    n++;
+    bytes += text.length;
+    console.log(`wrote trips.json (${trips.trips.length} trips, ${trips.anchors.length} anchors) from golden.json`);
+  }
 }
 console.log(`synced ${n} snapshot files (${(bytes / 1e6).toFixed(1)} MB) to public/snapshot`);

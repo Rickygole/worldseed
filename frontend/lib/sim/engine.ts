@@ -5,6 +5,8 @@
  */
 import { compile, emptyWorld, worldStateSchema, type CompileContext } from "./compile";
 import type {
+  BundleInput,
+  BundleRow,
   CausalChain,
   CompiledWorld,
   FuturesOptions,
@@ -26,6 +28,8 @@ import { createEmsLens } from "./lenses/ems";
 import { createXharborLens, DEFAULT_ANCHORS_PER_SHORE, FUTURES_ANCHORS_PER_SHORE, type XharborOptions } from "./lenses/xharbor";
 import type { Lens, LensAux, LensContext } from "./lenses/types";
 import { MetricsWorkspace } from "./metrics";
+import { bundleWorld } from "./stress";
+import { TripsEngine, type TripsRequest, type TripsResult } from "./trips";
 import {
   DEFAULT_FUTURES_PARAMS,
   describeFuturesParams,
@@ -63,13 +67,15 @@ export interface SnapshotInfo {
   nodeCount: number;
   edgeCount: number;
   hexCount: number;
-  links: { id: string; name: string; edgeCount: number }[];
+  links: { id: string; name: string; edgeCount: number; alias?: boolean }[];
   corridors: { id: string; name: string }[];
   destinations: { id: string; name: string; jobs: number }[];
   facilityCount: number;
   candidates: { id: string; type: string; title: string; lens: string[]; costTier: string; hypothetical: boolean }[];
   params: ModelParams;
   paramSources: { fromSnapshot: string[]; defaulted: string[]; futuresFromSnapshot: string[] };
+  /** Trip anchors, trip definitions and vehicle classes (null when the snapshot has none). */
+  trips: import("./contract").TripsMeta | null;
   futuresParams: AssumptionRecord[];
   runner: Runner;
 }
@@ -114,6 +120,7 @@ export class SimEngine {
   private readonly baselineField = new Map<Lens, { field: Float32Array; aux?: Float32Array }>();
   private readonly refCache = new Map<string, { field: Float32Array; aux?: Float32Array }>();
   private readonly fingerprint: string;
+  private readonly tripsEngine: TripsEngine | null;
 
   constructor(
     loaded: { snapshot: Snapshot; params: ModelParams; paramSources?: { fromSnapshot: string[]; defaulted: string[] } },
@@ -142,18 +149,20 @@ export class SimEngine {
     this.lenses = { ems: createEmsLens(this.ctx), access: createAccessLens(this.ctx) };
     this.baselineCw = compile(emptyWorld(snap.id), this.cctx);
     this.fingerprint = JSON.stringify([this.params, this.futuresParams]);
+    this.tripsEngine = snap.trips ? new TripsEngine(snap.graph, this.ctx.dj, snap.trips, this.baselineCw) : null;
     this.info = {
       id: snap.id,
       nodeCount: snap.graph.nodeCount,
       edgeCount: snap.graph.edgeCount,
       hexCount: snap.hexes.count,
-      links: snap.graph.links.filter((l) => !l.candidate).map((l) => ({ id: l.id, name: l.name, edgeCount: l.edges.length })),
+      links: snap.graph.links.filter((l) => !l.candidate).map((l) => ({ id: l.id, name: l.name, edgeCount: l.edges.length, ...(l.alias ? { alias: true } : {}) })),
       corridors: snap.graph.meta.corridors,
       destinations: snap.destinations.map((d) => ({ id: d.id, name: d.name, jobs: d.jobs })),
       facilityCount: snap.facilities.length,
       candidates: snap.candidates.map((c) => ({ id: c.id, type: c.type, title: c.title, lens: c.lens, costTier: c.costTier, hypothetical: c.hypothetical ?? true })),
       params: this.params,
       paramSources: { ...(loaded.paramSources ?? { fromSnapshot: [], defaulted: [] }), futuresFromSnapshot: futuresUsed },
+      trips: snap.trips,
       futuresParams: describeFuturesParams(this.futuresParams, resolved.fromSnapshot),
       runner: detectRunner(),
     };
@@ -161,6 +170,12 @@ export class SimEngine {
 
   static async fromReader(read: SnapshotReader, futuresParams?: FuturesParams, xharborAnchors?: number): Promise<SimEngine> {
     return new SimEngine(await loadSnapshot(read), futuresParams, xharborAnchors);
+  }
+
+  /** Freight and hazmat trips in a world (see ./trips.ts). Throws when the snapshot has no trip definitions. */
+  runTrips(world: WorldState, req: TripsRequest = {}): TripsResult {
+    if (!this.tripsEngine) throw new Error("this snapshot has no trip definitions (trips.json or golden.json trips)");
+    return this.tripsEngine.run(this.compileWorld(world), this.snap.id, req, detectRunner());
   }
 
   /** Compile a world, validating its shape first (it may come from an agent tool call). */
@@ -235,6 +250,43 @@ export class SimEngine {
     }
     result.meta.ms = performance.now() - t0;
     return result;
+  }
+
+  /**
+   * Deterministic metrics for many bundles (each = `world` plus the bundle's candidates) on one lens: the
+   * exhaustive check. No fields are kept. Yields to the event loop every few milliseconds so a cancel or a
+   * progress message gets through; `hooks.onProgress(done)` is the number of bundles finished so far. A bundle
+   * the compiler rejects (unknown or already applied candidate) yields a row with `error`, not an exception.
+   */
+  async runDeterministicMany(world: WorldState, bundles: BundleInput[], lensId: LensId, x: Partial<XharborOptions> = {}, hooks: EngineHooks = {}): Promise<BundleRow[]> {
+    const l = this.lens(lensId, x);
+    const base = this.baseline(l);
+    const usesBase = lensId === "access" || lensId === "xharbor";
+    const H = this.snap.hexes.count;
+    const field = new Float32Array(H);
+    const aux = l.hasAux ? new Float32Array(H) : undefined;
+    const now = new Date().toISOString();
+    const rows: BundleRow[] = [];
+    let lastYield = performance.now();
+    for (let i = 0; i < bundles.length; i++) {
+      if (hooks.isCancelled?.()) throw new CancelledError();
+      const b = bundles[i];
+      try {
+        const cw = this.compileWorld(bundleWorld(world, b, now));
+        l.field(cw, null, field, aux);
+        const laux: LensAux | null = aux ? { jobs: aux, baselineJobs: base.aux ?? null } : null;
+        rows.push({ bundleId: b.id, candidateIds: b.candidateIds, metrics: l.metrics(field, usesBase ? base.field : null, null, laux) });
+      } catch (e) {
+        rows.push({ bundleId: b.id, candidateIds: b.candidateIds, error: e instanceof Error ? e.message : String(e) });
+      }
+      hooks.onProgress?.(i + 1);
+      const t = performance.now();
+      if (t - lastYield > YIELD_EVERY_MS) {
+        await yieldToEventLoop();
+        lastYield = performance.now();
+      }
+    }
+    return rows;
   }
 
   /** Run futures [start, end) of a scenario. Future i depends only on (seed, i), so ranges can run anywhere. */

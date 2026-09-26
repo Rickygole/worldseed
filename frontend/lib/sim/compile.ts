@@ -242,9 +242,12 @@ function applyEffect(g: Graph, cw: CompiledWorld, c: Candidate, mid: string): nu
       return 0;
     case "allow_class_on": {
       checkEdges(g, ef.edges, mid);
+      // Every listed edge is usable by hazmat vehicles; only `penaltyEdges` (the tunnel bores) pay the delay, once
+      // per passage. Without `penaltyEdges` (older catalogs) every listed edge pays it.
+      const pay = new Set(ef.penaltyEdges ?? ef.edges);
       for (const e of ef.edges) {
         cw.hazmatAllowed[e] = 1;
-        cw.hazmatPenaltyS[e] = ef.timePenaltyS;
+        cw.hazmatPenaltyS[e] = pay.has(e) ? ef.timePenaltyS : 0;
       }
       return ef.edges.length;
     }

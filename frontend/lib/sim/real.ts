@@ -17,11 +17,12 @@
  *          equityGap = low-wage-weighted mean added minus population mean added
  */
 import { BRIDGE, distKm, toLocalKm } from "../geo";
-import type { AssumptionRecord, FuturesOptions, FuturesResult, Hexes, LensId, LensMetrics, Manifest, MutationRecord, RunResult, WorldState, WorstBlockGroup } from "./contract";
+import type { AssumptionRecord, BundleInput, FuturesOptions, FuturesResult, Hexes, LensId, LensMetrics, Manifest, MutationRecord, RunResult, WorldState, WorstBlockGroup } from "./contract";
 import { formatRunnerLabel } from "./runner";
 import { fetchReader, parseHexes, SnapshotMissingError, type SnapshotReader } from "./snapshot";
 import type { SnapshotInfo } from "./engine";
-import { abortError, SimPool, type FuturesRunOptions, type PoolOptions } from "../workers/pool";
+import type { TripsResult } from "./trips";
+import { abortError, SimPool, type DeterministicManyOptions, type DeterministicManyResult, type FuturesRunOptions, type PairedOptions, type PairedResult, type PoolOptions } from "../workers/pool";
 import type { Assumption, Cell, RunOptions, Scenario, SimOutput, Simulator, SimulatorMeta, World, WorstBlockGroupNamed, XharborDetail } from "./types";
 
 /**
@@ -40,6 +41,15 @@ export interface RealSimulator extends Simulator {
   info(): SnapshotInfo;
   /** Compile the UI scenario to a WorldState (what the workers receive). */
   worldState(scenario: Scenario): WorldState;
+  /**
+   * Freight and hazmat trips in the scenario's world: per trip and vehicle class, baseline / current / added minutes,
+   * ratio and unreachable, plus a per-class summary over the cross-harbor pairs. A few tens of milliseconds.
+   */
+  runTrips(scenario: Scenario, opts?: { classes?: string[]; tripIds?: string[]; includeRoutes?: boolean; signal?: AbortSignal }): Promise<TripsResult>;
+  /** Exhaustive check: deterministic metrics for many bundles (candidate combinations) on top of the scenario. */
+  runDeterministicMany(scenario: Scenario, bundles: BundleInput[], opts: DeterministicManyOptions): Promise<DeterministicManyResult>;
+  /** Futures for a stressed baseline and each bundle with identical draws (paired). */
+  runBundlesPaired(scenario: Scenario, bundles: BundleInput[], opts: PairedOptions): Promise<PairedResult>;
   runFutures(scenario: Scenario, lens: LensId, opts: FuturesOptions, run?: FuturesRunOptions): Promise<FuturesResult>;
   explain(scenario: Scenario, lens: LensId, hexIndex: number): ReturnType<SimPool["explain"]>;
   dispose(): void;
@@ -320,6 +330,18 @@ export function createRealSimulator(options: RealSimulatorOptions = {}): RealSim
     },
 
     worldState,
+
+    runTrips(scenario, opts = {}) {
+      return need().runTrips(worldState(scenario), opts);
+    },
+
+    runDeterministicMany(scenario, bundles, opts) {
+      return need().runDeterministicMany(worldState(scenario), bundles, opts);
+    },
+
+    runBundlesPaired(scenario, bundles, opts) {
+      return need().runBundlesPaired(worldState(scenario), bundles, opts);
+    },
 
     runFutures(scenario, lens, opts, run) {
       return need().runFutures(worldState(scenario), lens, opts, run);

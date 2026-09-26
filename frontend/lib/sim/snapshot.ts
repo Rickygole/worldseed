@@ -21,10 +21,12 @@ import type {
   Candidate,
   Destination,
   Facility,
+  Graph,
   Hexes,
   Manifest,
   ModelParams,
   Snapshot,
+  TripsMeta,
 } from "./contract";
 
 export type SnapshotReader = (file: string) => Promise<ArrayBuffer>;
@@ -116,7 +118,14 @@ const effectSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("enable_edges"), edges: z.array(z.number().int().nonnegative()) }),
   z.object({ op: z.literal("corridor_speed"), corridor: z.string(), factor: z.number().positive() }),
   z.object({ op: z.literal("add_source"), facilityLike: z.object({ lat: z.number(), lng: z.number(), node: z.number().int().nonnegative() }), delayS: z.number().nonnegative().optional() }),
-  z.object({ op: z.literal("allow_class_on"), edges: z.array(z.number().int().nonnegative()), vehicleClass: z.literal("hazmat"), timePenaltyS: z.number().nonnegative() }),
+  z.object({
+    op: z.literal("allow_class_on"),
+    edges: z.array(z.number().int().nonnegative()),
+    vehicleClass: z.literal("hazmat"),
+    timePenaltyS: z.number().nonnegative(),
+    // The edges that pay the penalty (tunnel bores); the rest of `edges` are allowed with no penalty.
+    penaltyEdges: z.array(z.number().int().nonnegative()).optional(),
+  }),
   z.object({ op: z.literal("congestion_sigma"), corridor: z.string(), scale: z.number().nonnegative() }),
 ]);
 
@@ -160,6 +169,28 @@ const blockGroupSchema = z.array(z.object({
   centroid: z.tuple([z.number(), z.number()]).optional(),
   hexes: z.array(z.number().int().nonnegative()),
 }));
+
+const tripsSchema = z.object({
+  anchors: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    shore: z.number().int().min(0).max(1),
+    node: z.number().int().nonnegative(),
+    lat: z.number(),
+    lng: z.number(),
+    osmNode: z.number().optional(),
+  })).min(1),
+  trips: z.array(z.object({
+    id: z.string(),
+    origin: z.string(),
+    destination: z.string(),
+    kind: z.enum(["cross_harbor", "same_shore_control"]),
+    originNode: z.number().int().nonnegative(),
+    destinationNode: z.number().int().nonnegative(),
+  })).min(1),
+  classes: z.record(z.string(), z.object({ removesFlag: z.string().nullable() })),
+  tolerance: z.object({ timeS: z.number() }).optional(),
+});
 
 const manifestSchema = z.object({
   snapshotId: z.string().min(1),
@@ -254,7 +285,7 @@ export interface LoadedSnapshot {
 }
 
 export async function loadSnapshot(read: SnapshotReader): Promise<LoadedSnapshot> {
-  const [graphMeta, graphBin, hexMeta, hexBin, facRaw, destRaw, candRaw, assumpRaw, manRaw, bgRaw] = await Promise.all([
+  const [graphMeta, graphBin, hexMeta, hexBin, facRaw, destRaw, candRaw, assumpRaw, manRaw, bgRaw, tripsRaw] = await Promise.all([
     readJson(read, "graph.meta.json"),
     read("graph.bin"),
     readJson(read, "hexes.meta.json"),
@@ -265,6 +296,7 @@ export async function loadSnapshot(read: SnapshotReader): Promise<LoadedSnapshot
     readOptionalJson(read, "assumptions.json"),
     readOptionalJson(read, "manifest.json"),
     readOptionalJson(read, "blockgroups.json"),
+    readTripsJson(read),
   ]);
 
   const graph = parseGraph(graphMeta, graphBin);
@@ -274,6 +306,10 @@ export async function loadSnapshot(read: SnapshotReader): Promise<LoadedSnapshot
   const candidates: Candidate[] = candRaw === null ? [] : (parse(candidateSchema, candRaw, "candidates.json") as Candidate[]);
   const assumptions: AssumptionRecord[] = assumpRaw === null ? [] : (parse(assumptionSchema, assumpRaw, "assumptions.json") as AssumptionRecord[]);
   const blockGroups: BlockGroup[] = bgRaw === null ? [] : (parse(blockGroupSchema, bgRaw, "blockgroups.json") as BlockGroup[]);
+  const tripsParsed = tripsRaw === null ? null : parse(tripsSchema, tripsRaw, "trips.json");
+  const trips: TripsMeta | null = tripsParsed
+    ? { anchors: tripsParsed.anchors, trips: tripsParsed.trips, classes: tripsParsed.classes, toleranceS: tripsParsed.tolerance?.timeS }
+    : null;
   const manifest: Manifest | null = manRaw === null ? null : parse(manifestSchema, manRaw, "manifest.json");
 
   const N = graph.nodeCount;
@@ -285,6 +321,7 @@ export async function loadSnapshot(read: SnapshotReader): Promise<LoadedSnapshot
   for (const b of blockGroups) {
     for (const h of b.hexes) if (h >= hexes.count) throw new ContractError(`blockgroups.json: ${b.geoid} references hex ${h} >= hex count ${hexes.count}`);
   }
+  if (trips) validateTrips(trips, graph);
   for (const c of candidates) validateCandidate(c, graph.edgeCount, N, graph.corridorIndex);
 
   const id = manifest?.snapshotId ?? parse(hexMetaSchema, hexMeta, "hexes.meta.json").snapshotId;
@@ -292,16 +329,52 @@ export async function loadSnapshot(read: SnapshotReader): Promise<LoadedSnapshot
 
   const { params, fromSnapshot, defaulted } = modelParamsFromAssumptions(assumptions);
   return {
-    snapshot: { id, manifest, graph, hexes, facilities, destinations, candidates, assumptions, blockGroups },
+    snapshot: { id, manifest, graph, hexes, facilities, destinations, candidates, assumptions, blockGroups, trips },
     params,
     paramSources: { fromSnapshot, defaulted },
   };
+}
+
+/**
+ * Trip definitions: `trips.json` when the pipeline (or the sync script) provides it, else the `trips` key of
+ * golden.json (a development file that is not served to browsers, so there it is simply absent).
+ */
+async function readTripsJson(read: SnapshotReader): Promise<unknown | null> {
+  const own = await readOptionalJson(read, "trips.json");
+  if (own !== null) return own;
+  const golden = (await readOptionalJson(read, "golden.json")) as { trips?: unknown } | null;
+  return golden && typeof golden === "object" && golden.trips ? golden.trips : null;
+}
+
+function validateTrips(t: TripsMeta, g: Graph): void {
+  const N = g.nodeCount;
+  const anchors = new Map(t.anchors.map((a) => [a.id, a]));
+  for (const a of t.anchors) if (a.node >= N) throw new ContractError(`trips.json: anchor ${a.id} node ${a.node} >= nodeCount ${N}`);
+  for (const d of t.trips) {
+    const o = anchors.get(d.origin);
+    const e = anchors.get(d.destination);
+    if (!o || !e) throw new ContractError(`trips.json: trip ${d.id} references an unknown anchor`);
+    if (d.originNode !== o.node || d.destinationNode !== e.node) throw new ContractError(`trips.json: trip ${d.id} nodes do not match its anchors`);
+    const cross = o.shore !== e.shore;
+    if (cross !== (d.kind === "cross_harbor")) throw new ContractError(`trips.json: trip ${d.id} kind ${d.kind} disagrees with the anchors' shores`);
+  }
+  for (const [c, def] of Object.entries(t.classes)) {
+    if (def.removesFlag !== null && !(def.removesFlag in g.flag)) throw new ContractError(`trips.json: class ${c} removes unknown flag ${def.removesFlag}`);
+  }
+  if (!("car" in t.classes)) throw new ContractError("trips.json: missing vehicle class car");
 }
 
 function validateCandidate(c: Candidate, E: number, N: number, corridors: Map<string, number>): void {
   const ef = c.effect;
   const edges = "edges" in ef ? ef.edges : [];
   for (const e of edges) if (e >= E) throw new ContractError(`candidates.json: ${c.id} references edge ${e} >= edgeCount ${E}`);
+  if (ef.op === "allow_class_on" && ef.penaltyEdges) {
+    const allowed = new Set(ef.edges);
+    for (const e of ef.penaltyEdges) {
+      if (e >= E) throw new ContractError(`candidates.json: ${c.id} penalty edge ${e} >= edgeCount ${E}`);
+      if (!allowed.has(e)) throw new ContractError(`candidates.json: ${c.id} penalty edge ${e} is not in its allowed edges`);
+    }
+  }
   if ("corridor" in ef && !corridors.has(ef.corridor)) throw new ContractError(`candidates.json: ${c.id} references unknown corridor ${ef.corridor}`);
   if (ef.op === "add_source" && ef.facilityLike.node >= N) throw new ContractError(`candidates.json: ${c.id} source node out of range`);
 }

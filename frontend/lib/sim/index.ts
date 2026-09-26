@@ -7,6 +7,9 @@ export type * from "./contract";
 export { createRealSimulator, DEFAULT_LENS, DEFAULT_SNAPSHOT_URL } from "./real";
 export type { RealSimulator } from "./real";
 export { formatRunnerLabel } from "./runner";
+export { bundleWorld, bundleCostTier, simTod, worldWithStress } from "./stress";
+export type { BundleLike, StressApplied, StressLike } from "./stress";
+export type { TripClassResult, TripResult, TripRoute, TripsClassSummary, TripsRequest, TripsResult } from "./trips";
 
 /**
  * The Simulator the app uses: the snapshot-backed browser simulator.

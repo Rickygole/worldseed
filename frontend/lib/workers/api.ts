@@ -7,9 +7,10 @@
  * boundary. A cancelled range rejects with an AbortError.
  */
 import * as Comlink from "comlink";
-import type { CausalChain, FuturesOptions, FuturesPartial, LensId, RunResult, WorldState } from "../sim/contract";
+import type { BundleInput, BundleRow, CausalChain, FuturesOptions, FuturesPartial, LensId, RunResult, WorldState } from "../sim/contract";
 import { SimEngine, type SnapshotInfo } from "../sim/engine";
 import type { XharborOptions } from "../sim/lenses/xharbor";
+import type { TripsRequest, TripsResult } from "../sim/trips";
 import { fetchReader, type SnapshotReader } from "../sim/snapshot";
 
 export interface WorkerApi {
@@ -17,6 +18,20 @@ export interface WorkerApi {
   load(snapshotBaseUrl: string): Promise<SnapshotInfo>;
   /** `x` picks the xharbor variant (fast anchors by default, or exact). */
   runDeterministic(world: WorldState, lens: LensId, x?: Partial<XharborOptions>): Promise<RunResult>;
+  /**
+   * Deterministic metrics for many bundles on one worker (no fields returned). `onProgress` receives the bundles
+   * finished so far. Cancelable with cancel(jobId).
+   */
+  runDeterministicMany(
+    jobId: string,
+    world: WorldState,
+    bundles: BundleInput[],
+    lens: LensId,
+    x?: Partial<XharborOptions>,
+    onProgress?: (done: number) => void,
+  ): Promise<BundleRow[]>;
+  /** Freight and hazmat trips in a world (a few Dijkstras; no fields to transfer). */
+  runTrips(world: WorldState, req?: TripsRequest): Promise<TripsResult>;
   /** Compute baselines and anchors now so the first real request is fast. Resolves when done. */
   warm(lenses?: LensId[]): Promise<void>;
   /** Futures [start, end) of a scenario. `onProgress` receives the count completed in this range. */
@@ -65,6 +80,18 @@ export function createWorkerApi(options: WorkerApiOptions = {}): WorkerApi {
       const buffers: ArrayBuffer[] = [r.field.buffer as ArrayBuffer];
       for (const a of [r.added, r.jobsWithin, r.lossFrac, r.baselineField, r.baselineJobsWithin]) if (a) buffers.push(a.buffer as ArrayBuffer);
       return Comlink.transfer(r, buffers);
+    },
+
+    async runDeterministicMany(jobId, world, bundles, lens, x, onProgress) {
+      try {
+        return await need().runDeterministicMany(world, bundles, lens, x, { onProgress, isCancelled: () => cancelled.has(jobId) });
+      } finally {
+        cancelled.delete(jobId);
+      }
+    },
+
+    async runTrips(world, req) {
+      return need().runTrips(world, req);
     },
 
     async warm(lenses = ["ems", "access", "xharbor"]) {

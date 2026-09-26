@@ -104,6 +104,8 @@ export interface LinkInfo {
   edges: number[];
   /** true for a candidate link (meta.candidateLinks): disabled in the baseline. */
   candidate: boolean;
+  /** true when this id is an alias for a whole corridor (L-HANOVER -> C-HANOVER): closing it closes every corridor edge. */
+  alias?: boolean;
 }
 
 export interface Graph {
@@ -175,7 +177,7 @@ export type CandidateEffect =
   | { op: "enable_edges"; edges: number[] }
   | { op: "corridor_speed"; corridor: string; factor: number }
   | { op: "add_source"; facilityLike: { lat: number; lng: number; node: number }; delayS?: number }
-  | { op: "allow_class_on"; edges: number[]; vehicleClass: "hazmat"; timePenaltyS: number }
+  | { op: "allow_class_on"; edges: number[]; vehicleClass: "hazmat"; timePenaltyS: number; penaltyEdges?: number[] }
   | { op: "congestion_sigma"; corridor: string; scale: number };
 
 export interface Candidate {
@@ -234,7 +236,42 @@ export interface Manifest {
   sources?: { name: string; license?: string; attribution?: string }[];
 }
 
+// ---- point-to-point trips (freight and hazmat) ---------------------------------------------------------------------
+
+export interface TripAnchor {
+  id: string;
+  name: string;
+  /** 0 north/east bank, 1 south/west bank. */
+  shore: number;
+  node: number;
+  lat: number;
+  lng: number;
+  osmNode?: number;
+}
+
+export interface TripDef {
+  id: string;
+  origin: string;
+  destination: string;
+  kind: "cross_harbor" | "same_shore_control";
+  originNode: number;
+  destinationNode: number;
+}
+
+export type VehicleClass = "car" | "hazmat_truck";
+
+export interface TripsMeta {
+  anchors: TripAnchor[];
+  trips: TripDef[];
+  /** Vehicle classes and the edge flag each one may not use (null = none). */
+  classes: Record<string, { removesFlag: string | null }>;
+  /** Simulator tolerance per trip, seconds. */
+  toleranceS?: number;
+}
+
 export interface Snapshot {
+  /** Freight and hazmat trip definitions (trips.json, or the trips key of golden.json). Null when absent. */
+  trips: TripsMeta | null;
   /** Block groups (names, ids, county, whole-BG population). Empty when blockgroups.json is absent. */
   blockGroups: BlockGroup[];
   id: string;
@@ -532,4 +569,34 @@ export interface CausalChain {
   perDestination?: { id: string; name: string; weight: number; beforeS: number; afterS: number }[];
   template: string;
   slots: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Bundles (candidate combinations) evaluated deterministically or under futures
+
+export interface BundleInput {
+  id: string;
+  candidateIds: string[];
+}
+
+/** One bundle's deterministic outcome on a worker. Either `metrics` or `error` (a bundle the compiler rejected). */
+export interface BundleRow {
+  bundleId: string;
+  candidateIds: string[];
+  metrics?: LensMetrics;
+  error?: string;
+}
+
+/** Agent-facing deterministic row: the numbers lib/agent/exhaustive.ts ranks by, plus the full metrics. */
+export interface DeterministicRow {
+  bundleId: string;
+  candidateIds: string[];
+  /** Highest cost tier among the candidates ($ < $$ < $$$), null if a candidate is not in the catalog. */
+  costTier: string | null;
+  p50S: number;
+  p90S: number;
+  pctWithin: number;
+  isolatedCount: number;
+  equityGapS: number;
+  metrics: LensMetrics;
 }

@@ -59,8 +59,13 @@ describe.skipIf(!snapshotExists)(`real snapshot end to end${snapshotExists ? "" 
   it("Simulator default lens is the cross-harbor hero: terrain in added minutes, headline, named worst block groups, regional and EMS alongside", async () => {
     const read = fsReader(SNAPSHOT_DIR);
     vi.stubGlobal("fetch", async (url: string) => {
-      const buf = await read(url.replace("/snapshot/", ""));
-      return new Response(buf, { status: 200, headers: { "content-type": url.endsWith(".json") ? "application/json" : "application/octet-stream" } });
+      try {
+        const buf = await read(url.replace("/snapshot/", ""));
+        return new Response(buf, { status: 200, headers: { "content-type": url.endsWith(".json") ? "application/json" : "application/octet-stream" } });
+      } catch (e) {
+        if (e instanceof SnapshotMissingError) return new Response("nf", { status: 404 });
+        throw e;
+      }
     });
     const sim = createSimulator();
     const world = await sim.loadWorld();
