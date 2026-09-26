@@ -15,3 +15,12 @@ model never produces a metric.
 Status: under construction.
 
 License: MIT
+
+## Docs
+
+- [Status board](docs/STATUS.md): what is done, in progress, next, blocked; submission checklist and key dates.
+- [Feedback notes](docs/FEEDBACK_NOTES.md): running log for the Nebius / NVIDIA feedback the hackathon requires.
+- [Attributions](docs/ATTRIBUTIONS.md): data, library, font, and service credits (draft, pending legal review).
+- [Dedication](docs/DEDICATION.md): in memory of the six workers lost in the Key Bridge collapse.
+
+Repo hygiene: run `scripts/check-repo-hygiene.sh` before pushing.
