@@ -16,8 +16,14 @@
  *     lib/sim/compile.ts accepts (origin "tavily", provenance, confirmedAt). compile.ts still
  *     refuses any record that lacks confirmedAt or provenance; this module never bypasses that.
  *
+ * TRUST BOUNDARY, stated honestly: the client is the user's own browser. Anything this code can do,
+ * the user can do by hand, and the sim's compile step cannot verify where a record came from.
  * TypeScript brands cannot stop code that casts around them, so the server token is the
- * enforcement point: without it no confirmed record exists, and a token works once.
+ * enforcement point against everything except the user: it proves that a confirmation round trip
+ * happened, that the mutation is the one the server proposed (signed, bound to the requester),
+ * and that it was used once. It does not, and cannot, protect against the user themselves.
+ * tests (test/ai/round2.test.ts) fail if any other app or library code constructs a
+ * tavily-origin record.
  */
 import type { MutationRecord } from "../sim/contract";
 import type { ClosureProposal, ConfirmClosureResponse, ConfirmedClosureRecord } from "./protocol";

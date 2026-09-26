@@ -2,10 +2,11 @@
  * Agent tool schemas (docs/ARCHITECTURE.md 2.7). Shared by the browser state machine and the
  * server routes, which both re-validate every model output.
  *
- * The model returns exactly one action per turn. It is never asked for a metric: prose fields are
- * screened (see prose.ts: no digits, number words or direction words) and numbers reach the UI
- * only through {{slot}} placeholders that the application fills from simulator results. The screen
- * is a filter, not a proof that a sentence makes no quantitative claim.
+ * The model returns exactly one action per turn. It is never asked for a metric or an outcome:
+ * its text fields are "AI commentary" about mechanism and rationale, screened by prose.ts (no
+ * digits, number words, direction, quantifier or size words). Every headline and result line next
+ * to a figure is an application template filled from simulator numbers with the real sign. The
+ * screen is a filter, not a proof that a sentence makes no quantitative claim.
  */
 import { z } from "zod";
 import { CostTierSchema, ID_RE, LensSchema, CandidateTypeSchema } from "./catalog";
@@ -34,7 +35,10 @@ export function mintBundleIds(taken: Iterable<string>, count: number): string[] 
   return out;
 }
 
-const LogSentence = z.string().min(1).max(160);
+/** Model-authored commentary fields: mechanism and rationale only. An empty string means the commentary was withheld. */
+export const COMMENTARY_MAX_CHARS = 160;
+export const MECHANISM_NOTE_MAX_CHARS = 100;
+const Commentary = z.string().max(COMMENTARY_MAX_CHARS);
 
 function bundleSchema(candidateId: z.ZodType<string>) {
   return z.strictObject({
@@ -51,29 +55,28 @@ function modelBundleSchema(candidateId: z.ZodType<string>) {
 export function makeProposeSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("propose"),
-    log_sentence: LogSentence,
+    commentary: Commentary,
     bundles: z.array(bundleSchema(candidateId)).min(1).max(6),
-    hypothesis: z.string().min(1).max(280),
+    mechanism_note: z.string().max(MECHANISM_NOTE_MAX_CHARS),
   });
 }
 export function makeRefineSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("refine"),
-    log_sentence: LogSentence,
+    commentary: Commentary,
     keep: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     drop: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     add: z.array(bundleSchema(candidateId)).max(4),
   });
 }
-/** A tradeoff is one short screened sentence, kept small because it is displayed next to results. */
-export const TRADEOFF_MAX_CHARS = 100;
+/** A mechanism note is one short screened sentence, kept small because it is displayed next to results. */
 export const FinalistSchema = z.strictObject({
   bundleId: BundleIdSchema,
-  tradeoff: z.string().min(1).max(TRADEOFF_MAX_CHARS),
+  mechanism_note: z.string().max(MECHANISM_NOTE_MAX_CHARS),
 });
 export const FinalizeSchema = z.strictObject({
   action: z.literal("finalize"),
-  log_sentence: LogSentence,
+  commentary: Commentary,
   finalists: z.array(FinalistSchema).length(3),
 });
 
@@ -92,15 +95,15 @@ export const PlannerActionSchema = z.discriminatedUnion("action", [ProposeSchema
 export function makeProposeModelSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("propose"),
-    log_sentence: LogSentence,
+    commentary: Commentary,
     bundles: z.array(modelBundleSchema(candidateId)).min(1).max(6),
-    hypothesis: z.string().min(1).max(280),
+    mechanism_note: z.string().max(MECHANISM_NOTE_MAX_CHARS),
   });
 }
 export function makeRefineModelSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("refine"),
-    log_sentence: LogSentence,
+    commentary: Commentary,
     keep: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     drop: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     add: z.array(modelBundleSchema(candidateId)).max(4),
@@ -148,7 +151,6 @@ export const CONCERN_TEXT: Record<ConcernKind, string> = {
 };
 export const CritiqueSchema = z.strictObject({
   action: z.literal("critique"),
-  log_sentence: LogSentence,
   concerns: z.array(z.strictObject({ bundleId: BundleIdSchema, kind: z.enum(CONCERN_KINDS) })).max(24),
   veto: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES).optional(),
 });
@@ -174,7 +176,6 @@ export const ParsedMissionSchema = z.strictObject({
     types: z.array(CandidateTypeSchema).max(5),
     areas: z.array(GazetteerIdSchema).max(8),
   }),
-  log_sentence: LogSentence,
 });
 export type ParsedMission = z.infer<typeof ParsedMissionSchema>;
 
@@ -202,8 +203,9 @@ export const NarrationSchema = z.strictObject({
     .array(
       z.strictObject({
         bundleId: BundleIdSchema,
-        headline: z.string().min(1).max(100),
-        body: z.string().min(1).max(420),
+        // AI commentary on the option's mechanism. The headline and every result line next to it are
+        // application templates (see slots.ts cardLines); an empty string means it was withheld.
+        commentary: z.string().max(420),
       }),
     )
     .min(1)
@@ -226,6 +228,14 @@ export const EvaluationRowSchema = z.strictObject({
   costTier: CostTierSchema,
 });
 export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
+
+/**
+ * What the evaluator returns for one bundle: the row plus the number of simulated futures that
+ * were run FOR THIS ROW. The machine counts futures by summing this field over the rows it
+ * accepts; it never uses an aggregate the evaluator claims for a batch.
+ */
+export const EvaluatedRowSchema = EvaluationRowSchema.extend({ futures: z.number().int().min(0).max(10_000_000) });
+export type EvaluatedRow = z.infer<typeof EvaluatedRowSchema>;
 
 export const BaselineRowSchema = z.strictObject({
   p50S: z.number().finite().min(-1e7).max(1e7),

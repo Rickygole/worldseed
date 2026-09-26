@@ -43,7 +43,6 @@ import {
 import {
   CritiqueSchema,
   expectedAction,
-  MAX_ROUNDS,
   NarrationSchema,
   ParsedMissionSchema,
   plannerModelSchemaFor,
@@ -65,7 +64,7 @@ import {
 } from "../agent/validator";
 import type { ServerConfig } from "./config";
 import { logEvent, ipTag } from "./log";
-import { type MissionAccount, type MissionLedger, type MissionReservation } from "./missions";
+import { TURN_LIMITS, type MissionAccount, type MissionLedger, type MissionReservation } from "./missions";
 import { costUsd, type ModelResolver, type Role } from "./models";
 import { buildCritiqueMessages, CRITIQUE_SCHEMA_NAME } from "./prompts/critique";
 import { buildNarrateMessages, NARRATE_SCHEMA_NAME } from "./prompts/narrate";
@@ -77,6 +76,8 @@ import {
   missionRules,
   type BudgetReservation,
   type DailyBudget,
+  type FrontDoor,
+  type FrontDoorKind,
   type RateLimiter,
 } from "./ratelimit";
 import { sseResponse, type Emit } from "./sse";
@@ -100,6 +101,10 @@ export interface AgentDeps {
   budget: DailyBudget;
   missions: MissionLedger;
   backoff: ProviderBackoff;
+  /** In-memory limiter that runs before any store command. */
+  frontDoor: FrontDoor;
+  /** Process-local facts for /api/health (it never reads the store itself). */
+  signals?: { storeDownAt: number };
   loadCatalog: () => Promise<Catalog>;
   now: () => number;
 }
@@ -158,6 +163,24 @@ export function guardPost(request: Request, config: Pick<ServerConfig, "allowedO
     return json({ error: "unsupported_media_type", message: "Send application/json." }, 415);
   }
   return null;
+}
+
+/** The client address for this deployment (see clientIp: forged headers are ignored unless a proxy is trusted). */
+export function requestIp(request: Request, config: Pick<ServerConfig, "trustedProxyHops" | "trustForwarded">): string {
+  return clientIp(request.headers, { trustedHops: config.trustedProxyHops, trustForwarded: config.trustForwarded });
+}
+
+/**
+ * The in-memory front door: turns a flood away BEFORE any store command, body read or model call.
+ * Returns a 429 to send, or null when the request may proceed.
+ */
+export function frontDoorCheck(request: Request, config: Pick<ServerConfig, "trustedProxyHops" | "trustForwarded">, door: FrontDoor, kind: FrontDoorKind): Response | null {
+  const ip = requestIp(request, config);
+  const r = door.check(kind, ip);
+  if (r.ok) return null;
+  logEvent("info", "front_door_refused", { kind, ip: ipTag(ip) });
+  const o = fallback("rate_limited", "Too many requests from this connection. Try again shortly.", "retry_later", r.retryAfterS);
+  return json(o, 429, { "retry-after": String(r.retryAfterS) });
 }
 
 export async function readBody<T>(request: Request, schema: z.ZodType<T>): Promise<{ ok: true; value: T } | { ok: false; res: Response }> {
@@ -238,7 +261,8 @@ async function preflight(deps: AgentDeps, role: Role, route: string): Promise<Pr
     return { ok: false, res: refuse("catalog_unavailable", fallback("catalog_unavailable", UI_MESSAGES.plannerUnavailable, "deterministic_search")) };
   }
   try {
-    const st = await deps.budget.status();
+    // One read per minute per process at most: the cached total is refreshed by every reserve and settle.
+    const st = await deps.budget.status(60_000);
     if (st.exhausted) {
       logEvent("warn", "budget_exhausted", { route });
       return { ok: false, res: refuse("budget_exhausted", fallback("budget_exhausted", UI_MESSAGES.budgetExhausted, "recorded_tour")) };
@@ -256,6 +280,8 @@ async function preflight(deps: AgentDeps, role: Role, route: string): Promise<Pr
 interface Begun {
   account: MissionAccount;
   release: () => Promise<void>;
+  /** Hashed client key, for the per-client dollar allowance. */
+  clientKey: string;
 }
 
 /**
@@ -264,21 +290,29 @@ interface Begun {
  *      with increment-then-compare and recorded with SET NX; a request that loses the SET NX race
  *      gives its unit back. Known pairs are free.
  *   2. One in-flight request per mission (lock with TTL).
- *   3. A per-route turn cap.
+ *   3. A per-route ask cap.
  */
 async function begin(
   deps: AgentDeps,
   request: Request,
   missionId: string,
-  turn: { kind: string; key: string; max: number },
+  turn: { kind: string },
 ): Promise<{ ok: true; begun: Begun } | { ok: false; res: Response }> {
   const { config, missions, limiter } = deps;
-  const ip = clientIp(request.headers, { trustedHops: config.trustedProxyHops });
-  const quotaKey = `ip:${ipKey(ip)}`;
+  const ip = requestIp(request, config);
+  const clientKey = ipKey(ip);
+  const quotaKey = `ip:${clientKey}`;
   let token: string | null = null;
   try {
     if (!(await missions.isBound(missionId, ip))) {
-      const rules = missionRules(config.ipMissionsPerHour, config.ipMissionsPerDay, ip);
+      // Only the hourly rule lives in the store; the daily allowance is the client's dollar cap,
+      // and a per-process daily count of new missions is checked in memory first.
+      const day = deps.frontDoor.newMission(ip);
+      if (!day.ok) {
+        const o = fallback("rate_limited", "Mission limit reached for this connection today. Use the recorded run.", "recorded_tour", day.retryAfterS);
+        return { ok: false, res: json(o, 429, { "retry-after": String(day.retryAfterS) }) };
+      }
+      const rules = missionRules(config.ipMissionsPerHour, config.ipMissionsPerDay, ip).slice(0, 1);
       const r = await limiter.consume(quotaKey, rules);
       if (r.error) {
         logEvent("warn", "protection_unavailable", { where: "limiter" });
@@ -303,7 +337,7 @@ async function begin(
       return { ok: false, res: json(o, 429, { "retry-after": "2" }) };
     }
     const release = () => missions.release(missionId, token as string);
-    if (!(await missions.claimTurn(missionId, turn.kind, turn.key, turn.max))) {
+    if (!(await missions.claimTurn(missionId, turn.kind, TURN_LIMITS[turn.kind] ?? 3))) {
       await release();
       return {
         ok: false,
@@ -314,6 +348,7 @@ async function begin(
       ok: true,
       begun: {
         release,
+        clientKey,
         account: {
           ledger: missions,
           id: missionId,
@@ -325,6 +360,7 @@ async function begin(
     if (!(e instanceof StoreError)) throw e;
     if (token !== null) await missions.release(missionId, token);
     logEvent("warn", "protection_unavailable", { where: "mission" });
+    if (deps.signals) deps.signals.storeDownAt = deps.now();
     return { ok: false, res: refuse("protection_unavailable", plannerUnavailable()) };
   }
 }
@@ -348,6 +384,8 @@ export interface StructuredSpec<T> {
   deps: AgentDeps;
   emit: Emit;
   account: MissionAccount;
+  /** Hashed client key: the client's own daily dollar allowance is charged too. */
+  clientKey?: string;
   role: Role;
   toolName: string;
   schemaName: string;
@@ -388,6 +426,9 @@ function deniedFallback(emit: Emit, d: AttemptDenied, role: Role): Fallback {
     case "daily_budget":
       logEvent("warn", "budget_exhausted", { role });
       return fail(emit, "budget_exhausted", fallback("budget_exhausted", UI_MESSAGES.budgetExhausted, "recorded_tour"));
+    case "ip_budget":
+      logEvent("info", "ip_budget_exhausted", { role });
+      return fail(emit, "ip_budget_exhausted", fallback("budget_exhausted", "This connection has used its AI allowance for today. Try the recorded run.", "recorded_tour"));
     case "provider_backoff":
       return fail(emit, "provider_backoff", fallback("upstream_error", RATE_MESSAGE, "deterministic_search", d.retryAfterS));
     default:
@@ -441,17 +482,20 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
         throw e;
       }
       if (!mres.ok) throw new AttemptDenied(mres.reason === "calls" ? "mission_calls" : mres.reason === "input" ? "mission_input" : "mission_output");
-      let daily: BudgetReservation | null;
+      let daily: BudgetReservation;
       try {
-        daily = await deps.budget.reserve(costUsd(model, estIn, mres.maxTokens, config.prices));
+        const cost = costUsd(model, estIn, mres.maxTokens, config.prices);
+        const r = s.clientKey ? await deps.budget.reserveFor(s.clientKey, config.ipDailyUsd, cost) : await deps.budget.reserve(cost);
+        if (!r || "denied" in r) {
+          await account.ledger.cancel(account.id, mres).catch(() => undefined);
+          throw new AttemptDenied(r && r.denied === "ip" ? "ip_budget" : "daily_budget");
+        }
+        daily = r;
       } catch (e) {
+        if (e instanceof AttemptDenied) throw e;
         await account.ledger.cancel(account.id, mres).catch(() => undefined);
         if (e instanceof StoreError) throw new AttemptDenied("store_error");
         throw e;
-      }
-      if (!daily) {
-        await account.ledger.cancel(account.id, mres).catch(() => undefined);
-        throw new AttemptDenied("daily_budget");
       }
       mission = { inputTokens: mres.inputTokens, outputTokens: mres.outputTokens };
       const handle: AttemptHandle = { mission: mres, daily, estIn, model };
@@ -528,6 +572,20 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
       : { ok: false, violations: [{ rule: 1, code: "not_json", path: "(root)", message: parsed.error }] };
 
     if (verdict.ok) {
+      if (verdict.withheld && verdict.withheld.length > 0) {
+        // Only the failing commentary is dropped; the rest of the answer is used.
+        emit({
+          event: "log",
+          data: {
+            kind: "validator",
+            sentence: "AI commentary was withheld because it did not pass the screen; the rest of the answer was used.",
+            code: "commentary_withheld",
+            errors: describeViolations(verdict.withheld),
+            model: res.model,
+          },
+        });
+        logEvent("info", "commentary_withheld", { role: s.role, fields: verdict.withheld.length, codes: [...new Set(verdict.withheld.map((w) => w.code))].join(",") });
+      }
       emit({ event: "tool_call", data: { name: s.toolName, args: verdict.value, model: res.model, repaired } });
       return { status: "ok", result: verdict.value, model: res.model, usage: { ...total }, repaired };
     }
@@ -552,7 +610,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
         { role: "assistant", content: res.text.slice(0, 4000) },
         {
           role: "user",
-          content: `Your previous reply was rejected by the validator:\n${errors.map((x) => `- ${x}`).join("\n")}\nReturn a corrected JSON object only, following every rule in the system message. Cite figures only as placeholders.`,
+          content: `Your previous reply was rejected by the validator:\n${errors.map((x) => `- ${x}`).join("\n")}\nReturn a corrected JSON object only, following every rule in the system message. Commentary describes mechanism in plain words: no numbers, results, comparisons or directions of change.`,
         },
       ];
       continue;
@@ -631,19 +689,19 @@ type Handler = (request: Request, deps: AgentDeps) => Promise<Response>;
 
 export const handleParse: Handler = async (request, deps) => {
   const deadlineAt = deps.now() + deps.config.routeDeadlineMs;
-  const g = guardPost(request, deps.config);
+  const g = guardPost(request, deps.config) ?? frontDoorCheck(request, deps.config, deps.frontDoor, "ai");
   if (g) return g;
   const body = await readBody<ParseRequest>(request, ParseRequestSchema);
   if (!body.ok) return body.res;
   const pre = await preflight(deps, "parser", "parse");
   if (!pre.ok) return pre.res;
-  const b = await begin(deps, request, body.value.missionId, { kind: "parse", key: "parse", max: 1 });
+  const b = await begin(deps, request, body.value.missionId, { kind: "parse" });
   if (!b.ok) return b.res;
   const catalog = pre.catalog;
   return streamOutcome(b.begun, async (emit) => {
     const jsonSchema = toJsonSchema(ParsedMissionSchema);
     return runStructured({
-      deps, emit, account: b.begun.account, role: "parser", toolName: "parse", schemaName: PARSE_SCHEMA_NAME, jsonSchema,
+      deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "parser", toolName: "parse", schemaName: PARSE_SCHEMA_NAME, jsonSchema,
       messages: buildParseMessages(catalog, body.value.text, jsonSchema),
       maxOut: 700, deadlineAt, signal: request.signal,
       validate: (raw, budget) => validateParseOutput(raw, { catalog, budget }),
@@ -661,7 +719,7 @@ function knownFrom(bundles: readonly { id: string; candidateIds: string[] }[], r
 
 export const handlePlan: Handler = async (request, deps) => {
   const deadlineAt = deps.now() + deps.config.routeDeadlineMs;
-  const g = guardPost(request, deps.config);
+  const g = guardPost(request, deps.config) ?? frontDoorCheck(request, deps.config, deps.frontDoor, "ai");
   if (g) return g;
   const body = await readBody<PlanRequest>(request, PlanRequestSchema);
   if (!body.ok) return body.res;
@@ -682,7 +740,7 @@ export const handlePlan: Handler = async (request, deps) => {
   }
 
   // Rounds: 3 search rounds plus one finalize turn per mission.
-  const b = await begin(deps, request, req.missionId, { kind: "plan", key: `${req.phase}:${req.round}`, max: MAX_ROUNDS + 1 });
+  const b = await begin(deps, request, req.missionId, { kind: "plan" });
   if (!b.ok) return b.res;
 
   return streamOutcome(b.begun, async (emit) => {
@@ -693,7 +751,7 @@ export const handlePlan: Handler = async (request, deps) => {
     // The model is asked for candidate IDs only; the application assigns the bundle IDs afterwards.
     const jsonSchema = toJsonSchema(plannerModelSchemaFor(action, z.enum(ids)));
     return runStructured({
-      deps, emit, account: b.begun.account, role: "planner", toolName: action, schemaName: PLAN_SCHEMA_NAME, jsonSchema,
+      deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "planner", toolName: action, schemaName: PLAN_SCHEMA_NAME, jsonSchema,
       messages: buildPlanMessages({ req, action, eligible: eligible.map(promptView), rows, baseline: req.baseline, excluded, jsonSchema }),
       maxOut: 1800, deadlineAt, signal: request.signal,
       validate: (raw, budget) =>
@@ -709,7 +767,7 @@ function usedViews(catalog: Catalog, rows: readonly EvaluationRow[]) {
 
 export const handleCritique: Handler = async (request, deps) => {
   const deadlineAt = deps.now() + deps.config.routeDeadlineMs;
-  const g = guardPost(request, deps.config);
+  const g = guardPost(request, deps.config) ?? frontDoorCheck(request, deps.config, deps.frontDoor, "ai");
   if (g) return g;
   const body = await readBody<CritiqueRequest>(request, CritiqueRequestSchema);
   if (!body.ok) return body.res;
@@ -719,14 +777,14 @@ export const handleCritique: Handler = async (request, deps) => {
   const catalog = pre.catalog;
   const issues = [...checkAreas(catalog, req.mission), ...checkHistory(catalog, req.mission, [], req.evaluations)];
   if (issues.length > 0) return inconsistent(issues, "The critique request was inconsistent and was not sent to a model.");
-  const b = await begin(deps, request, req.missionId, { kind: "critique", key: `round:${req.round}`, max: MAX_ROUNDS });
+  const b = await begin(deps, request, req.missionId, { kind: "critique" });
   if (!b.ok) return b.res;
   return streamOutcome(b.begun, async (emit) => {
     const rows = trustedRows(catalog, req.evaluations);
     const known = knownFrom([], rows);
     const jsonSchema = toJsonSchema(CritiqueSchema);
     return runStructured({
-      deps, emit, account: b.begun.account, role: "critic", toolName: "critique", schemaName: CRITIQUE_SCHEMA_NAME, jsonSchema,
+      deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "critic", toolName: "critique", schemaName: CRITIQUE_SCHEMA_NAME, jsonSchema,
       messages: buildCritiqueMessages({ req, used: usedViews(catalog, rows), rows, baseline: req.baseline, jsonSchema }),
       maxOut: 1200, deadlineAt, signal: request.signal,
       validate: (raw, budget) => validateCritiqueOutput(raw, { catalog, known, budget }),
@@ -736,7 +794,7 @@ export const handleCritique: Handler = async (request, deps) => {
 
 export const handleNarrate: Handler = async (request, deps) => {
   const deadlineAt = deps.now() + deps.config.routeDeadlineMs;
-  const g = guardPost(request, deps.config);
+  const g = guardPost(request, deps.config) ?? frontDoorCheck(request, deps.config, deps.frontDoor, "ai");
   if (g) return g;
   const body = await readBody<NarrateRequest>(request, NarrateRequestSchema);
   if (!body.ok) return body.res;
@@ -751,14 +809,14 @@ export const handleNarrate: Handler = async (request, deps) => {
   });
   if (new Set(req.finalists.map((f) => f.bundleId)).size !== 3) issues.push({ path: "finalists", message: "finalists must be distinct" });
   if (issues.length > 0) return inconsistent(issues, "The narration request was inconsistent and was not sent to a model.");
-  const b = await begin(deps, request, req.missionId, { kind: "narrate", key: "final", max: 1 });
+  const b = await begin(deps, request, req.missionId, { kind: "narrate" });
   if (!b.ok) return b.res;
   return streamOutcome(b.begun, async (emit) => {
     const rows = trustedRows(catalog, req.evaluations);
     const jsonSchema = toJsonSchema(NarrationSchema);
     const finalistIds = req.finalists.map((f) => f.bundleId);
     return runStructured({
-      deps, emit, account: b.begun.account, role: "narrator", toolName: "narrate", schemaName: NARRATE_SCHEMA_NAME, jsonSchema,
+      deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "narrator", toolName: "narrate", schemaName: NARRATE_SCHEMA_NAME, jsonSchema,
       messages: buildNarrateMessages({ req, used: usedViews(catalog, rows), rows, baseline: req.baseline, jsonSchema }),
       maxOut: 1200, deadlineAt, signal: request.signal,
       validate: (raw, budget) => validateNarrationOutput(raw, { catalog, finalistIds, budget }),

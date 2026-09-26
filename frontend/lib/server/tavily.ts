@@ -31,7 +31,7 @@ import { budgetWindow, DAY_MS, HOUR_MS, ipKey, type RateLimiter } from "./rateli
 import { noopEmit } from "./sse";
 import { MemoryStore, StoreError, type SharedStore } from "./store";
 import type { ServerConfig } from "./config";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const TAVILY_ENDPOINT = "https://api.tavily.com/search";
 export const TAVILY_QUERY = "Baltimore Maryland road closure OR bridge closure OR lane closure OR detour";
@@ -125,9 +125,25 @@ const CLOSURE_VERB = /\b(?:clos(?:ed|es|ing|ure|ures)|shut(?:\s?down)?|blocked|b
 const NEGATION = /\b(?:not|no longer|isn't|aren't|wasn't|weren't|hasn't|haven't|never|denied|denies|rumou?rs?|unfounded)\b/i;
 const REOPENED = /\b(?:re-?open(?:ed|s|ing)?|lifted|resum(?:ed|es|ing)|cleared)\b/i;
 const FUTURE_OR_MODAL =
-  /\b(?:could|might|may|would|should|will|plans? to|planning to|planned|expected to|scheduled|proposed|considering|possible|potential|if|sometime|eventually|soon|upcoming|later this|next (?:week|month|year|spring|summer|fall|winter|autumn)|in the (?:spring|summer|fall|winter|autumn))\b/i;
+  /\b(?:could|might|may|would|should|will|plans? to|planning to|planned|expected to|scheduled|proposed|considering|possible|potential|if|unless|sometime|eventually|soon|upcoming|later this|next (?:week|month|year|spring|summer|fall|winter|autumn)|in the (?:spring|summer|fall|winter|autumn))\b/i;
 /** A stated current window: the source says when the closure is in effect. */
 const CURRENT_WINDOW = /\b(?:through|until|till|currently|remains?|remained|closed since|since|today|tonight|this (?:week|weekend|morning|afternoon|evening)|overnight|right now|ongoing)\b/i;
+
+/**
+ * Closing part of a facility is not closing the facility: a whole-link or whole-road mutation may
+ * only be proposed for a closure that is stated as the whole thing.
+ */
+const PARTIAL_CLOSURE =
+  /\b(?:lanes?|bores?|ramps?|shoulders?|trucks?|hazmat|hazardous|one direction|one way|northbound|southbound|eastbound|westbound|inbound|outbound|single[- ]lane|left lane|right lane|center lane|express lanes?|carpool|hov|partial(?:ly)?|intermittent(?:ly)?|alternating|one side)\b/i;
+/** A completed or past event, or an article about a reopening. */
+const PAST_EVENT =
+  /\b(?:was|were|had been|briefly|temporarily closed|earlier|yesterday|last (?:night|week|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday) (?:morning|afternoon|evening|night)|previously|formerly|after (?:a|the) (?:crash|collision|accident))\b/i;
+/** Studies, models, drills and other things that are not a real closure. */
+const HYPOTHETICAL =
+  /\b(?:(?:a|the|this|that|new|recent|one)\s+stud(?:y|ies)|stud(?:y|ies)\s+(?:of|found|shows?|suggests?|modeled|modelled)|studied|model(?:ed|led|ing|s)?|simulat\w+|tabletop|drills?|exercises?|scenarios?|what[- ]if|what happens|hypothetical\w*|rehearsal|mock|test run|analysis|projected)\b/i;
+/** Comment threads, hearsay and text that tries to instruct the extractor. */
+const HEARSAY =
+  /\b(?:comments?|commented|wrote|posted|user\d*|reportedly|allegedly|apparently|i heard|heard that|trust me|people say|word is|tweet\w*|rumou?rs?|unconfirmed)\b|\bsystem note\b|\bextractor\b|ignore (?:all )?(?:previous|prior|the above)|\binstructions?\b/i;
 
 /** A place name followed by a street type is a street ("Boston Street"), not the city. Either capitalization. */
 const STREET_TYPE =
@@ -139,11 +155,13 @@ const STREET_TYPE =
   ")";
 const OTHER_PLACES =
   "Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|West Virginia|Wisconsin|Wyoming|District of Columbia|" +
-  "Boston|Philadelphia|Chicago|Houston|Dallas|Atlanta|Miami|Seattle|Denver|Detroit|Pittsburgh|Richmond|Norfolk|Rosslyn|Georgetown|Arlington|Alexandria|Washington|New Haven|Hartford|Newark|Brooklyn|Manhattan|London|Toronto";
-const OTHER_PLACE_RE = new RegExp(`\\b(?:${OTHER_PLACES})\\b(?!\\s+${STREET_TYPE}\\b)`);
+  "Boston|Philadelphia|Chicago|Houston|Dallas|Atlanta|Miami|Seattle|Denver|Detroit|Pittsburgh|Richmond|Norfolk|Rosslyn|Georgetown|Arlington|Alexandria|Washington|New Haven|Hartford|Newark|Brooklyn|Manhattan|London|Toronto|Potomac|Capitol|Springfield|Annapolis Junction";
+const OTHER_PLACE_G = new RegExp(`\\b(?:${OTHER_PLACES})\\b(?!\\s+${STREET_TYPE}\\b)`, "g");
 const OTHER_STATE_ABBR = /,\s*(?!MD\b)(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b|\bD\.?C\.?\b/;
-/** A source about this area says so somewhere (the search query names Baltimore, but results can drift). */
-const AREA_ANCHOR = /\b(?:Baltimore|Maryland|MD|MDOT|MDTA|Dundalk|Patapsco|Anne Arundel|Fort McHenry)\b/;
+/** The area, named in the quote's OWN sentence. */
+const AREA_ANCHOR = /\b(?:Baltimore|Maryland|MD|MDOT|MDTA|Dundalk|Patapsco|Anne Arundel|Fort McHenry|Curtis Bay|Hawkins Point|Sparrows Point|Edgemere|Essex|Cherry Hill|Brooklyn Park)\b/;
+/** Names shared with places elsewhere: the sentence must carry a Baltimore-specific landmark word. */
+const SHARED_NAME_LANDMARKS: [RegExp, RegExp][] = [[/\bkey bridge\b/i, /\b(?:francis scott|baltimore|patapsco|dundalk|curtis bay|i-?695|beltway|mdta|fort carroll)\b/i]];
 
 /** The sentence of `content` that contains `quote` (normalized), or the quote itself. */
 function sentenceAround(content: string, quote: string): string {
@@ -152,23 +170,49 @@ function sentenceAround(content: string, quote: string): string {
   return sentences.find((x) => normalizeForQuote(x).includes(q)) ?? quote;
 }
 
+/** Lowercase names of the gazetteer's neighborhoods: places that are part of the model area. */
+export function ownPlaceNames(catalog: Pick<Catalog, "gazetteer">): Set<string> {
+  const out = new Set<string>();
+  for (const e of catalog.gazetteer) if (e.kind === "neighborhood") for (const n of [e.name, ...e.aliases]) out.add(n.toLowerCase());
+  return out;
+}
+
+export type ScreenReason = "unclear_status" | "not_in_model_area" | "partial_closure" | "completed_event" | "hypothetical_scenario" | "hearsay";
+
 /**
- * Why a grounded quote is not a usable proposal, or null. The quote must state a closure, must not
- * be negated, reopened, speculative or future without a stated window, and neither it nor its
- * sentence may point at another city or state. The source as a whole must name the model area.
+ * Why a grounded quote is not a usable proposal, or null. The quote must state a whole, current
+ * closure: not partial (a lane, a bore, trucks only), not past or reopened, not a study or drill,
+ * not hearsay, not negated or speculative without a stated window. The area must be named in the
+ * quote's own sentence, and neither the quote nor its sentence may point at another city or state
+ * (a city that is itself one of the gazetteer's neighborhoods, like Brooklyn, is not "another city").
  */
-export function screenClosure(
-  item: Pick<ExtractedClosure, "quote">,
-  result: TavilyResult | undefined,
-): Extract<ClosureUnmatched["reason"], "unclear_status" | "not_in_model_area"> | null {
+export function screenClosure(item: Pick<ExtractedClosure, "quote">, result: TavilyResult | undefined, ownPlaces: ReadonlySet<string> = new Set()): ScreenReason | null {
   const sentence = result ? sentenceAround(result.content, item.quote) : item.quote;
   const context = `${item.quote} ${sentence}`;
-  if (OTHER_PLACE_RE.test(context) || OTHER_STATE_ABBR.test(context)) return "not_in_model_area";
-  if (result && !AREA_ANCHOR.test(`${result.title} ${result.content}`)) return "not_in_model_area";
+  const article = result ? `${result.title} ${result.content}` : context;
+
+  const others = [...context.matchAll(OTHER_PLACE_G)].map((m) => m[0]).filter((p) => !ownPlaces.has(p.toLowerCase()));
+  if (others.length > 0 || OTHER_STATE_ABBR.test(context)) return "not_in_model_area";
+  const ownHere = [...ownPlaces].some((p) => p.length > 3 && new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(context));
+  // Anchor: the area named in the quote's own sentence, or one of its neighborhoods there plus the area named somewhere in the article.
+  if (!AREA_ANCHOR.test(context) && !(ownHere && AREA_ANCHOR.test(article))) return "not_in_model_area";
+  for (const [name, landmark] of SHARED_NAME_LANDMARKS) if (name.test(context) && !landmark.test(context)) return "not_in_model_area";
+
+  if (HEARSAY.test(context)) return "hearsay";
+  if (HYPOTHETICAL.test(context)) return "hypothetical_scenario";
   if (!CLOSURE_VERB.test(item.quote)) return "unclear_status";
+  if (PARTIAL_CLOSURE.test(context)) return "partial_closure";
   if (NEGATION.test(context) || REOPENED.test(context)) return "unclear_status";
+  if (PAST_EVENT.test(context) && !/\b(?:has been|have been|remains?|is|are) (?:\w+ )?closed\b/i.test(context)) return "completed_event";
   if (FUTURE_OR_MODAL.test(context) && !CURRENT_WINDOW.test(context)) return "unclear_status";
   return null;
+}
+
+/** A road name as displayed: plain characters only. Anything else (markup, brackets, links) is replaced. */
+export const UNREADABLE_ROAD = "(unreadable road name)";
+export function safeRoadText(road: string): string {
+  const t = road.replace(/\s+/g, " ").trim();
+  return t.length > 0 && t.length <= 80 && /^[A-Za-z0-9 .,'&\-]+$/.test(t) && !/https?|www\./i.test(t) ? t : UNREADABLE_ROAD;
 }
 
 export function matchClosures(
@@ -182,9 +226,10 @@ export function matchClosures(
   const seen = new Set<string>();
   const today = retrievedAt.slice(0, 10);
   const byUrl = new Map(results.map((r) => [r.url, r]));
+  const places = ownPlaceNames(catalog);
   for (const c of grounded) {
-    const base = { road: c.road, quote: c.quote, sourceUrl: c.sourceUrl };
-    const why = screenClosure(c, byUrl.get(c.sourceUrl));
+    const base = { road: safeRoadText(c.road), quote: c.quote, sourceUrl: c.sourceUrl };
+    const why = screenClosure(c, byUrl.get(c.sourceUrl), places);
     if (why) {
       unmatched.push({ ...base, reason: why });
       continue;
@@ -220,7 +265,7 @@ export function matchClosures(
     seen.add(entry.id);
     proposals.push({
       id: `closure-${proposals.length + 1}`,
-      road: c.road,
+      road: base.road,
       matchedName: entry.name,
       gazetteerId: entry.id,
       mutation,
@@ -249,11 +294,8 @@ export interface ClosuresDeps {
   limiter: RateLimiter;
   agent: AgentDeps;
   now: () => number;
-}
-
-/** Process-local single flight: concurrent callers wait for one lookup instead of starting their own. */
-export interface ClosuresState {
-  inflight: Promise<ClosuresResponse> | null;
+  /** Signs stateless confirmation tokens. */
+  confirmSecret: string;
 }
 
 type OkResponse = Extract<ClosuresResponse, { status: "ok" }>;
@@ -264,59 +306,88 @@ interface CacheEntry {
   value: OkResponse;
 }
 
-const CACHE_KEY = "tavily:cache";
-const CONFIRM_TTL_MS = 30 * 60_000;
-const STALE_KEEP_MS = DAY_MS;
+/**
+ * Process-local state: one in-flight lookup (concurrent callers wait for it instead of starting
+ * their own) and the results cache. The cache holds Tavily content, so it stays in process memory:
+ * the shared store never receives it.
+ */
+export interface ClosuresState {
+  inflight: Promise<ClosuresResponse> | null;
+  cache: CacheEntry | null;
+}
 
-async function readCache(store: SharedStore): Promise<CacheEntry | null> {
-  const raw = await store.get(CACHE_KEY);
-  if (!raw) return null;
+const CONFIRM_TTL_MS = 30 * 60_000;
+
+const fresh = (deps: ClosuresDeps, c: CacheEntry, t: number): boolean =>
+  t - c.at < (c.degraded ? deps.config.tavilyDegradedCacheMs : deps.config.tavilyCacheMs);
+
+const stripTokens = (v: OkResponse): OkResponse => ({ ...v, proposals: v.proposals.map(({ confirmToken: _t, ...p }) => (void _t, p)) });
+
+/* ------------------------- stateless confirmation tokens ------------------------- */
+
+interface ConfirmPayload {
+  /** Proposal id, matched name, gazetteer id, mutation and provenance exactly as proposed. */
+  p: Pick<ClosureProposal, "id" | "matchedName" | "gazetteerId" | "mutation" | "provenance">;
+  /** Hashed key of the requester the token was issued to. */
+  c: string;
+  /** Expiry, epoch ms. */
+  x: number;
+  /** Random token id: the single-use marker key. */
+  j: string;
+}
+
+const b64 = (b: Buffer | string): string => Buffer.from(b).toString("base64url");
+const sign = (secret: string, body: string): string => b64(createHmac("sha256", secret).update(`v1.${body}`).digest());
+
+/** A confirmation token: HMAC over the proposal, requester and expiry. No store write is needed to issue one. */
+export function issueConfirmToken(secret: string, p: ConfirmPayload["p"], clientKey: string, nowMs: number): string {
+  const payload: ConfirmPayload = { p, c: clientKey, x: nowMs + CONFIRM_TTL_MS, j: randomBytes(12).toString("hex") };
+  const body = b64(JSON.stringify(payload));
+  return `v1.${body}.${sign(secret, body)}`;
+}
+
+function verifyConfirmToken(secret: string, token: string): ConfirmPayload | null {
+  const m = /^v1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(token);
+  if (!m) return null;
+  const want = Buffer.from(sign(secret, m[1]));
+  const got = Buffer.from(m[2]);
+  if (want.length !== got.length || !timingSafeEqual(want, got)) return null;
   try {
-    const e = JSON.parse(raw) as CacheEntry;
-    return e && typeof e.at === "number" && e.value?.status === "ok" ? e : null;
+    const payload = JSON.parse(Buffer.from(m[1], "base64url").toString("utf8")) as ConfirmPayload;
+    return payload && typeof payload.x === "number" && typeof payload.j === "string" && typeof payload.c === "string" && payload.p ? payload : null;
   } catch {
     return null;
   }
 }
 
-const fresh = (deps: ClosuresDeps, c: CacheEntry, t: number): boolean =>
-  t - c.at < (c.degraded ? deps.config.tavilyDegradedCacheMs : deps.config.tavilyCacheMs);
-
-/** Fresh single-use confirmation tokens for a response's proposals. A store failure just omits them. */
-async function withTokens(store: SharedStore, value: OkResponse): Promise<OkResponse> {
-  try {
-    const proposals = await Promise.all(
-      value.proposals.map(async (p) => {
-        const token = randomBytes(16).toString("hex");
-        const { confirmToken: _drop, ...bare } = p;
-        void _drop;
-        await store.set(`cf:${token}`, JSON.stringify(bare), CONFIRM_TTL_MS);
-        return { ...bare, confirmToken: token };
-      }),
-    );
-    return { ...value, proposals };
-  } catch (e) {
-    if (!(e instanceof StoreError)) throw e;
-    logEvent("warn", "protection_unavailable", { where: "confirm_tokens" });
-    return { ...value, proposals: value.proposals.map(({ confirmToken: _t, ...p }) => (void _t, p)) };
-  }
+/** Fresh tokens for one response's proposals, bound to the requester. No store command. */
+function withTokens(deps: ClosuresDeps, clientKey: string, value: OkResponse): OkResponse {
+  const t = deps.now();
+  return {
+    ...value,
+    proposals: value.proposals.map((p) => {
+      const { confirmToken: _drop, ...bare } = p;
+      void _drop;
+      return { ...bare, confirmToken: issueConfirmToken(deps.confirmSecret, { id: p.id, matchedName: p.matchedName, gazetteerId: p.gazetteerId, mutation: p.mutation, provenance: p.provenance }, clientKey, t) };
+    }),
+  };
 }
 
-const stripTokens = (v: OkResponse): OkResponse => ({ ...v, proposals: v.proposals.map(({ confirmToken: _t, ...p }) => (void _t, p)) });
-
 /**
- * Runs the closure lookup. Cheap paths (fresh cache, per-IP limit) come first; the expensive part
- * runs at most once at a time per process, and never more than the daily cap allows.
+ * Runs the closure lookup. The caller has already passed the in-memory front door (which applies
+ * the per-IP limit before anything else, cache reads included). Cheap paths (fresh in-memory cache)
+ * cost no store command; the expensive part runs at most once at a time per process, and never
+ * more than the daily cap allows.
  */
 export async function lookupClosures(deps: ClosuresDeps, ip: string, state: ClosuresState, deadlineAt: number): Promise<ClosuresResponse> {
   const r = await lookupBare(deps, ip, state, deadlineAt);
-  // Tokens are issued per response, never shared between callers of one in-flight lookup or a cache entry.
-  return r.status === "ok" ? withTokens(deps.store, r) : r;
+  // Tokens are issued per response, bound to this requester, never shared between callers of one lookup or cache entry.
+  return r.status === "ok" ? withTokens(deps, ipKey(ip), r) : r;
 }
 
 async function lookupBare(deps: ClosuresDeps, ip: string, state: ClosuresState, deadlineAt: number): Promise<ClosuresResponse> {
   const t = deps.now();
-  const asCached = async (c: CacheEntry, label: string): Promise<ClosuresResponse> => ({
+  const asCached = (c: CacheEntry, label: string): ClosuresResponse => ({
     ...c.value,
     cached: true,
     cachedNotice: `${label} from ${new Date(c.at).toISOString()}.`,
@@ -333,16 +404,9 @@ async function lookupBare(deps: ClosuresDeps, ip: string, state: ClosuresState, 
     return unavailable("disabled", "Closure search is switched off on this deployment.");
   }
 
-  let cached: CacheEntry | null;
-  try {
-    cached = await readCache(deps.store);
-  } catch (e) {
-    if (!(e instanceof StoreError)) throw e;
-    logEvent("warn", "protection_unavailable", { where: "closures_cache" });
-    return unavailable("protection_unavailable", "Closure search is paused because its safeguards are unavailable.");
-  }
+  const cached = state.cache;
   if (cached && fresh(deps, cached, t)) return asCached(cached, "Cached result");
-  const orCached = async (fallbackResponse: ClosuresResponse) => (cached ? asCached(cached, "Cached result") : fallbackResponse);
+  const orCached = (fallbackResponse: ClosuresResponse) => (cached ? asCached(cached, "Cached result") : fallbackResponse);
   if (!deps.search) return orCached(unavailable("no_key", "Closure search is not configured on this deployment."));
 
   const rl = await deps.limiter.consume(`closures:${ipKey(ip)}`, [{ name: "closures_per_hour", limit: deps.config.ipClosuresPerHour, windowMs: HOUR_MS }]);
@@ -350,26 +414,26 @@ async function lookupBare(deps: ClosuresDeps, ip: string, state: ClosuresState, 
   if (!rl.allowed) return orCached(unavailable("rate_limited", "Too many closure searches from this connection. Try again later.", rl.retryAfterS));
 
   if (state.inflight) return state.inflight;
-  const p = runLookup(deps, t, deadlineAt, cached).finally(() => {
+  const p = runLookup(deps, t, deadlineAt, cached, state).finally(() => {
     if (state.inflight === p) state.inflight = null;
   });
   state.inflight = p;
   return p;
 
-  async function runLookup(d: ClosuresDeps, at: number, deadline: number, stale: CacheEntry | null): Promise<ClosuresResponse> {
-    const fallbackTo = async (r: ClosuresResponse): Promise<ClosuresResponse> => (stale ? asCached(stale, "Cached result") : r);
+  async function runLookup(d: ClosuresDeps, at: number, deadline: number, stale: CacheEntry | null, st: ClosuresState): Promise<ClosuresResponse> {
+    const fallbackTo = (r: ClosuresResponse): ClosuresResponse => (stale ? asCached(stale, "Cached result") : r);
     // Increment first, then compare the returned value: concurrent requests cannot all pass a check.
     const capKey = `tavily:${budgetWindow(at, d.config.budgetResetHourUtc)}`;
     let n: number;
     try {
-      n = (await d.store.incr(capKey, 1, 2 * DAY_MS)).value;
+      n = await d.store.incrLite(capKey, 1, 2 * DAY_MS);
     } catch (e) {
       if (!(e instanceof StoreError)) throw e;
       logEvent("warn", "protection_unavailable", { where: "closures_cap" });
       return fallbackTo(unavailable("protection_unavailable", "Closure search is paused because its safeguards are unavailable."));
     }
     if (n > d.config.tavilyDailyCap) {
-      await d.store.incr(capKey, -1, 2 * DAY_MS).catch(() => undefined);
+      await d.store.incrLite(capKey, -1, 2 * DAY_MS).catch(() => undefined);
       logEvent("warn", "closures_cap_reached", {});
       return fallbackTo(unavailable("cap_reached", "The daily closure-search allowance is used up. Try again tomorrow."));
     }
@@ -459,12 +523,8 @@ async function lookupBare(deps: ClosuresDeps, ip: string, state: ClosuresState, 
       model,
     };
     // Only a lookup whose extraction worked is cached for the full window; a degraded one for ~2 minutes.
-    try {
-      await d.store.set(CACHE_KEY, JSON.stringify({ at, degraded, value: stripTokens(value) } satisfies CacheEntry), STALE_KEEP_MS);
-    } catch (e) {
-      if (!(e instanceof StoreError)) throw e;
-      logEvent("warn", "protection_unavailable", { where: "closures_cache_write" });
-    }
+    // The cache lives in process memory only (it holds Tavily content).
+    st.cache = { at, degraded, value: stripTokens(value) };
     return stripTokens(value);
   }
 }
@@ -474,32 +534,34 @@ async function lookupBare(deps: ClosuresDeps, ip: string, state: ClosuresState, 
 export type ConfirmOutcome =
   | { status: "ok"; record: import("../agent/protocol").ConfirmedClosureRecord }
   | { status: "invalid_or_used" }
+  | { status: "expired" }
+  | { status: "wrong_requester" }
   | { status: "store_error" };
 
 /**
- * Redeems a confirmation token. GETDEL makes it single use even under a race: exactly one caller
- * gets the proposal, everyone else (and every replay) gets nothing. The mutation, label and
- * provenance come from what the SERVER proposed, never from the caller.
+ * Redeems a confirmation token: verify the HMAC (no store), check expiry and the requester, then
+ * record the token id as used with SET NX (the only store command, and only at redemption).
+ * Exactly one caller gets the record; replays get nothing. The mutation, label and provenance come
+ * from what the SERVER signed, never from the caller.
  */
-export async function redeemConfirmation(store: SharedStore, token: string, nowMs: number): Promise<ConfirmOutcome> {
-  let raw: string | null;
+export async function redeemConfirmation(store: SharedStore, secret: string, token: string, clientKey: string, nowMs: number): Promise<ConfirmOutcome> {
+  const payload = verifyConfirmToken(secret, token);
+  if (!payload) return { status: "invalid_or_used" };
+  if (payload.x <= nowMs) return { status: "expired" };
+  if (payload.c !== clientKey) return { status: "wrong_requester" };
+  let first: boolean;
   try {
-    raw = await store.take(`cf:${token}`);
+    first = await store.setIfAbsent(`cfu:${payload.j}`, "1", Math.max(1_000, payload.x - nowMs));
   } catch (e) {
     if (!(e instanceof StoreError)) throw e;
     return { status: "store_error" };
   }
-  if (!raw) return { status: "invalid_or_used" };
-  let p: ClosureProposal;
-  try {
-    p = JSON.parse(raw) as ClosureProposal;
-  } catch {
-    return { status: "invalid_or_used" };
-  }
+  if (!first) return { status: "invalid_or_used" };
+  const p = payload.p;
   return {
     status: "ok",
     record: {
-      id: `tavily-${p.gazetteerId}-${randomBytes(4).toString("hex")}`,
+      id: `tavily-${p.gazetteerId}-${payload.j.slice(0, 8)}`,
       m: p.mutation,
       origin: "tavily",
       label: `${p.matchedName} (unverified news report)`,

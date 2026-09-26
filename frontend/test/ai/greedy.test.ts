@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { greedyFinalists, greedyPlanRound, greedySearch, orderedCandidates, rankRows } from "../../lib/agent/greedy";
-import { proseIssues } from "../../lib/agent/prose";
 import { validateMintedPlannerOutput } from "../../lib/agent/validator";
 import { MISSION, fakeCatalog, fakeEvaluator, row } from "./fixtures";
 
@@ -34,7 +33,7 @@ describe("greedy deterministic search", () => {
   it("its own bundles pass the same validator the planner is held to", () => {
     const round1 = greedyPlanRound({ catalog, mission: MISSION, round: 1, rows: [], known: [] });
     const r = validateMintedPlannerOutput(
-      { action: "propose", log_sentence: "Deterministic.", hypothesis: "Deterministic.", bundles: round1 },
+      { action: "propose", commentary: "", mechanism_note: "", bundles: round1 },
       { catalog, mission: MISSION, phase: "search", round: 1, known: [] },
     );
     expect(r.ok).toBe(true);
@@ -63,10 +62,10 @@ describe("greedy deterministic search", () => {
     expect(greedyFinalists(rows, MISSION, new Set(["B1"])).map((f) => f.bundleId)).toEqual(["B2", "B3", "B4"]);
     expect(greedyFinalists(rows.slice(0, 3), MISSION, new Set(["B1"])).map((f) => f.bundleId)).toEqual(["B1", "B2", "B3"]);
   });
-  it("finalist text passes the same prose screen as model text, and fits the tradeoff cap", () => {
+  it("finalist note is application-authored (labeled non-AI), number-free and short", () => {
     const f = greedyFinalists([row("B1", ["SP-BROENING"])], MISSION);
-    expect(f[0].tradeoff).not.toMatch(/[0-9]/);
-    expect(proseIssues(f[0].tradeoff)).toEqual([]);
-    expect(f[0].tradeoff.length).toBeLessThanOrEqual(100);
+    expect(f[0].note).toContain("not AI");
+    expect(f[0].note).not.toMatch(/[0-9]/);
+    expect(f[0].note.length).toBeLessThanOrEqual(100);
   });
 });

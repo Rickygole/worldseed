@@ -187,7 +187,11 @@ export interface ClosureUnmatched {
     | "unsupported_kind"
     | "already_ended"
     | "not_yet_started"
-    | "unclear_status";
+    | "unclear_status"
+    | "partial_closure"
+    | "completed_event"
+    | "hypothetical_scenario"
+    | "hearsay";
 }
 
 export interface ClosureSource {
@@ -219,7 +223,7 @@ export type ClosuresResponse =
     };
 
 /** POST /api/closures/confirm */
-export const ConfirmClosureRequestSchema = z.strictObject({ token: z.string().regex(/^[a-f0-9]{32}$/) });
+export const ConfirmClosureRequestSchema = z.strictObject({ token: z.string().max(4096).regex(/^v1\.[A-Za-z0-9_-]{20,3000}\.[A-Za-z0-9_-]{20,100}$/) });
 export type ConfirmClosureRequest = z.infer<typeof ConfirmClosureRequestSchema>;
 
 /** The shape lib/sim/compile.ts accepts for a tavily-origin mutation (a MutationRecord). */
@@ -235,4 +239,4 @@ export interface ConfirmedClosureRecord {
 
 export type ConfirmClosureResponse =
   | { status: "ok"; record: ConfirmedClosureRecord }
-  | { status: "unavailable"; reason: "invalid_or_used" | "rate_limited" | "protection_unavailable"; message: string; retryAfterS?: number };
+  | { status: "unavailable"; reason: "invalid_or_used" | "expired" | "wrong_requester" | "rate_limited" | "protection_unavailable"; message: string; retryAfterS?: number };

@@ -1,5 +1,5 @@
 import type { Catalog } from "../../agent/catalog";
-import { FRAMING, NUMBER_RULE, fenceUserText, messages, schemaBlock } from "./shared";
+import { FRAMING, fenceUserText, messages, schemaBlock } from "./shared";
 
 export const PARSE_SCHEMA_NAME = "mission_parse";
 export const MAX_GAZETTEER_LINES = 250;
@@ -16,8 +16,7 @@ export function buildParseMessages(catalog: Catalog, text: string, jsonSchema: R
     "lens: use access for cross-harbor travel to jobs and destinations; use ems for station-to-neighborhood travel.",
     "goal.metric: one of p50, p90, isolatedCount, equityGap (all lower is better). goal.op is always <=. goal.targetRef is always the literal baseline+X; the planner picks the numeric target later with a control, so never write a target number.",
     "constraints.maxCostTier: $, $$ or $$$ (default $$$ when the text gives no budget). constraints.types: intervention types named in the text (signal_priority, temp_link, prepos_site, hazmat_window, incident_mgmt); empty means any. constraints.areas: only gazetteer IDs from the list below that the text names; empty if none.",
-    "log_sentence: one short plain sentence describing how you read the mission.",
-    NUMBER_RULE,
+    "The reply has no free-text fields.",
     `Gazetteer (IDs you may use for areas):\n${places || "(none)"}`,
     schemaBlock(jsonSchema),
   ].join("\n\n");

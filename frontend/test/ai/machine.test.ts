@@ -68,9 +68,10 @@ describe("state machine: full AI mission through the real server handlers", () =
     await m.confirmGoal(MISSION);
     const s = m.getState();
     // round 1: 4 requested, 3 scored, 3*50+50 futures; round 2: 1 scored, 100 futures; round 3: 1 scored, 100 futures
-    expect(sentences(s)).toContain("Round 1: the simulator scored 3 of 4 requested bundles across 200 simulated futures, computed locally in your browser.");
-    expect(sentences(s)).toContain("Round 2: the simulator scored 1 of 1 requested bundles across 100 simulated futures, computed locally in your browser.");
-    expect(s.counts).toEqual({ bundlesEvaluated: 5, futuresEvaluated: 400 });
+    // each accepted row carries its own futures count (50 here): round 1 has 3 rows, rounds 2 and 3 one each
+    expect(sentences(s)).toContain("Round 1: the simulator scored 3 of 4 requested bundles across 150 simulated futures, computed locally in your browser.");
+    expect(sentences(s)).toContain("Round 2: the simulator scored 1 of 1 requested bundles across 50 simulated futures, computed locally in your browser.");
+    expect(s.counts).toEqual({ bundlesEvaluated: 5, futuresEvaluated: 250 });
     expect(s.rows.map((r) => r.bundleId)).not.toContain("B2");
     expect(calls).toEqual([["B1", "B2", "B3", "B4"], ["B5"], ["B6"]]);
   });
@@ -82,20 +83,52 @@ describe("state machine: full AI mission through the real server handlers", () =
     const s = m.getState();
     expect(s.budget.inputTokens).toBe(7 * 1200);
     expect(s.budget.outputTokens).toBe(7 * 300);
-    expect(s.budget.fraction).toBeCloseTo(Math.max((7 * 1200) / 60000, (7 * 300) / 12000));
-    const filled = m.fill(s.narration.B5.body, "B5");
-    expect(filled).not.toContain("{{");
-    expect(filled).toMatch(/min/);
+    expect(s.budget.fraction).toBeCloseTo(Math.max((7 * 1200) / 30000, (7 * 300) / 6000));
+    // the card: application headline and result lines from the bundle's own row, plus labeled AI commentary
+    const card = m.card("B5")!;
+    expect(card.headline).toContain("B5:");
+    expect(card.lines.join("\n")).toMatch(/\d+\.\d min \(baseline \d+\.\d min; [\d.]+ min (better|worse)\)/);
+    expect(card.lines.at(-1)).toBe("Cost tier: $");
+    expect(card.commentaryLabel).toBe("AI commentary");
+    expect(card.commentary).toBe("Retimes signals on the corridor and depends on a hypothetical link.");
+    expect(card.lines.join(" ")).not.toContain("{{");
     expect(m.fill("Unknown {{p90.delta}} here")).toContain("n/a"); // no focus bundle, so unresolved, never a raw brace
   });
 
-  it("puts raw tool JSON and model names in the decision log", async () => {
+  it("logs what the planner did in application words, then its commentary under an 'AI commentary' label", async () => {
     const { m } = harness(happyScript());
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
-    const d = m.getState().log.find((l) => l.kind === "decision" && (l.raw as { action?: string } | undefined)?.action === "propose");
+    const log = m.getState().log;
+    const d = log.find((l) => l.kind === "decision" && (l.raw as { action?: string } | undefined)?.action === "propose");
     expect(d?.model).toBe("nvidia/Nemotron-3-Ultra-550b-a55b");
-    expect(d?.sentence).toBe("Trying signal and link mixes across types.");
+    expect(d?.sentence).toBe("Round 1: the planner proposed 4 bundles (B1, B2, B3, B4).");
+    const c = log.filter((l) => l.kind === "commentary").map((l) => l.sentence);
+    expect(c).toContain("AI commentary (planner, mechanism only): Starting with a broad mix of signal and link mechanisms across types.");
+    expect(c.every((x) => x.startsWith("AI commentary ("))).toBe(true);
+    // the parse line is an application template, not model text
+    expect(sentences(m.getState())).toContain("Read your mission as: access lens, lower worst-case (90th percentile) travel time (you set the target next), cost tier up to $$, areas Dundalk.");
+  });
+
+  it("finding NEW-7: the decision log's raw JSON is the client-validated value, not the server-supplied tool_call args", async () => {
+    const server = makeServer(happyScript());
+    const api = apiFor(server);
+    // a hostile or buggy server sends tool_call args that differ from the result it returns
+    const lying: AgentApi = {
+      ...api,
+      plan: async (req, opts) => {
+        opts?.onEvent?.({ event: "tool_call", data: { name: "propose", args: { action: "propose", commentary: "Saves twelve minutes. Nobody is isolated." }, model: "m", repaired: false } });
+        return api.plan(req, opts);
+      },
+    };
+    const m = new AgentMachine({ api: lying, evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-raw-1" });
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const raws = m.getState().log.filter((l) => l.raw !== undefined).map((l) => JSON.stringify(l.raw));
+    expect(raws.join("\n")).not.toContain("Nobody is isolated");
+    expect(raws.join("\n")).not.toContain("twelve");
+    const propose = m.getState().log.find((l) => (l.raw as { action?: string } | undefined)?.action === "propose");
+    expect((propose?.raw as { bundles: { id: string }[] }).bundles.map((b) => b.id)).toEqual(["B1", "B2", "B3", "B4"]); // minted, validated
   });
 
   it("cancel aborts in-flight work and returns to idle without applying anything", async () => {
@@ -137,7 +170,7 @@ describe("state machine: fallbacks", () => {
   });
 
   it("two rejected planner outputs switch the mission to deterministic search, labeled, and it still finishes", async () => {
-    const digits = proposeReply(B1234, { log_sentence: "Saves 9 minutes" });
+    const digits = proposeReply(B1234, { commentary: "Saves 9 minutes" });
     const { m, server } = harness([parseReply(), digits, digits]);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
@@ -175,7 +208,7 @@ describe("state machine: fallbacks", () => {
   it("client-side validator rejects a tampered server response (defense in depth)", async () => {
     const api: AgentApi = {
       parse: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: JSON.parse(parseReply()) }),
-      plan: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: { action: "propose", log_sentence: "Trying.", hypothesis: "Retiming targets the detour.", bundles: [{ id: "B1", candidateIds: ["NOT-IN-CATALOG"] }] } }),
+      plan: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: { action: "propose", commentary: "Trying.", mechanism_note: "Retiming acts on the detour.", bundles: [{ id: "B1", candidateIds: ["NOT-IN-CATALOG"] }] } }),
       critique: async () => { throw new Error("unexpected"); },
       narrate: async () => { throw new Error("unexpected"); },
     };
@@ -355,10 +388,35 @@ describe("P2: a cancelled run cannot write into the next mission", () => {
   });
 });
 
+describe("finding NEW-7 (client side): what the server sends is screened again, and the log shows only the validated value", () => {
+  it("a commentary the server let through but the client screen refuses is blanked in the raw log JSON, the card and the log, and is reported", async () => {
+    const server = makeServer(happyScript());
+    const api = apiFor(server);
+    const permissive: AgentApi = {
+      ...api,
+      plan: async (req, opts) => {
+        const out = await api.plan(req, opts);
+        if (out.status === "ok" && out.result.action === "propose") return { ...out, result: { ...out.result, commentary: "Nobody is left isolated and it is cheaper." } };
+        return out;
+      },
+    };
+    const m = new AgentMachine({ api: permissive, evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-raw-2" });
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const log = m.getState().log;
+    const propose = log.find((l) => (l.raw as { action?: string } | undefined)?.action === "propose");
+    expect((propose?.raw as { commentary: string }).commentary).toBe(""); // validated value, not what the server sent
+    expect(JSON.stringify(log.map((l) => l.raw))).not.toContain("Nobody");
+    expect(log.filter((l) => l.kind === "commentary").map((l) => l.sentence).join(" ")).not.toContain("Nobody");
+    expect(log.some((l) => l.kind === "validator" && l.sentence.includes("withheld") && l.errors?.some((e) => e.includes("nobody")))).toBe(true);
+    expect(m.getState().mode).toBe("ai"); // one withheld field did not switch the mission to deterministic search
+  });
+});
+
 describe("P3: counts come from accepted rows, and refused rows are reported with their own reason", () => {
   const dupEvaluator: EvaluateFn = async (bundles) => {
-    const rows = bundles.flatMap((x) => [row(x.id, x.candidateIds, { p90S: 1000 }), row(x.id, x.candidateIds, { p90S: 100 })]);
-    return { rows, baseline: BASELINE, bundlesEvaluated: 999, futuresEvaluated: 123456 };
+    const rows = bundles.flatMap((x) => [{ ...row(x.id, x.candidateIds, { p90S: 1000 }), futures: 40 }, { ...row(x.id, x.candidateIds, { p90S: 100 }), futures: 40 }]);
+    return { rows, baseline: BASELINE, bundlesEvaluated: 999, futuresEvaluated: 123456 } as never; // aggregate claims are not part of the contract and are ignored
   };
   it("accepts only the first row per bundle and does not inflate the counts", async () => {
     const { m } = harness(happyScript(), dupEvaluator);
@@ -368,8 +426,7 @@ describe("P3: counts come from accepted rows, and refused rows are reported with
     expect(new Set(s.rows.map((r) => r.bundleId)).size).toBe(s.rows.length);
     expect(s.rows.find((r) => r.bundleId === "B1")?.p90S).toBe(1000); // first row wins
     expect(s.counts.bundlesEvaluated).toBe(s.rows.length);
-    expect(s.counts.futuresEvaluated).toBeLessThan(123456);
-    expect(s.counts.futuresEvaluated).toBeLessThan(s.rows.length * 200); // scaled down, not the claimed 123456 per batch
+    expect(s.counts.futuresEvaluated).toBe(s.rows.length * 40); // the SUM of accepted rows' own futures, never the aggregate claim
     expect(sentences(s).some((x) => x.includes("rows that were not used"))).toBe(true);
     expect(s.log.find((l) => l.errors?.some((e) => e.startsWith("duplicate_row")))).toBeDefined();
   });
@@ -380,12 +437,13 @@ describe("P3: counts come from accepted rows, and refused rows are reported with
       first = false;
       return {
         rows: [
-          row("B1", ["SP-BROENING"]),
-          row("B12", ["SP-EASTERN"]), // a valid id, but not requested
-          row(bundles[1].id, ["SP-HARBOR"]), // wrong candidates for that bundle
-          { ...row(bundles[2].id, bundles[2].candidateIds), p90S: Number.NaN }, // malformed
+          { ...row("B1", ["SP-BROENING"]), futures: 10 },
+          { ...row("B12", ["SP-EASTERN"]), futures: 10 }, // a valid id, but not requested
+          { ...row(bundles[1].id, ["SP-HARBOR"]), futures: 10 }, // wrong candidates for that bundle
+          { ...row(bundles[2].id, bundles[2].candidateIds), p90S: Number.NaN, futures: 10 }, // malformed
+          { ...row(bundles[3].id, bundles[3].candidateIds) } as never, // no futures count: malformed
         ],
-        baseline: BASELINE, bundlesEvaluated: 4, futuresEvaluated: 400,
+        baseline: BASELINE,
       };
     };
     const { m } = harness(happyScript(), mixed);
@@ -394,11 +452,11 @@ describe("P3: counts come from accepted rows, and refused rows are reported with
     const codes = m.getState().log.flatMap((l) => l.errors ?? []).join(" ");
     expect(codes).toContain("unknown_bundle: 1");
     expect(codes).toContain("candidate_mismatch: 1");
-    expect(codes).toContain("malformed_row: 1");
+    expect(codes).toContain("malformed_row: 2"); // one is NaN, one has no futures count
     expect(sentences(m.getState()).some((x) => x.startsWith("Round 1: the simulator scored 1 of 4 requested bundles"))).toBe(true);
   });
   it("when nothing is accepted it says so with its own reason, not 'no catalog intervention could be evaluated'", async () => {
-    const bad: EvaluateFn = async (bundles) => ({ rows: bundles.map((x) => row("B12", x.candidateIds)), baseline: BASELINE, bundlesEvaluated: bundles.length, futuresEvaluated: 100 });
+    const bad: EvaluateFn = async (bundles) => ({ rows: bundles.map((x) => ({ ...row("B12", x.candidateIds), futures: 100 })), baseline: BASELINE });
     const { m } = harness(happyScript(), bad);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
@@ -413,7 +471,7 @@ describe("P3: counts come from accepted rows, and refused rows are reported with
     let n = 0;
     const later: EvaluateFn = async (bundles, ctx) => {
       const base = await fakeEvaluator()(bundles, ctx);
-      if (n++ === 1) return { ...base, rows: [...base.rows, row("B1", ["SP-BROENING"], { p90S: 1 })] };
+      if (n++ === 1) return { ...base, rows: [...base.rows, { ...row("B1", ["SP-BROENING"], { p90S: 1 }), futures: 100 }] };
       return base;
     };
     const { m } = harness(happyScript(), later);
@@ -425,7 +483,7 @@ describe("P3: counts come from accepted rows, and refused rows are reported with
 });
 
 describe("P5: fallback labels say what actually happened, per role", () => {
-  const bad = { log_sentence: "Cutting access time by 5 minutes." };
+  const bad = { extra: "field" };
   it("a rejected parse returns to idle with a parser-specific message and no deterministic-switch claim", async () => {
     const { m } = harness([parseReply(bad), parseReply(bad)]);
     await m.start("cut access time");
@@ -436,7 +494,7 @@ describe("P5: fallback labels say what actually happened, per role", () => {
     expect(sentences(s).join(" ")).not.toContain("deterministic search used");
   });
   it("a rejected critic keeps the mission in AI mode and does not claim a deterministic switch", async () => {
-    const badCrit = critiqueReply({ log_sentence: "Worst case up 3 minutes." });
+    const badCrit = critiqueReply({ score: 3 });
     const script = happyScript();
     script[4] = badCrit;
     script.splice(5, 0, badCrit);
@@ -453,7 +511,7 @@ describe("P5: fallback labels say what actually happened, per role", () => {
   });
   it("a rejected narration says finalists are shown without narration", async () => {
     const script = happyScript();
-    const badNarr = narrateReply(["B5", "B6", "B3"]).replace("{{p90.current}}", "9 minutes");
+    const badNarr = narrateReply(["B5", "B6", "B3"]).replace("a hypothetical link", "9 hypothetical links");
     script[6] = badNarr;
     script.push(badNarr);
     const { m } = harness(script);
@@ -464,23 +522,85 @@ describe("P5: fallback labels say what actually happened, per role", () => {
     expect(m.getState().mode).toBe("ai");
   });
   it("a rejected planner really does switch, and only then says so", async () => {
-    const digits = proposeReply(B1234, { log_sentence: "Saves 9 minutes" });
+    const digits = proposeReply(B1234, { commentary: "Saves 9 minutes" });
     const { m } = harness([parseReply(), digits, digits]);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     expect(m.getState().mode).toBe("deterministic");
     expect(sentences(m.getState())).toContain(UI_MESSAGES.outputRejected);
   });
-  it("a finalize tradeoff that names a real catalog id with digits is accepted end to end (one shared allowlist)", async () => {
+  it("a finalist mechanism note that names a real catalog id with digits is accepted end to end (one shared allowlist)", async () => {
     const script = happyScript();
-    script[5] = finalizeReply(["B5", "B6", "B3"], { finalists: ["B5", "B6", "B3"].map((bundleId) => ({ bundleId, tradeoff: "Leaves the IM-I895 corridor unresolved." })) });
+    script[5] = finalizeReply(["B5", "B6", "B3"], { finalists: ["B5", "B6", "B3"].map((bundleId) => ({ bundleId, mechanism_note: "Combines IM-I895 with a shuttle." })) });
     const { m, server } = harness(script);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
-    expect(m.getState().finalists[0].tradeoff).toContain("IM-I895");
+    expect(m.getState().finalists[0].mechanismNote).toContain("IM-I895");
     expect(Object.keys(m.getState().narration)).toHaveLength(3); // the narrate route did not 400 on it
     expect(server.provider.calls).toHaveLength(7);
     const narratePrompt = server.provider.calls[6].messages.map((x) => x.content).join("\n");
-    expect(narratePrompt).not.toContain("Leaves the IM-I895 corridor"); // the tradeoff text is not re-sent into a prompt
+    expect(narratePrompt).not.toContain("Combines IM-I895"); // the note is not re-sent into a prompt
+  });
+});
+
+describe("test debt: stale run gates (a cancelled run cannot write through any channel)", () => {
+  it("guard: late server events (log and usage) from a cancelled run's API call are dropped", async () => {
+    const server = makeServer(happyScript());
+    const api = apiFor(server);
+    let late: ((e: never) => void) | undefined;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const slowApi: AgentApi = {
+      ...api,
+      plan: async (req, opts) => {
+        late = opts?.onEvent as (e: never) => void;
+        await gate;
+        return api.plan(req, opts);
+      },
+    };
+    const ids = ["mission-late-1", "mission-late-2"];
+    const m = new AgentMachine({ api: slowApi, evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => ids.shift()! });
+    await m.start("cut access time");
+    const oldRun = m.confirmGoal(MISSION);
+    await sleep(20);
+    expect(late).toBeDefined();
+    m.cancel();
+    const newRun = m.runDeterministic(MISSION);
+    await sleep(5);
+    const before = m.getState().log.length;
+    const budgetBefore = m.getState().budget;
+    late!({ event: "log", data: { kind: "info", sentence: "STALE EVENT FROM THE OLD RUN" } } as never);
+    late!({ event: "usage", data: { role: "planner", model: "m", inputTokens: 1, outputTokens: 1, mission: { inputTokens: 29_999, outputTokens: 5_999, limitIn: 30_000, limitOut: 6_000 } } } as never);
+    expect(m.getState().log.length).toBe(before);
+    expect(sentences(m.getState()).join(" ")).not.toContain("STALE EVENT");
+    expect(m.getState().budget).toEqual(budgetBefore);
+    release();
+    await Promise.allSettled([oldRun, newRun]);
+    expect(sentences(m.getState()).join(" ")).not.toContain("STALE EVENT");
+  });
+  it("guard: a late progress tick from a cancelled run's evaluator does not set progress", async () => {
+    let tick: ((done: number, total: number) => void) | undefined;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const slow: EvaluateFn = async (b, ctx) => {
+      tick = ctx.onProgress;
+      await gate;
+      return fakeEvaluator()(b, ctx);
+    };
+    const server = makeServer(happyScript());
+    const ids = ["mission-tick-1", "mission-tick-2"];
+    const m = new AgentMachine({ api: apiFor(server), evaluate: slow, catalog: fakeCatalog(), newMissionId: () => ids.shift() as string });
+    await m.start("cut access time");
+    const oldRun = m.confirmGoal(MISSION);
+    await sleep(20);
+    expect(m.getState().phase).toBe("evaluating");
+    m.cancel();
+    expect(m.getState().progress).toBeUndefined();
+    tick!(7, 9); // the old evaluator ticks after the cancel
+    expect(m.getState().progress).toBeUndefined();
+    release();
+    await oldRun;
+    expect(m.getState().phase).toBe("idle");
+    expect(m.getState().progress).toBeUndefined();
   });
 });

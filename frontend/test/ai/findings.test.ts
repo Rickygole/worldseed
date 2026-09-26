@@ -52,23 +52,31 @@ describe("finding 1: one quota unit no longer buys unlimited model calls", () =>
     expect(p.calls.length).toBeLessThanOrEqual(1); // was 60
     expect(results.filter((r) => r.status === "ok").length).toBeLessThanOrEqual(1);
     expect(results.filter((r) => r.httpStatus === 429).length).toBeGreaterThanOrEqual(59);
-    const inTok = Number(await s.store.get("m:MISSION-00001:in"));
-    const outTok = Number(await s.store.get("m:MISSION-00001:out"));
-    expect(inTok).toBeLessThanOrEqual(s.config.missionInputTokens); // repro: 305000 vs 60000
-    expect(outTok).toBeLessThanOrEqual(s.config.missionOutputTokens); // repro: 36600 vs 12000
+    const u = await s.deps.missions.usage("MISSION-00001");
+    expect(u.inputTokens).toBeLessThanOrEqual(s.config.missionInputTokens); // repro: 305000 vs 60000
+    expect(u.outputTokens).toBeLessThanOrEqual(s.config.missionOutputTokens); // repro: 36600 vs 12000
   });
-  it("the same NEW id sent 20 times in parallel charges the visitor's quota exactly once", async () => {
+  it("the same NEW id sent several times in parallel charges the visitor's quota exactly once", async () => {
     const s = makeServer(Array.from({ length: 30 }, () => ({ text: parseReply(), delayMs: 30 })));
-    await Promise.all(Array.from({ length: 20 }, () => doParse(s, "MISSION-00002").then(statusOf)));
-    expect(await s.store.get(`rl:ip:${ipKey(IP)}:missions_per_hour`)).toBe("1");
-    // four more distinct missions fit in the hourly allowance of five; the sixth does not
-    for (let i = 0; i < 4; i++) expect((await doParse(s, `MISSION-1000${i}`)).status).toBe(200);
+    await Promise.all(Array.from({ length: 6 }, () => doParse(s, "MISSION-00002").then(statusOf)));
+    expect(await s.store.get(`rl:ip:${ipKey(IP)}:missions_per_hour`)).toBe("1"); // the twins refunded their units
+    // seven more distinct missions fit in the hourly allowance of eight; the ninth does not
+    for (let i = 0; i < 7; i++) expect((await doParse(s, `MISSION-1000${i}`)).status).toBe(200);
     expect((await doParse(s, "MISSION-10009")).status).toBe(429);
+  });
+  it("a burst beyond the allowance only ever hurts the sender: refused requests keep their count, the window still ends on time", async () => {
+    const s = makeServer(Array.from({ length: 30 }, () => ({ text: parseReply(), delayMs: 5 })));
+    await Promise.all(Array.from({ length: 20 }, () => doParse(s, "MISSION-00002").then(statusOf)));
+    expect(Number(await s.store.get(`rl:ip:${ipKey(IP)}:missions_per_hour`))).toBeGreaterThan(8);
+    expect((await doParse(s, "MISSION-00099")).status).toBe(429);
+    expect((await doParse(s, "MISSION-00099", "198.51.100.44")).status).toBe(200); // another client is unaffected
+    s.clock.t += 3600_000 + 1;
+    expect((await doParse(s, "MISSION-00098")).status).toBe(200);
   });
   it("a known mission id used from a DIFFERENT client is charged to that client's quota", async () => {
     const s = makeServer(Array.from({ length: 40 }, () => parseReply()));
     // client B burns its whole hourly allowance on other missions
-    for (let i = 0; i < 5; i++) await readSse(await doParse(s, `MISSION-B000${i}`, "198.51.100.9"));
+    for (let i = 0; i < 8; i++) await readSse(await doParse(s, `MISSION-B000${i}`, "198.51.100.9"));
     await readSse(await doParse(s, "MISSION-00003", IP)); // client A creates the mission
     const res = await doParse(s, "MISSION-00003", "198.51.100.9"); // client B tries to ride A's mission id
     expect(res.status).toBe(429);
@@ -81,8 +89,10 @@ describe("finding 1: one quota unit no longer buys unlimited model calls", () =>
     const s = makeServer([], {}, p);
     for (let i = 0; i < 20; i++) await readSse(await doParse(s, "MISSION-00004"));
     expect(p.calls.length).toBeLessThanOrEqual(6); // 3 turns allowed x 2 models; then the turn cap stops it
-    expect(Number(await s.store.get("m:MISSION-00004:calls"))).toBeLessThanOrEqual(s.config.missionMaxCalls);
-    expect(Number(await s.store.get("m:MISSION-00004:in"))).toBeGreaterThan(0); // the input estimate was recorded
+    const u = await s.deps.missions.usage("MISSION-00004");
+    expect(u.calls).toBeLessThanOrEqual(s.config.missionMaxCalls);
+    expect(u.inputTokens).toBeGreaterThan(0); // the input estimate was recorded
+    expect(u.outputTokens).toBe(0); // and the unused output reservation was given back
     expect((await s.deps.budget.status()).spentUsd).toBeGreaterThan(0); // and so was the day's spend
   });
   it("the per-mission call cap counts every attempt", async () => {
@@ -104,6 +114,14 @@ describe("finding 1: one quota unit no longer buys unlimited model calls", () =>
     await readSse(await doParse(makeServer([], {}, q), "MISSION-00007"));
     expect(q.calls).toHaveLength(3); // was one call per model in the chain, twice
   });
+  it("the one-repair rule: exactly one repair turn, then a fallback, however many more replies the provider would give", async () => {
+    const p = new FakeProvider(["not json", "still not json", "and again", parseReply(), parseReply()]);
+    const s = makeServer([], {}, p);
+    const out = await statusOf(await doParse(s, "MISSION-00016"));
+    expect(p.calls).toHaveLength(2); // the first answer and ONE repair
+    expect(out).toMatchObject({ status: "fallback", reason: "output_rejected" });
+    expect(p.script).toHaveLength(3); // the rest of the script was never asked for
+  });
   it("the repair turn stays on the model that answered instead of walking the chain again", async () => {
     const p = new FakeProvider(["not json", parseReply()]);
     const s = makeServer([], {}, p);
@@ -122,8 +140,7 @@ describe("finding 1: one quota unit no longer buys unlimited model calls", () =>
   it("a mission's tokens are reserved up front and trued up to the real usage", async () => {
     const s = makeServer([{ text: parseReply(), usage: { inputTokens: 700, outputTokens: 120 } }]);
     await readSse(await doParse(s, "MISSION-00009"));
-    expect(await s.store.get("m:MISSION-00009:in")).toBe("700");
-    expect(await s.store.get("m:MISSION-00009:out")).toBe("120");
+    expect(await s.deps.missions.usage("MISSION-00009")).toEqual({ calls: 1, inputTokens: 700, outputTokens: 120 });
     expect(await s.store.get("m:MISSION-00009:lock")).toBeNull(); // the in-flight lock is released
   });
   it("the in-flight lock is released even when the work throws, and before 'done' is sent", async () => {
@@ -145,8 +162,7 @@ describe("finding 1: one quota unit no longer buys unlimited model calls", () =>
     const out = await statusOf(await doParse(s, "MISSION-00013"));
     expect(out).toMatchObject({ status: "fallback", reason: "mission_budget_exhausted" });
     expect(s.provider.calls).toHaveLength(0);
-    expect(await s.store.get("m:MISSION-00013:in")).toBe("0"); // the refused reservation was refunded
-    expect(await s.store.get("m:MISSION-00013:calls")).toBe("0");
+    expect(await s.deps.missions.usage("MISSION-00013")).toEqual({ calls: 0, inputTokens: 0, outputTokens: 0 }); // the refused reservation was refunded
   });
   it("finding P1.4 (server): the cost tier shown to the model is recomputed from the catalog, not taken from the client", async () => {
     const s = makeServer([proposeReply([{ candidateIds: ["SP-BROENING"] }])]);
@@ -175,15 +191,13 @@ describe("finding 1: one quota unit no longer buys unlimited model calls", () =>
     }
     await reader.cancel();
   });
-  it("critique has a turn cap too, and a repeated turn is limited", async () => {
-    const s = makeServer(Array.from({ length: 20 }, () => critiqueReply()));
-    const body = (round: number) => ({ missionId: "MISSION-00012", mission: MISSION, round, evaluations: [row("B1", ["SP-BROENING"])], baseline: BASELINE });
-    const call = async (round: number) => doneOf(await readSse(await handleCritique(post("/api/agent/critique", body(round)), s.deps)));
-    for (let i = 0; i < 3; i++) expect((await call(1)).status).toBe("ok");
-    expect(await call(1)).toMatchObject({ status: "fallback", reason: "round_limit" }); // 4th ask of the same turn
-    expect((await call(2)).status).toBe("ok");
-    expect((await call(3)).status).toBe("ok");
-    expect(s.provider.calls).toHaveLength(5);
+  it("critique has an ask cap too: a mission may ask the critic at most 9 times", async () => {
+    const s = makeServer(Array.from({ length: 30 }, () => critiqueReply()), { missionMaxCalls: 30 });
+    const body = { missionId: "MISSION-00012", mission: MISSION, round: 1, evaluations: [row("B1", ["SP-BROENING"])], baseline: BASELINE };
+    const call = async () => doneOf(await readSse(await handleCritique(post("/api/agent/critique", body), s.deps)));
+    for (let i = 0; i < 9; i++) expect((await call()).status).toBe("ok");
+    expect(await call()).toMatchObject({ status: "fallback", reason: "round_limit" });
+    expect(s.provider.calls).toHaveLength(9);
   });
 });
 
@@ -286,10 +300,13 @@ describe("finding 5: free text does not reach a prompt beyond the structured fie
     expect(s.provider.calls).toHaveLength(0);
   });
   it("a markdown link in model output is rejected (repro: [x](//evil) passed)", async () => {
-    const s = makeServer([proposeReply([{ candidateIds: ["SP-BROENING"] }], { hypothesis: "See [x](//evil.example) for details." }), proposeReply([{ candidateIds: ["SP-BROENING"] }])]);
+    const s = makeServer([proposeReply([{ candidateIds: ["SP-BROENING"] }], { mechanism_note: "See [x](//evil.example) for details." })]);
     const ev = await readSse(await handlePlan(post("/api/agent/plan", planReq({ missionId: "MISSION-00035" })), s.deps));
-    expect(ev.find((e) => e.event === "log")!.data.errors.join(" ")).toContain("charset");
-    expect(doneOf(ev)).toMatchObject({ status: "ok", repaired: true });
+    const log = ev.find((e) => e.event === "log" && e.data.code === "commentary_withheld")!;
+    expect(log.data.errors.join(" ")).toContain("charset");
+    const done = doneOf(ev);
+    expect(done).toMatchObject({ status: "ok", repaired: false });
+    expect(done.result.mechanism_note).toBe(""); // the link never reaches the client
   });
 });
 
@@ -335,13 +352,13 @@ describe("finding 8: client IP handling", () => {
   it("a spoofed x-forwarded-for entry cannot buy a fresh identity: the trusted (rightmost) hop is used", async () => {
     const s = makeServer(Array.from({ length: 12 }, () => parseReply()));
     const send = (spoof: string, id: string) => handleParse(new Request("http://localhost/api/agent/parse", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": `${spoof}, 9.9.9.9` }, body: JSON.stringify(parseBody(id)) }), s.deps);
-    for (let i = 0; i < 5; i++) expect((await send(`1.1.1.${i}`, `MISSION-S000${i}`)).status).toBe(200);
+    for (let i = 0; i < 8; i++) expect((await send(`1.1.1.${i}`, `MISSION-S000${i}`)).status).toBe(200);
     expect((await send("1.1.1.99", "MISSION-S0009")).status).toBe(429);
   });
   it("rotating within one IPv6 /64 does not create new identities", async () => {
     const s = makeServer(Array.from({ length: 12 }, () => parseReply()));
     const send = (ip: string, id: string) => handleParse(new Request("http://localhost/api/agent/parse", { method: "POST", headers: { "content-type": "application/json", "x-real-ip": ip }, body: JSON.stringify(parseBody(id)) }), s.deps);
-    for (let i = 0; i < 5; i++) expect((await send(`2001:db8:1:2:${i}:${i}:${i}:${i}`, `MISSION-V000${i}`)).status).toBe(200);
+    for (let i = 0; i < 8; i++) expect((await send(`2001:db8:1:2:${i}:${i}:${i}:${i}`, `MISSION-V000${i}`)).status).toBe(200);
     expect((await send("2001:db8:1:2:ffff:ffff:ffff:ffff", "MISSION-V0009")).status).toBe(429);
   });
   it("header-less requests share one TIGHT bucket", async () => {
@@ -404,29 +421,29 @@ describe("finding 10: reservation model, prices, truncation, 429 backoff, outage
     const attempts = async (s: TestServer, n: number, prefix: string) => {
       for (let i = 0; i < n; i++) await readSse(await doParse(s, `${prefix}${i}0000`));
     };
-    const stillFive = async (s: TestServer) => {
+    const stillAllowed = async (s: TestServer) => {
       s.deps.config.liveAi = true;
-      for (let i = 0; i < 5; i++) expect((await doParse(s, `MISSION-Q${i}0000`)).status, `new mission ${i}`).toBe(200);
-      expect((await doParse(s, "MISSION-Q60000")).status, `sixth (used=${await s.store.get(`rl:ip:${ipKey(IP)}:missions_per_hour`)})`).toBe(429);
+      for (let i = 0; i < 8; i++) expect((await doParse(s, `MISSION-Q${i}0000`)).status, `new mission ${i}`).toBe(200);
+      expect((await doParse(s, "MISSION-Q90000")).status, `ninth (used=${await s.store.get(`rl:ip:${ipKey(IP)}:missions_per_hour`)})`).toBe(429);
     };
     // kill switch
     let s = makeServer(Array.from({ length: 10 }, () => parseReply()), { liveAi: false });
     await attempts(s, 10, "MISSION-K");
     expect(s.provider.calls).toHaveLength(0);
-    await stillFive(s);
+    await stillAllowed(s);
     // catalog cannot load
     s = makeServer(Array.from({ length: 10 }, () => parseReply()));
     const good = s.deps.loadCatalog;
     s.deps.loadCatalog = async () => { throw new Error("missing"); };
     await attempts(s, 10, "MISSION-C");
     s.deps.loadCatalog = good;
-    await stillFive(s);
+    await stillAllowed(s);
     // no listed model
     s = makeServer(Array.from({ length: 10 }, () => parseReply()), {}, new FakeProvider(Array.from({ length: 10 }, () => parseReply()), ["other/model"]));
     await attempts(s, 10, "MISSION-M");
     s.provider.models = ["nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "nvidia/nemotron-3-super-120b-a12b"];
     s.clock.t += 11 * 60_000; // past the 10 minute model-list cache
-    await stillFive(s);
+    await stillAllowed(s);
     // daily ceiling reached
     s = makeServer(Array.from({ length: 10 }, () => parseReply()), { dailyBudgetUsd: 0.5 });
     const r = await s.deps.budget.reserve(0.4);
@@ -434,7 +451,7 @@ describe("finding 10: reservation model, prices, truncation, 429 backoff, outage
     await attempts(s, 10, "MISSION-D");
     expect(s.provider.calls).toHaveLength(0);
     s.clock.t += 24 * 3600_000; // the budget window rolls over
-    await stillFive(s);
+    await stillAllowed(s);
   });
   it("reasoningToggle is declared but no request parameter is sent for it", async () => {
     const s = makeServer([parseReply()]);
@@ -486,7 +503,7 @@ describe("finding 12: structured logging without secrets, user text or raw IPs",
   });
   it("logs a per-IP rate limit with a hashed tag, never the address", async () => {
     const s = makeServer(Array.from({ length: 10 }, () => parseReply()));
-    for (let i = 0; i < 6; i++) await readSse(await doParse(s, `MISSION-R000${i}`, "198.51.100.77"));
+    for (let i = 0; i < 9; i++) await readSse(await doParse(s, `MISSION-R000${i}`, "198.51.100.77"));
     const rl = lines.find((l) => l.json.event === "rate_limited");
     expect(rl).toBeDefined();
     expect(rl!.json.ip).toMatch(/^[a-f0-9]{8}$/);
@@ -534,7 +551,11 @@ describe("finding 2 (kill switch) and the base-URL allowlist", () => {
     expect(baseUrlIssue("https://api.nebius.com.evil.example/v1/")).toBe("host is not on the allowlist");
     expect(baseUrlIssue("https://user:pw@api.tokenfactory.nebius.com/")).toBe("must not embed credentials");
     expect(baseUrlIssue("not a url")).toBe("not a valid URL");
-    expect(baseUrlIssue("https://proxy.corp.test/v1", ["corp.test"])).toBeNull(); // WS_ALLOWED_BASE_HOSTS
+    expect(baseUrlIssue("https://proxy.corp.test/v1", ["proxy.corp.test"])).toBeNull(); // WS_ALLOWED_BASE_HOSTS lists exact hosts
+    expect(baseUrlIssue("https://other.corp.test/v1", ["corp.test"])).toBe("host is not on the allowlist"); // never a suffix rule
+    expect(baseUrlIssue("https://api.nebius.com/v1/")).toBe("host is not on the allowlist"); // only the known host is accepted unconfigured
+    expect(baseUrlIssue("https://a.b.nebius.com/v1")).toBe("host is not on the allowlist");
+    expect(baseUrlIssue("https://api.tokenfactory.nebius.com:444/v1")).toBe("must use the default https port");
     const cfg = readConfig({ NEBIUS_API_KEY: "k", NEBIUS_BASE_URL: "http://evil.example.test/" });
     expect(cfg.baseUrlIssue).toBeDefined();
     expect(cfg.baseURL).toBe("https://api.tokenfactory.nebius.com/v1/");
@@ -555,7 +576,7 @@ describe("full multi-turn flow still works under the new limits", () => {
     expect((await plan({ phase: "search", round: 1 })).status).toBe("ok");
     expect((await plan({ phase: "search", round: 2, bundles, evaluations: rows3 })).status).toBe("ok");
     expect((await plan({ phase: "finalize", round: 2, bundles, evaluations: rows3 })).status).toBe("ok");
-    expect(Number(await s.store.get(`m:${mid}:calls`))).toBe(4);
+    expect((await s.deps.missions.usage(mid)).calls).toBe(4);
     await sleep(0);
   });
 });

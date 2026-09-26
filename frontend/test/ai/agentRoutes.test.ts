@@ -27,7 +27,7 @@ describe("plan route: happy path and SSE contract", () => {
     const done = doneOf(ev);
     expect(done).toMatchObject({ status: "ok", repaired: false, model: "nvidia/Nemotron-3-Ultra-550b-a55b" });
     expect(done.result.bundles).toHaveLength(2);
-    expect(ev[1].data.mission).toMatchObject({ inputTokens: 1200, outputTokens: 300, limitIn: 60000, limitOut: 12000 });
+    expect(ev[1].data.mission).toMatchObject({ inputTokens: 1200, outputTokens: 300, limitIn: 30000, limitOut: 6000 });
   });
   it("builds the prompt on the server from the catalog subset, with no numeric effects", async () => {
     const s = makeServer([proposeReply(B)]);
@@ -74,21 +74,36 @@ describe("failure mode: malformed JSON", () => {
 
 describe("failure mode: digits in prose", () => {
   it("rejects digit-bearing prose, repairs once", async () => {
-    const s = makeServer([proposeReply(B, { log_sentence: "This cuts delay by 12 minutes." }), proposeReply(B)]);
+    const s = makeServer([proposeReply(B, { commentary: "This cuts delay by 12 minutes." }), proposeReply(B)]);
     const ev = await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps));
     const log = ev.find((e) => e.event === "log")!;
     expect(log.data.errors.join(" ")).toContain("digits");
     expect(doneOf(ev)).toMatchObject({ status: "ok", repaired: true });
   });
   it("falls back when the repair still contains digits", async () => {
-    const bad = proposeReply(B, { hypothesis: "Gains 8 percent." });
+    const bad = proposeReply(B, { mechanism_note: "Gains 8 percent." });
     const s = makeServer([bad, bad]);
     const ev = await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps));
     expect(doneOf(ev)).toMatchObject({ status: "fallback", reason: "output_rejected" });
   });
-  it("accepts baseline slot placeholders", async () => {
-    const s = makeServer([proposeReply(B, { hypothesis: "Baseline access is {{p90.baseline}} today." })]);
-    expect(doneOf(await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps)))).toMatchObject({ status: "ok", repaired: false });
+  it("finding NEW-1: a commentary field that fails the vocabulary screen is withheld, not the whole answer (no repair turn, a decision-log event)", async () => {
+    const s = makeServer([proposeReply(B, { commentary: "This is cheaper and improves access." })]);
+    const ev = await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps));
+    const done = doneOf(ev);
+    expect(done).toMatchObject({ status: "ok", repaired: false });
+    expect(done.result.commentary).toBe(""); // withheld
+    expect(done.result.mechanism_note).toBe("Retiming and a connector act on the detour.");
+    expect(done.result.bundles).toHaveLength(2); // the rest of the answer was used
+    expect(s.provider.calls).toHaveLength(1);
+    const log = ev.find((e) => e.event === "log" && e.data.code === "commentary_withheld");
+    expect(log?.data).toMatchObject({ kind: "validator" });
+    expect(log?.data.errors.join(" ")).toContain('"cheaper"'); // names the dictionary word, never model text
+  });
+  it("finding NEW-1: placeholders in commentary are withheld as well", async () => {
+    const s = makeServer([proposeReply(B, { mechanism_note: "Baseline access is {{p90.baseline}} today." })]);
+    const done = doneOf(await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps)));
+    expect(done).toMatchObject({ status: "ok", repaired: false });
+    expect(done.result.mechanism_note).toBe("");
   });
 });
 
@@ -174,20 +189,24 @@ describe("failure mode: budgets", () => {
     await readSse(await handlePlan(post("/api/agent/plan", planBody({ phase: "finalize", round: 3, bundles: bundles3, evaluations: rows3 })), s.deps));
     const retry = doneOf(await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps)));
     expect(retry.status).toBe("ok");
-    const fifth = doneOf(await readSse(await handlePlan(post("/api/agent/plan", planBody({ phase: "finalize", round: 2, bundles: bundles3, evaluations: rows3 })), s.deps)));
-    expect(fifth).toMatchObject({ status: "fallback", reason: "round_limit" });
+    // a mission may ask the plan route at most 12 times in all, however the rounds are spread
+    const more = makeServer(Array.from({ length: 20 }, () => refineReply([], ["B1"])));
+    let last: { status: string; reason?: string } = { status: "ok" };
+    for (let i = 0; i < 13; i++) last = doneOf(await readSse(await handlePlan(post("/api/agent/plan", planBody({ round: 2, bundles: b1, evaluations: r1 })), more.deps)));
+    expect(last).toMatchObject({ status: "fallback", reason: "round_limit" });
+    expect(more.provider.calls.length).toBeLessThanOrEqual(12);
   });
 });
 
 describe("per-IP limits and admission", () => {
-  it("the 6th new mission within an hour from one IP gets 429 with a structured body", async () => {
-    const s = makeServer(Array.from({ length: 8 }, () => parseReply()));
-    for (let i = 0; i < 5; i++) {
+  it("the 9th new mission within an hour from one IP gets 429 with a structured body", async () => {
+    const s = makeServer(Array.from({ length: 12 }, () => parseReply()));
+    for (let i = 0; i < 8; i++) {
       const res = await handleParse(post("/api/agent/parse", { missionId: `mission-p${i}0000`, text: "cut cross-harbor access time near Dundalk" }), s.deps);
       expect(res.status).toBe(200);
       await readSse(res);
     }
-    const res = await handleParse(post("/api/agent/parse", { missionId: "mission-p600000", text: "cut cross-harbor access time near Dundalk" }), s.deps);
+    const res = await handleParse(post("/api/agent/parse", { missionId: "mission-p900000", text: "cut cross-harbor access time near Dundalk" }), s.deps);
     expect(res.status).toBe(429);
     expect(res.headers.get("retry-after")).toBeTruthy();
     expect(await res.json()).toMatchObject({ status: "fallback", reason: "rate_limited", next: "recorded_tour" });
@@ -274,15 +293,15 @@ describe("critique and narrate routes", () => {
     expect(ev.find((e) => e.event === "log")!.data.errors.join(" ")).toContain("unknown_bundle");
     expect(doneOf(ev)).toMatchObject({ status: "ok", repaired: true });
   });
-  it("narrate: rejects digits, accepts slots, and never shows the model any numbers", async () => {
-    const digits = JSON.stringify({ action: "narrate", items: ["B1", "B2", "B3"].map((bundleId) => ({ bundleId, headline: "Option", body: "Cuts delay by 9 minutes." })) });
+  it("narrate: digits reject the output (one repair), and the model is never shown a result or a direction", async () => {
+    const digits = JSON.stringify({ action: "narrate", items: ["B1", "B2", "B3"].map((bundleId) => ({ bundleId, commentary: "Cuts delay by 9 minutes." })) });
     const s = makeServer([digits, narrateReply(["B1", "B2", "B3"])]);
     const body = { missionId: MID, mission: MISSION, finalists: ["B1", "B2", "B3"].map((bundleId) => ({ bundleId })), evaluations: rows3, baseline: BASELINE };
     const ev = await readSse(await handleNarrate(post("/api/agent/narrate", body), s.deps));
     expect(doneOf(ev)).toMatchObject({ status: "ok", repaired: true });
     const user = s.provider.calls[0].messages[1].content;
-    expect(user).not.toMatch(/\b1200\b|\b1500\b|\b55\b/); // no metric values, only directions
-    expect(user).toMatch(/better|worse|about the same/);
+    expect(user).not.toMatch(/\b1200\b|\b1500\b|\b55\b/); // no metric values
+    expect(user).not.toMatch(/better|worse|about the same|baseline/); // and no direction either: the narrator writes mechanism only
   });
   it("narrate: client-supplied tradeoff text is not accepted at all (finding 5)", async () => {
     const s = makeServer([narrateReply(["B1", "B2", "B3"])]);

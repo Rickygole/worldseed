@@ -10,18 +10,23 @@ import type { ChatMessage } from "../tokenfactory";
 export const FRAMING = [
   "You work inside WorldSeed, a counterfactual infrastructure-planning research prototype.",
   "A human planner reviews every output and makes every decision. Nothing you write is operational guidance, and it is never an instruction to any agency.",
-  "Never claim that a plan protects, rescues or saves anyone. Describe only how modeled travel access changes under hypothetical interventions.",
+  "Never claim that a plan protects, rescues or saves anyone, and never describe what a plan achieves: the simulator computes every result and the application prints it.",
   "Use plain, neutral planning language.",
 ].join(" ");
 
+/**
+ * The commentary rules. Model text is labeled "AI commentary" and is limited to mechanism and
+ * rationale. The screen in lib/agent/prose.ts enforces these rules; this text tells the model what
+ * the screen will refuse, so its first answer usually passes.
+ */
 export const NUMBER_RULE = [
-  "NUMBERS: you never output a number, digit, numeral or spelled-out quantity in any text field, in any language. That includes words such as twelve, dozen, half, double, quarter and percent.",
-  "Do not write metric names that contain digits (such as p50 or p90) in prose: say median or worst-case travel time instead.",
-  "You also never write direction or size words: no better, worse, faster, cheaper, more, less, fewer, than, improves, reduces, cuts, saves, raises, lowers or similar. The application adds the direction next to every filled number. Describe mechanisms and unresolved issues only.",
-  "When a figure would help, write a placeholder such as {{p90.baseline}}, {{pctWithin.baseline}} or, only in a finalist's own headline and body, {{p90.delta}}, {{p90.current}}, {{isolated.current}} or {{pGoal}}. The application fills placeholders from simulator results.",
-  "Allowed placeholder metrics: p50, p90, pctWithin, isolated, equityGap, pGoal, cost. Allowed suffixes: baseline, current, delta. A placeholder may refer only to the bundle it sits in, never to another bundle.",
+  'COMMENTARY: your text fields are labeled "AI commentary" and describe MECHANISM and RATIONALE only: what an intervention physically or operationally does, which corridor, shore or neighborhood it touches, what it depends on, and its cost tier in words. You never describe results or outcomes: the simulator computes them and the application prints them.',
+  "you never output a number, digit, numeral or spelled-out quantity in any text field, in any language: no twelve, dozen, half, double, quarter, percent, and no counts such as two neighborhoods. Say first or second for rank, both for a pair.",
+  "You never write words of change or size: no better, worse, faster, cheaper, more, less, fewer, than, improves, reduces, cuts, eases, saves, raises, lowers, fixes, solves, restores, eliminates, all, every, none, nobody, never, always, entire, complete, most, few, tiny, huge, dramatic, sooner, later, baseline. No negations (no, not, cannot). No time units (minutes, hours, days).",
+  "Do not write metric names that contain digits (such as p50 or p90).",
   "Refer to candidates and bundles only by their exact IDs as given, never by title. Bundle IDs are assigned by the application; you never invent one.",
-  "Write plain English using letters and basic punctuation only. Never include links, markup, brackets or symbols.",
+  "Write plain English using letters, basic punctuation and parentheses only. Never include links, markup, brackets, slashes or symbols, and never use words about rescue, deployment, routing or operations.",
+  'Good commentary: "Combines a harbor shuttle link with retimed signals on the tunnel approach, so it touches both shores and depends on a hypothetical link."',
 ].join(" ");
 
 export function candidateLines(views: readonly CandidatePromptView[]): string {

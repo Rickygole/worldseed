@@ -19,7 +19,7 @@
  */
 import { z } from "zod";
 import { candidateRejection, type Catalog, type CatalogConstraints } from "./catalog";
-import { proseIssues, type SlotPolicy } from "./prose";
+import { proseIssues, type ProseProfile } from "./prose";
 import {
   BUNDLE_ID_RE,
   CritiqueSchema,
@@ -52,7 +52,12 @@ export interface Violation {
   message: string;
 }
 
-export type ValidationResult<T> = { ok: true; value: T } | { ok: false; violations: Violation[] };
+/**
+ * `withheld` lists commentary fields that failed the screen and were blanked (their text replaced
+ * by ""), with the reason for each. A withheld field never rejects the output; structural
+ * violations, and digits in a text field, still do.
+ */
+export type ValidationResult<T> = { ok: true; value: T; withheld?: Violation[] } | { ok: false; violations: Violation[] };
 
 export interface KnownBundle {
   id: string;
@@ -125,8 +130,39 @@ export function checkTokenBudget(b: TokenBudget | undefined): Violation[] {
   return out;
 }
 
-export function checkProse(path: string, text: string, allowedTokens: readonly string[], slots?: SlotPolicy): Violation[] {
-  return proseIssues(text, { allowedTokens, slots }).map((i) => v(5, i.code, path, i.message));
+export function checkProse(path: string, text: string, allowedTokens: readonly string[], profile: ProseProfile = "card"): Violation[] {
+  return proseIssues(text, { allowedTokens, profile }).map((i) => v(5, i.code, path, i.message));
+}
+
+/** Rejections of commentary since this process started, by code (for the smoke script and diagnostics). */
+const screenCounts: Record<string, number> = {};
+export function screenStats(): Record<string, number> {
+  return { ...screenCounts };
+}
+
+/**
+ * Collects the screen's verdicts for one output. A commentary field that fails only on vocabulary
+ * is blanked and reported in `soft` (the output survives without it); digits in a text field are
+ * `hard` and reject the whole output.
+ */
+class Screen {
+  hard: Violation[] = [];
+  soft: Violation[] = [];
+
+  commentary(path: string, text: string, tokens: readonly string[], profile: ProseProfile): string {
+    const issues = proseIssues(text, { allowedTokens: tokens, profile });
+    if (issues.length === 0) return text;
+    let hard = false;
+    for (const i of issues) {
+      const viol = v(5, i.code, path, i.message);
+      screenCounts[i.code] = (screenCounts[i.code] ?? 0) + 1;
+      if (i.code === "digits") {
+        hard = true;
+        this.hard.push(viol);
+      } else this.soft.push(viol);
+    }
+    return hard ? text : "";
+  }
 }
 
 /**
@@ -221,8 +257,9 @@ export function validatePlannerOutput(raw: unknown, ctx: PlannerContext): Valida
   } else {
     action = model as PlannerAction;
   }
-  violations.push(...checkPlannerAction(action, ctx));
-  return violations.length ? { ok: false, violations } : { ok: true, value: action };
+  const checked = checkPlannerAction(action, ctx);
+  violations.push(...checked.violations);
+  return violations.length ? { ok: false, violations } : { ok: true, value: checked.action, withheld: checked.withheld };
 }
 
 /**
@@ -240,22 +277,44 @@ export function validateMintedPlannerOutput(raw: unknown, ctx: PlannerContext): 
   fresh.forEach((b, i) => {
     if (b.id !== want[i]) violations.push(v(3, "unminted_bundle_id", `${action.action === "propose" ? "bundles" : "add"}.${i}.id`, "bundle id was not assigned by the application"));
   });
-  violations.push(...checkPlannerAction(action, ctx));
-  return violations.length ? { ok: false, violations } : { ok: true, value: action };
+  const checked = checkPlannerAction(action, ctx);
+  violations.push(...checked.violations);
+  return violations.length ? { ok: false, violations } : { ok: true, value: checked.action, withheld: checked.withheld };
 }
 
-function checkPlannerAction(action: PlannerAction, ctx: PlannerContext): Violation[] {
+interface PlannerChecked {
+  /** Structural violations plus hard prose violations (digits): any of these rejects the output. */
+  violations: Violation[];
+  /** Commentary fields that were blanked, and why. */
+  withheld: Violation[];
+  /** The action with withheld commentary blanked. */
+  action: PlannerAction;
+}
+
+function checkPlannerAction(action: PlannerAction, ctx: PlannerContext): PlannerChecked {
   const fresh = action.action === "propose" ? action.bundles : action.action === "refine" ? action.add : [];
   const tokens = allowedProseTokens(ctx.catalog, [...ctx.known.map((b) => b.id), ...fresh.map((b) => b.id)]);
-  const out = checkProse("log_sentence", action.log_sentence, tokens);
-  if (action.action === "propose") out.push(...validatePropose(action, ctx, tokens));
-  else if (action.action === "refine") out.push(...validateRefine(action, ctx));
-  else out.push(...validateFinalize(action, ctx, tokens));
-  return out;
+  const screen = new Screen();
+  const commentary = screen.commentary("commentary", action.commentary, tokens, "rationale");
+  let out: Violation[];
+  let value: PlannerAction;
+  if (action.action === "propose") {
+    const note = screen.commentary("mechanism_note", action.mechanism_note, tokens, "rationale");
+    out = validatePropose(action, ctx);
+    value = { ...action, commentary, mechanism_note: note };
+  } else if (action.action === "refine") {
+    out = validateRefine(action, ctx);
+    value = { ...action, commentary };
+  } else {
+    const finalists = action.finalists.map((f, i) => ({ ...f, mechanism_note: screen.commentary(`finalists.${i}.mechanism_note`, f.mechanism_note, tokens, "card") }));
+    out = validateFinalize(action, ctx);
+    value = { ...action, commentary, finalists: finalists as FinalizeAction["finalists"] };
+  }
+  return { violations: [...out, ...screen.hard], withheld: screen.soft, action: value };
 }
 
-function validatePropose(a: ProposeAction, ctx: PlannerContext, tokens: string[]): Violation[] {
-  const out = checkProse("hypothesis", a.hypothesis, tokens);
+function validatePropose(a: ProposeAction, ctx: PlannerContext): Violation[] {
+  const out: Violation[] = [];
   const max = ctx.maxEvaluated ?? MAX_EVALUATED_BUNDLES;
   if (ctx.known.length + a.bundles.length > max) {
     out.push(v(3, "too_many_bundles", "bundles", `at most ${max} bundles may be evaluated per mission`));
@@ -285,13 +344,12 @@ function validateRefine(a: RefineAction, ctx: PlannerContext): Violation[] {
   return out;
 }
 
-function validateFinalize(a: FinalizeAction, ctx: PlannerContext, tokens: string[]): Violation[] {
+function validateFinalize(a: FinalizeAction, ctx: PlannerContext): Violation[] {
   const out: Violation[] = [];
   const byId = new Map(ctx.known.map((b) => [b.id, b]));
   const seen = new Set<string>();
   a.finalists.forEach((f, i) => {
     const path = `finalists.${i}`;
-    out.push(...checkProse(`${path}.tradeoff`, f.tradeoff, tokens));
     if (seen.has(f.bundleId)) out.push(v(6, "duplicate_finalist", `${path}.bundleId`, "finalist is listed twice"));
     seen.add(f.bundleId);
     const b = byId.get(f.bundleId);
@@ -318,9 +376,7 @@ export function validateCritiqueOutput(raw: unknown, ctx: CritiqueContext): Vali
   const parsed = parseWith(CritiqueSchema, raw);
   if (!parsed.ok) return { ok: false, violations: [...violations, ...parsed.violations] };
   const a = parsed.value;
-  const tokens = proseTokens(ctx);
   const evaluated = new Set(ctx.known.filter((b) => b.evaluated).map((b) => b.id));
-  violations.push(...checkProse("log_sentence", a.log_sentence, tokens));
   a.concerns.forEach((c, i) => {
     if (!evaluated.has(c.bundleId)) {
       violations.push(v(6, "unknown_bundle", `concerns.${i}.bundleId`, "bundle was not evaluated"));
@@ -344,7 +400,6 @@ export function validateParseOutput(raw: unknown, ctx: ParseContext): Validation
   const parsed = parseWith(ParsedMissionSchema, raw);
   if (!parsed.ok) return { ok: false, violations: [...violations, ...parsed.violations] };
   const m = parsed.value;
-  violations.push(...checkProse("log_sentence", m.log_sentence, [...ctx.catalog.gazetteerById.keys()]));
   m.constraints.areas.forEach((id, i) => {
     if (!ctx.catalog.gazetteerById.has(id)) {
       violations.push(v(2, "unknown_gazetteer", `constraints.areas.${i}`, "gazetteer id does not exist"));
@@ -372,17 +427,18 @@ export function validateNarrationOutput(raw: unknown, ctx: NarrationContext): Va
   const allowed = new Set(ctx.finalistIds);
   const tokens = proseTokens(ctx, ctx.finalistIds);
   const seen = new Set<string>();
-  n.items.forEach((it, i) => {
+  const screen = new Screen();
+  const items = n.items.map((it, i) => {
     if (!allowed.has(it.bundleId)) violations.push(v(6, "unknown_bundle", `items.${i}.bundleId`, "bundle is not a finalist"));
     if (seen.has(it.bundleId)) violations.push(v(6, "duplicate_finalist", `items.${i}.bundleId`, "bundle is narrated twice"));
     seen.add(it.bundleId);
-    // Figures may be the item's OWN bundle only (or the baseline): a card cannot quote another bundle.
-    const own: SlotPolicy = { ownerBundleId: it.bundleId };
-    violations.push(...checkProse(`items.${i}.headline`, it.headline, tokens, own));
-    violations.push(...checkProse(`items.${i}.body`, it.body, tokens, own));
+    // Commentary has no placeholders at all, so a card cannot quote another bundle's figures (or its own):
+    // every figure on a card comes from the application's own template.
+    return { ...it, commentary: screen.commentary(`items.${i}.commentary`, it.commentary, tokens, "card") };
   });
   if (seen.size !== allowed.size) violations.push(v(6, "missing_finalist", "items", "every finalist must be narrated exactly once"));
-  return violations.length ? { ok: false, violations } : { ok: true, value: n };
+  violations.push(...screen.hard);
+  return violations.length ? { ok: false, violations } : { ok: true, value: { ...n, items }, withheld: screen.soft };
 }
 
 /** Human-readable list for logs and the repair prompt. */

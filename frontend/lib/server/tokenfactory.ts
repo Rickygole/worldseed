@@ -36,7 +36,7 @@ export class ProviderError extends Error {
 
 /* ------------------------------ attempt gating ----------------------------- */
 
-export type DenyReason = "mission_input" | "mission_output" | "mission_calls" | "daily_budget" | "store_error" | "provider_backoff";
+export type DenyReason = "mission_input" | "mission_output" | "mission_calls" | "daily_budget" | "ip_budget" | "store_error" | "provider_backoff";
 
 /** Thrown by a gate to stop before an upstream attempt (budget, cap, backoff). Nothing was sent. */
 export class AttemptDenied extends Error {

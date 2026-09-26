@@ -99,3 +99,29 @@ export function makeSlotResolver(ctx: SlotContext): (slot: string) => string | u
 export function fillSlots(text: string, resolve: (slot: string) => string | undefined): string {
   return text.replace(/\{\{\s*([^{}]*?)\s*\}\}/g, (_m, body: string) => resolve(body) ?? "n/a");
 }
+
+/**
+ * The result lines of a finalist card. Every line is an application template filled from the
+ * bundle's own simulator row and the baseline: the real value, the baseline, and a direction
+ * computed from the real sign ("1.7 min worse"). No model text is involved, so a card cannot
+ * state a result the simulator did not produce.
+ */
+export function cardLines(row: EvaluationRow, baseline: BaselineRow | undefined, lens: "access" | "ems"): string[] {
+  const travel = lens === "access" ? "Cross-harbor travel time" : "Station-to-neighborhood travel time";
+  const line = (label: string, metric: string): string => {
+    const cur = value(metric, row);
+    if (typeof cur !== "number") return `${label}: not computed`;
+    const base = baseline ? value(metric, baseline) : undefined;
+    if (typeof base !== "number") return `${label}: ${level(metric, cur)}`;
+    return `${label}: ${level(metric, cur)} (baseline ${level(metric, base)}; ${change(metric, cur - base)})`;
+  };
+  return [
+    line(`${travel}, median`, "p50"),
+    line(`${travel}, worst case (90th percentile)`, "p90"),
+    line("Reached within the goal", "pctWithin"),
+    line("Isolated groups", "isolated"),
+    line("Equity gap", "equityGap"),
+    row.pGoal === null ? "Chance of meeting the goal: not computed" : `Chance of meeting the goal: ${level("pGoal", row.pGoal)} of sampled futures`,
+    `Cost tier: ${row.costTier}`,
+  ];
+}

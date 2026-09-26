@@ -34,6 +34,8 @@ export interface ServerConfig {
   dailyBudgetUsd: number;
   /** The daily window rolls over at this UTC hour (default 08:00 UTC = 01:00 Pacific). */
   budgetResetHourUtc: number;
+  /** Per-IP daily spend cap in USD (reserved and settled like the global ceiling), whatever the mission counts. */
+  ipDailyUsd: number;
   missionInputTokens: number;
   missionOutputTokens: number;
   /** Upstream provider calls one mission may make in total (each attempt counts). */
@@ -55,14 +57,22 @@ export interface ServerConfig {
   modelsCacheMs: number;
   /** How many proxy hops in x-forwarded-for are trusted (the client is that many entries from the right). */
   trustedProxyHops: number;
+  /**
+   * Client-address headers are believed only behind a known proxy: on a serverless host, or when
+   * WS_TRUST_FORWARDED=1 says this deployment sits behind one. Otherwise every client is "local".
+   */
+  trustForwarded: boolean;
+  /** In-memory front-door limits, checked before any store command (per process). */
+  frontDoorPerIpPerMin: number;
+  frontDoorGlobalPerMin: number;
   /** Extra origins allowed to call the POST routes (comma list in WS_ALLOWED_ORIGINS). */
   allowedOrigins: string[];
   prices: PriceTable;
 }
 
 export const DEFAULT_BASE_URL = "https://api.tokenfactory.nebius.com/v1/";
-/** Hosts the provider base URL may point at (suffix match), plus WS_ALLOWED_BASE_HOSTS. */
-export const DEFAULT_BASE_HOSTS: readonly string[] = ["nebius.com"];
+/** The one provider host that is accepted without configuration. Anything else needs WS_ALLOWED_BASE_HOSTS (exact hosts). */
+export const DEFAULT_BASE_HOSTS: readonly string[] = ["api.tokenfactory.nebius.com"];
 
 /** Conservative default: every model is priced like the planner until real prices are confirmed. */
 export const DEFAULT_PRICE: Price = { inPerM: 1, outPerM: 3 };
@@ -76,8 +86,13 @@ function num(env: Env, key: string, dflt: number): number {
   return Number.isFinite(n) && n > 0 ? n : dflt;
 }
 
-function isOff(raw: string | undefined): boolean {
-  return ["off", "0", "false", "no", "disabled"].includes((raw ?? "").trim().toLowerCase());
+/**
+ * The kill switch fails SAFE: unset (or blank) means on, and only on / 1 / true / yes keep it on.
+ * Any other value, including a typo such as "of" or "paused", turns AI off.
+ */
+export function liveAiEnabled(raw: string | undefined): boolean {
+  const v = (raw ?? "").trim().toLowerCase();
+  return v === "" || ["on", "1", "true", "yes"].includes(v);
 }
 
 /** WS_MODEL_PRICES="model-id=inPerM/outPerM,other-id=inPerM/outPerM" (USD per million tokens). */
@@ -104,16 +119,18 @@ export function baseUrlIssue(raw: string, extraHosts: readonly string[] = []): s
   }
   if (u.protocol !== "https:") return "must use https";
   if (u.username || u.password) return "must not embed credentials";
+  if (u.port !== "") return "must use the default https port";
   const host = u.hostname.toLowerCase();
+  // Exact hosts only: a suffix rule would accept every subdomain of a shared domain.
   const allowed = [...DEFAULT_BASE_HOSTS, ...extraHosts.map((h) => h.trim().toLowerCase()).filter(Boolean)];
-  if (!allowed.some((a) => host === a || host.endsWith(`.${a}`))) return "host is not on the allowlist";
+  if (!allowed.includes(host)) return "host is not on the allowlist";
   return null;
 }
 
 export function readConfig(env: Env = process.env): ServerConfig {
   const serverless = Boolean(env.VERCEL && env.VERCEL.trim() !== "");
   const sharedStore = sharedStoreCredentials(env) !== null;
-  const liveAi = !isOff(env.WS_LIVE_AI);
+  const liveAi = liveAiEnabled(env.WS_LIVE_AI);
   const explicitBudget = num(env, "WS_DAILY_BUDGET_USD", 1);
   const instanceLocalBudget = num(env, "WS_INSTANCE_LOCAL_BUDGET_USD", 0.25);
   // Without a shared store on a serverless host every instance has its own ledger, so the
@@ -136,11 +153,12 @@ export function readConfig(env: Env = process.env): ServerConfig {
     protection,
     dailyBudgetUsd,
     budgetResetHourUtc: Math.min(23, Math.max(0, Math.floor(Number(env.WS_BUDGET_RESET_HOUR_UTC ?? "8")) || 0)),
-    missionInputTokens: num(env, "WS_MISSION_INPUT_TOKENS", 60_000),
-    missionOutputTokens: num(env, "WS_MISSION_OUTPUT_TOKENS", 12_000),
+    ipDailyUsd: num(env, "WS_IP_DAILY_USD", 0.15),
+    missionInputTokens: num(env, "WS_MISSION_INPUT_TOKENS", 30_000),
+    missionOutputTokens: num(env, "WS_MISSION_OUTPUT_TOKENS", 6_000),
     missionMaxCalls: Math.floor(num(env, "WS_MISSION_MAX_CALLS", 12)),
     maxAttemptsPerRequest: Math.min(3, Math.floor(num(env, "WS_MAX_ATTEMPTS_PER_REQUEST", 3))),
-    ipMissionsPerHour: num(env, "WS_IP_MISSIONS_PER_HOUR", 5),
+    ipMissionsPerHour: num(env, "WS_IP_MISSIONS_PER_HOUR", 8),
     ipMissionsPerDay: num(env, "WS_IP_MISSIONS_PER_DAY", 15),
     ipClosuresPerHour: num(env, "WS_IP_CLOSURES_PER_HOUR", 10),
     tavilyDailyCap: num(env, "WS_TAVILY_DAILY_CAP", 30),
@@ -151,6 +169,9 @@ export function readConfig(env: Env = process.env): ServerConfig {
     closuresDeadlineMs: Math.min(num(env, "WS_CLOSURES_DEADLINE_MS", 45_000), 45_000),
     modelsCacheMs: num(env, "WS_MODELS_CACHE_MS", 10 * 60_000),
     trustedProxyHops: hops < 1 ? 1 : hops,
+    trustForwarded: serverless || ["1", "true", "yes"].includes((env.WS_TRUST_FORWARDED ?? "").trim().toLowerCase()),
+    frontDoorPerIpPerMin: Math.floor(num(env, "WS_FRONT_DOOR_PER_IP_PER_MIN", 30)),
+    frontDoorGlobalPerMin: Math.floor(num(env, "WS_FRONT_DOOR_GLOBAL_PER_MIN", 240)),
     allowedOrigins: (env.WS_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     prices: parsePriceTable(env),
   };

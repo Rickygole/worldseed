@@ -13,9 +13,9 @@ import { handleCritique, handleNarrate, handleParse, handlePlan, type AgentDeps 
 import { readConfig, type ServerConfig } from "../../lib/server/config";
 import { ModelResolver, buildRoleChains } from "../../lib/server/models";
 import { MissionLedger } from "../../lib/server/missions";
-import { DailyBudget, StoreRateLimiter } from "../../lib/server/ratelimit";
+import { DailyBudget, FrontDoor, StoreRateLimiter } from "../../lib/server/ratelimit";
 import type { Runtime } from "../../lib/server/runtime";
-import { MemoryStore } from "../../lib/server/store";
+import { MemoryStore, StoreError, type SharedStore } from "../../lib/server/store";
 import type { SearchClient } from "../../lib/server/tavily";
 import type { CompletionRequest, CompletionResult, LlmProvider } from "../../lib/server/tokenfactory";
 import { ProviderBackoff, ProviderError } from "../../lib/server/tokenfactory";
@@ -135,7 +135,8 @@ const JSON_HEADERS = { "content-type": "application/json" };
 export function makeServer(script: Scripted[] = [], cfg: Partial<ServerConfig> = {}, provider?: FakeProvider): TestServer {
   const clock = { t: Date.UTC(2026, 8, 26, 12, 0, 0) };
   const now = () => clock.t;
-  const config = { ...readConfig({ NEBIUS_API_KEY: "test-key-not-real" }), ...cfg };
+  // Tests behave like a deployment behind a trusted proxy: the x-forwarded-for header identifies the client.
+  const config = { ...readConfig({ NEBIUS_API_KEY: "test-key-not-real" }), trustForwarded: true, ...cfg };
   const p = provider ?? new FakeProvider(script);
   const store = new MemoryStore(now);
   const deps: AgentDeps = {
@@ -144,8 +145,11 @@ export function makeServer(script: Scripted[] = [], cfg: Partial<ServerConfig> =
     resolver: new ModelResolver({ provider: p, chains: buildRoleChains({}), cacheMs: config.modelsCacheMs, now }),
     limiter: new StoreRateLimiter(store),
     budget: new DailyBudget(store, config.dailyBudgetUsd, now, config.budgetResetHourUtc),
-    missions: new MissionLedger(store),
+    missions: new MissionLedger(store, undefined, now),
     backoff: new ProviderBackoff(now),
+    // The front door is generous here so tests exercise the store-backed limits; front-door tests set their own.
+    frontDoor: new FrontDoor({ perIpPerMin: 100_000, globalPerMin: 1_000_000, closuresPerIpPerHour: 100_000, missionsPerIpPerDay: 100_000, now }),
+    signals: { storeDownAt: 0 },
     loadCatalog: async () => fakeCatalog(),
     now,
   };
@@ -163,9 +167,17 @@ export function makeServer(script: Scripted[] = [], cfg: Partial<ServerConfig> =
   return { deps, provider: p, clock, config, store, fetchImpl };
 }
 
+/** A store whose every operation fails, for fail-closed tests. */
+export function brokenStore(): SharedStore {
+  const fail = async () => {
+    throw new StoreError("store is down (test)");
+  };
+  return { kind: "memory", incr: fail, incrLite: fail, peek: fail, get: fail, set: fail, setIfAbsent: fail, take: fail, del: fail, delIfEquals: fail };
+}
+
 /** A Runtime around a test server: the same store, limiter and budget the agent routes use. */
 export function makeRuntime(server: TestServer, search: SearchClient | null = null): Runtime {
-  return { agent: server.deps, store: server.store, search, closures: { inflight: null } };
+  return { agent: server.deps, store: server.store, search, closures: { inflight: null, cache: null }, confirmSecret: "test-confirm-secret-not-real" };
 }
 
 export function post(path: string, body: unknown, ip = "203.0.113.7", headers: Record<string, string> = {}): Request {
@@ -200,30 +212,30 @@ export const doneOf = (events: { event: string; data: any }[]) => events.find((e
 /** Model-form replies: bundles carry candidate IDs only (a stray `id` in the input is dropped). */
 const noIds = (bundles: { id?: string; candidateIds: string[] }[]) => bundles.map((b) => ({ candidateIds: b.candidateIds }));
 export const proposeReply = (bundles: { id?: string; candidateIds: string[] }[], over: Record<string, unknown> = {}) =>
-  JSON.stringify({ action: "propose", log_sentence: "Trying signal and link mixes across types.", bundles: noIds(bundles), hypothesis: "Retiming and a connector target the detour.", ...over });
-export const refineReply = (add: { id?: string; candidateIds: string[] }[], keep: string[] = [], drop: string[] = []) =>
-  JSON.stringify({ action: "refine", log_sentence: "Extending the strongest bundle.", keep, drop, add: noIds(add) });
+  JSON.stringify({ action: "propose", commentary: "Starting with a broad mix of signal and link mechanisms across types.", bundles: noIds(bundles), mechanism_note: "Retiming and a connector act on the detour.", ...over });
+export const refineReply = (add: { id?: string; candidateIds: string[] }[], keep: string[] = [], drop: string[] = [], over: Record<string, unknown> = {}) =>
+  JSON.stringify({ action: "refine", commentary: "Extending a promising mechanism with another candidate.", keep, drop, add: noIds(add), ...over });
 export const finalizeReply = (ids: string[], over: Record<string, unknown> = {}) =>
   JSON.stringify({
-    action: "finalize", log_sentence: "These finalists cover different tradeoffs.",
-    finalists: ids.map((bundleId) => ({ bundleId, tradeoff: "Leaves the isolated groups unresolved." })), ...over,
+    action: "finalize", commentary: "These finalists differ in mechanism and cost tier.",
+    finalists: ids.map((bundleId) => ({ bundleId, mechanism_note: "Relies on a hypothetical connector." })), ...over,
   });
 export const critiqueReply = (over: Record<string, unknown> = {}) =>
-  JSON.stringify({ action: "critique", log_sentence: "Worst cases deserve a second look.", concerns: [{ bundleId: "B1", kind: "worst_case" }], veto: [], ...over });
+  JSON.stringify({ action: "critique", concerns: [{ bundleId: "B1", kind: "worst_case" }], veto: [], ...over });
 export const narrateReply = (ids: string[]) =>
   JSON.stringify({
     action: "narrate",
-    items: ids.map((bundleId) => ({ bundleId, headline: "A signal option", body: `The worst case is {{p90.current}} against a baseline of {{p90.baseline}}.` })),
+    items: ids.map((bundleId) => ({ bundleId, commentary: "Retimes signals on the corridor and depends on a hypothetical link." })),
   });
 export const parseReply = (over: Record<string, unknown> = {}) =>
   JSON.stringify({
     lens: "access", goal: { metric: "p90", op: "<=", targetRef: "baseline+X" },
-    constraints: { maxCostTier: "$$", types: [], areas: ["G-DUNDALK"] }, log_sentence: "Reading this as an access goal near Dundalk.", ...over,
+    constraints: { maxCostTier: "$$", types: [], areas: ["G-DUNDALK"] }, ...over,
   });
 
 /* -------------------------------- evaluator -------------------------------- */
 
-/** Deterministic fake simulator: more/cheaper candidates score better. Reports real counts. */
+/** Deterministic fake simulator: more/cheaper candidates score better. Every row carries its own futures count. */
 export function fakeEvaluator(opts: { futures?: number; dropIds?: string[]; calls?: string[][] } = {}): EvaluateFn {
   const futures = opts.futures ?? 100;
   return async (bundles, ctx) => {
@@ -231,9 +243,9 @@ export function fakeEvaluator(opts: { futures?: number; dropIds?: string[]; call
     const scored = bundles.filter((b) => !(opts.dropIds ?? []).includes(b.id));
     const rows = scored.map((b) => {
       const w = b.candidateIds.reduce((n, id) => n + (id.length % 5), 0);
-      return row(b.id, b.candidateIds, { p90S: 1500 - 40 * w - 10 * b.candidateIds.length, pGoal: Math.min(0.95, 0.1 * w) });
+      return { ...row(b.id, b.candidateIds, { p90S: 1500 - 40 * w - 10 * b.candidateIds.length, pGoal: Math.min(0.95, 0.1 * w) }), futures };
     });
     ctx.onProgress?.(scored.length * futures, scored.length * futures);
-    return { rows, baseline: BASELINE, bundlesEvaluated: scored.length, futuresEvaluated: scored.length * futures + futures };
+    return { rows, baseline: BASELINE };
   };
 }

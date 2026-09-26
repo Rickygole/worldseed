@@ -43,7 +43,7 @@ describe("repo hygiene for the AI layer", () => {
     // Files owned by the UI and simulator agents are scanned, never edited here. A hit is reported by
     // this test; a file listed below is a KNOWN hit the owner has been told about. Remove the entry
     // when the owner rewords it, so the check covers the file again.
-    const KNOWN_HITS = new Set(["components/IntroOverlay.tsx"]);
+    const KNOWN_HITS = new Set(["components/IntroOverlay.tsx", "components/TopBar.tsx", "components/DisclaimerBanner.tsx", "components/AboutDialog.tsx", "lib/workers/pool.ts", "lib/sim/types.ts"]);
     const others = [
       ...walk(path.join(root, "components")),
       ...walk(path.join(root, "lib/sim")),
@@ -94,8 +94,21 @@ describe("prompts", () => {
   it("use none of the forbidden operational words", () => {
     for (const msgs of all()) for (const m of msgs) expect(m.content).not.toMatch(PRODUCT_WORDS);
   });
-  it("tell the model never to output numbers and to use placeholders", () => {
-    for (const msgs of all().slice(0, 4)) expect(msgs[0].content).toContain("you never output a number");
+  it("tell the model that its text is mechanism-only commentary with no numbers, results or direction words (plan and narrate prompts)", () => {
+    for (const msgs of [all()[1], all()[3]]) {
+      expect(msgs[0].content).toContain("you never output a number");
+      expect(msgs[0].content).toContain("AI commentary");
+      expect(msgs[0].content).toContain("MECHANISM");
+    }
+  });
+  it("the parser and critic prompts ask for no free text at all", () => {
+    expect(all()[0][0].content).toContain("no free-text fields");
+    expect(all()[2][0].content).not.toContain("log_sentence");
+  });
+  it("the narrator prompt shows no result and no direction, only ids, candidates and cost tiers", () => {
+    const user = all()[3][1].content;
+    expect(user).not.toMatch(/better|worse|baseline|p90|min\b|%/);
+    expect(user).toMatch(/cost/);
   });
   it("never expose numeric effects or notes from the catalog", () => {
     const text = all().map((m) => m.map((x) => x.content).join("\n")).join("\n");

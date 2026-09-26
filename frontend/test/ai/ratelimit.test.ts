@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DailyBudget, StoreRateLimiter, bucketIp, budgetWindow, clientIp, ipKey, missionRules } from "../../lib/server/ratelimit";
+import { DailyBudget, FrontDoor, StoreRateLimiter, bucketIp, budgetWindow, clientIp, ipKey, missionRules, setIpSalt } from "../../lib/server/ratelimit";
 import { MemoryStore, StoreError, type SharedStore } from "../../lib/server/store";
 
 describe("per-IP mission limits (5/hour, 15/day)", () => {
@@ -27,13 +27,15 @@ describe("per-IP mission limits (5/hour, 15/day)", () => {
     clock.t += 24 * 3600_000;
     expect((await l.consume("ip:x", rules)).allowed).toBe(true);
   });
-  it("a refused request is not recorded (it refunds its own increment)", async () => {
+  it("a refused request keeps its increment on the rule that refused it and refunds the rules that allowed it", async () => {
     const store = new MemoryStore(() => 0);
     const l = new StoreRateLimiter(store);
-    const rules = [{ name: "r", limit: 1, windowMs: 1000 }];
+    const rules = [{ name: "a", limit: 1, windowMs: 1000 }, { name: "b", limit: 5, windowMs: 1000 }];
     await l.consume("k", rules);
-    for (let i = 0; i < 3; i++) await l.consume("k", rules);
-    expect(await store.get("rl:k:r")).toBe("1");
+    const r = await l.consume("k", rules);
+    expect(r).toMatchObject({ allowed: false, blockedBy: "a" });
+    expect(await store.get("rl:k:a")).toBe("2"); // the refusing rule stays counted (2 commands, no refund round trip)
+    expect(await store.get("rl:k:b")).toBe("1"); // the rule that would have allowed it was given back
   });
   it("finding 2: increment-then-compare is atomic, so 50 parallel requests admit exactly the limit", async () => {
     const l = new StoreRateLimiter(new MemoryStore());
@@ -41,7 +43,7 @@ describe("per-IP mission limits (5/hour, 15/day)", () => {
     expect(rs.filter((r) => r.allowed)).toHaveLength(5);
   });
   it("finding 2: a store failure fails closed with error=true (not a fake rate limit)", async () => {
-    const broken: SharedStore = { ...new MemoryStore(), kind: "memory", incr: async () => { throw new StoreError("down"); } } as unknown as SharedStore;
+    const broken = { kind: "memory", incr: async () => { throw new StoreError("down"); } } as unknown as SharedStore;
     const r = await new StoreRateLimiter(broken).consume("k", missionRules(5, 15));
     expect(r).toMatchObject({ allowed: false, error: true, blockedBy: "store_error" });
   });
@@ -49,21 +51,22 @@ describe("per-IP mission limits (5/hour, 15/day)", () => {
 
 describe("finding 8: client IP", () => {
   const h = (o: Record<string, string>) => new Headers(o);
+  const T = { trustForwarded: true };
   it("prefers the platform headers over anything a client can set", () => {
-    expect(clientIp(h({ "x-vercel-forwarded-for": "9.9.9.9", "x-forwarded-for": "1.1.1.1, 2.2.2.2", "x-real-ip": "3.3.3.3" }))).toBe("9.9.9.9");
-    expect(clientIp(h({ "x-real-ip": "3.3.3.3", "x-forwarded-for": "1.1.1.1, 2.2.2.2" }))).toBe("3.3.3.3");
+    expect(clientIp(h({ "x-vercel-forwarded-for": "9.9.9.9", "x-forwarded-for": "1.1.1.1, 2.2.2.2", "x-real-ip": "3.3.3.3" }), T)).toBe("9.9.9.9");
+    expect(clientIp(h({ "x-real-ip": "3.3.3.3", "x-forwarded-for": "1.1.1.1, 2.2.2.2" }), T)).toBe("3.3.3.3");
   });
   it("falls back to x-forwarded-for by trusted hop from the RIGHT, so a spoofed first entry is ignored", () => {
-    expect(clientIp(h({ "x-forwarded-for": "6.6.6.6, 9.9.9.9" }))).toBe("9.9.9.9");
-    expect(clientIp(h({ "x-forwarded-for": "6.6.6.6, 9.9.9.9, 10.0.0.1" }), { trustedHops: 2 })).toBe("9.9.9.9");
-    expect(clientIp(h({ "x-forwarded-for": "9.9.9.9" }), { trustedHops: 5 })).toBe("9.9.9.9");
+    expect(clientIp(h({ "x-forwarded-for": "6.6.6.6, 9.9.9.9" }), T)).toBe("9.9.9.9");
+    expect(clientIp(h({ "x-forwarded-for": "6.6.6.6, 9.9.9.9, 10.0.0.1" }), { trustedHops: 2, ...T })).toBe("9.9.9.9");
+    expect(clientIp(h({ "x-forwarded-for": "9.9.9.9" }), { trustedHops: 5, ...T })).toBe("9.9.9.9");
     // rotating the spoofable left side does not change the identity
-    expect(clientIp(h({ "x-forwarded-for": "1.2.3.4, 9.9.9.9" }))).toBe(clientIp(h({ "x-forwarded-for": "5.6.7.8, 9.9.9.9" })));
+    expect(clientIp(h({ "x-forwarded-for": "1.2.3.4, 9.9.9.9" }), T)).toBe(clientIp(h({ "x-forwarded-for": "5.6.7.8, 9.9.9.9" }), T));
   });
   it("buckets IPv6 by /64 and unwraps IPv4-mapped addresses", () => {
-    const a = clientIp(h({ "x-real-ip": "2001:db8:1:2:aaaa:bbbb:cccc:dddd" }));
-    const b = clientIp(h({ "x-real-ip": "2001:db8:1:2:1:2:3:4" }));
-    const c = clientIp(h({ "x-real-ip": "2001:db8:1:3::1" }));
+    const a = clientIp(h({ "x-real-ip": "2001:db8:1:2:aaaa:bbbb:cccc:dddd" }), T);
+    const b = clientIp(h({ "x-real-ip": "2001:db8:1:2:1:2:3:4" }), T);
+    const c = clientIp(h({ "x-real-ip": "2001:db8:1:3::1" }), T);
     expect(a).toBe(b);
     expect(a).not.toBe(c);
     expect(a).toBe("v6:2001:0db8:0001:0002/64");
@@ -72,18 +75,29 @@ describe("finding 8: client IP", () => {
     expect(bucketIp("[2001:db8::1]")).toBe("v6:2001:0db8:0000:0000/64");
   });
   it("treats a missing or garbage address as its own 'unknown' bucket, with tighter limits", () => {
-    expect(clientIp(h({}))).toBe("unknown");
-    expect(clientIp(h({ "x-forwarded-for": "not-an-ip" }))).toBe("unknown");
-    expect(clientIp(h({ "x-real-ip": "x".repeat(200) }))).toBe("unknown");
+    expect(clientIp(h({}), T)).toBe("unknown");
+    expect(clientIp(h({ "x-forwarded-for": "not-an-ip" }), T)).toBe("unknown");
+    expect(clientIp(h({ "x-real-ip": "x".repeat(200) }), T)).toBe("unknown");
     const normal = missionRules(5, 15, "9.9.9.9");
     const tight = missionRules(5, 15, "unknown");
     expect(normal.map((r) => r.limit)).toEqual([5, 15]);
     expect(tight.map((r) => r.limit)).toEqual([1, 3]);
     expect(missionRules(1, 2, "unknown").map((r) => r.limit)).toEqual([1, 1]);
   });
-  it("store keys never contain a raw address", () => {
+  it("finding N7: forged address headers are ignored unless a proxy is trusted (serverless or WS_TRUST_FORWARDED)", () => {
+    const forged = h({ "x-vercel-forwarded-for": "6.6.6.6", "x-real-ip": "7.7.7.7", "x-forwarded-for": "8.8.8.8" });
+    expect(clientIp(forged)).toBe("local");
+    expect(clientIp(forged, { trustForwarded: false })).toBe("local");
+    expect(clientIp(forged, T)).toBe("6.6.6.6");
+  });
+  it("store keys never contain a raw address, and a private salt changes them", () => {
     expect(ipKey("9.9.9.9")).toMatch(/^[a-f0-9]{16}$/);
     expect(ipKey("9.9.9.9")).not.toContain("9.9.9.9");
+    const plain = ipKey("9.9.9.9");
+    setIpSalt("private-salt-not-real");
+    expect(ipKey("9.9.9.9")).not.toBe(plain);
+    setIpSalt("");
+    expect(ipKey("9.9.9.9")).toBe(plain);
   });
 });
 
@@ -144,10 +158,114 @@ describe("global daily spend ceiling", () => {
     expect(await b.reserve(0.9)).not.toBeNull();
   });
   it("finding 2: a store failure is thrown (callers fail closed) and settle never throws", async () => {
-    const broken = { incr: async () => { throw new StoreError("down"); }, get: async () => { throw new StoreError("down"); } } as unknown as SharedStore;
+    const broken = { incrLite: async () => { throw new StoreError("down"); }, get: async () => { throw new StoreError("down"); } } as unknown as SharedStore;
     const b = new DailyBudget(broken, 1);
     await expect(b.reserve(0.1)).rejects.toBeInstanceOf(StoreError);
     await expect(b.status()).rejects.toBeInstanceOf(StoreError);
     await expect(b.settle({ key: "k", micros: 1 }, 0.5)).resolves.toBeUndefined();
+  });
+});
+
+
+describe("finding N3: per-client daily dollar cap", () => {
+  const mk = () => {
+    const clock = { t: Date.UTC(2026, 8, 26, 12) };
+    const store = new MemoryStore(() => clock.t);
+    return { clock, store, b: new DailyBudget(store, 1, () => clock.t, 8) };
+  };
+  it("charges one client's reservations to its own allowance and refuses beyond it, without touching the global ledger", async () => {
+    const { b, store } = mk();
+    const r1 = await b.reserveFor("aaaa", 0.15, 0.1);
+    expect("denied" in r1).toBe(false);
+    expect(await b.reserveFor("aaaa", 0.15, 0.1)).toEqual({ denied: "ip" });
+    expect(await store.get("spend:2026-09-26")).toBe("100000"); // the refused reservation was refunded from both ledgers
+    expect(await store.get("spend:ip:aaaa:2026-09-26")).toBe("100000");
+    const other = await b.reserveFor("bbbb", 0.15, 0.1); // another client is unaffected
+    expect("denied" in other).toBe(false);
+  });
+  it("settles the real cost against both ledgers and reports a global refusal as such", async () => {
+    const { b, store } = mk();
+    const r = await b.reserveFor("aaaa", 0.5, 0.1);
+    if ("denied" in r) throw new Error("unexpected");
+    await b.settle(r, 0.04);
+    expect(await store.get("spend:2026-09-26")).toBe("40000");
+    expect(await store.get("spend:ip:aaaa:2026-09-26")).toBe("40000");
+    const tiny = new DailyBudget(store, 0.05, () => Date.UTC(2026, 8, 26, 12), 8);
+    expect(await tiny.reserveFor("cccc", 5, 0.02)).toEqual({ denied: "global" });
+    expect(await store.get("spend:ip:cccc:2026-09-26")).toBe("0"); // the client allowance was given back
+  });
+  it("the daily allowance resets with the budget window", async () => {
+    const { b, clock } = mk();
+    await b.reserveFor("aaaa", 0.15, 0.15);
+    expect(await b.reserveFor("aaaa", 0.15, 0.01)).toEqual({ denied: "ip" });
+    clock.t += 24 * 3600_000;
+    expect("denied" in (await b.reserveFor("aaaa", 0.15, 0.01))).toBe(false);
+  });
+});
+
+describe("finding N1: budget totals are cached in process, so status reads and health cost no store command", () => {
+  it("status(maxAge) reuses the last observed total; cached() never reads the store", async () => {
+    const clock = { t: Date.UTC(2026, 8, 26, 12) };
+    const store = new MemoryStore(() => clock.t);
+    let gets = 0;
+    const real = store.get.bind(store);
+    store.get = async (k: string) => (gets++, real(k));
+    const b = new DailyBudget(store, 1, () => clock.t, 8);
+    expect(b.cached()).toBeNull();
+    await b.status(60_000);
+    await b.status(60_000);
+    await b.status(60_000);
+    expect(gets).toBe(1);
+    clock.t += 61_000;
+    await b.status(60_000);
+    expect(gets).toBe(2);
+    const r = await b.reserve(0.3);
+    expect(b.cached()?.spentUsd).toBeCloseTo(0.3); // a reserve updates the cache for free
+    await b.settle(r!, 0.1);
+    expect(b.cached()?.spentUsd).toBeCloseTo(0.1);
+    expect(gets).toBe(2);
+  });
+});
+
+describe("finding N1: the in-memory front door turns floods away before any store command", () => {
+  const mk = (over: Partial<ConstructorParameters<typeof FrontDoor>[0]> = {}) => {
+    const clock = { t: 0 };
+    return { clock, d: new FrontDoor({ perIpPerMin: 5, globalPerMin: 20, closuresPerIpPerHour: 3, missionsPerIpPerDay: 4, now: () => clock.t, ...over }) };
+  };
+  it("limits one client per minute and reports when to retry", () => {
+    const { d, clock } = mk();
+    for (let i = 0; i < 5; i++) expect(d.check("ai", "1.1.1.1").ok).toBe(true);
+    const r = d.check("ai", "1.1.1.1");
+    expect(r.ok).toBe(false);
+    expect(r.retryAfterS).toBeGreaterThan(0);
+    expect(d.check("ai", "2.2.2.2").ok).toBe(true);
+    clock.t += 61_000;
+    expect(d.check("ai", "1.1.1.1").ok).toBe(true);
+  });
+  it("caps the whole process per minute no matter how many addresses are used", () => {
+    const { d } = mk();
+    let ok = 0;
+    for (let i = 0; i < 100; i++) if (d.check("ai", `10.0.0.${i}`).ok) ok++;
+    expect(ok).toBe(20);
+  });
+  it("holds the 'unknown' bucket to a fifth of the normal allowance", () => {
+    const { d } = mk({ perIpPerMin: 10 });
+    let ok = 0;
+    for (let i = 0; i < 10; i++) if (d.check("ai", "unknown").ok) ok++;
+    expect(ok).toBe(2);
+  });
+  it("limits closure searches per client per hour in memory, before the cache is read", () => {
+    const { d, clock } = mk({ perIpPerMin: 100, globalPerMin: 1000 });
+    for (let i = 0; i < 3; i++) expect(d.check("closures", "1.1.1.1").ok).toBe(true);
+    expect(d.check("closures", "1.1.1.1").ok).toBe(false);
+    clock.t += 3600_000 + 1;
+    expect(d.check("closures", "1.1.1.1").ok).toBe(true);
+  });
+  it("counts new missions per client per day", () => {
+    const { d, clock } = mk();
+    for (let i = 0; i < 4; i++) expect(d.newMission("1.1.1.1").ok).toBe(true);
+    expect(d.newMission("1.1.1.1").ok).toBe(false);
+    clock.t += 24 * 3600_000 + 1;
+    expect(d.newMission("1.1.1.1").ok).toBe(true);
   });
 });

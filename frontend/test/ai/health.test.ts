@@ -91,17 +91,35 @@ describe("finding 11: /api/health exposes booleans, enums and model names only",
     const text = JSON.stringify(out);
     for (const word of ["spent", "ceiling", "callsToday", "dailyCap", "checkedAt", "budget"]) expect(text).not.toContain(word);
   });
-  it("polling is served from a 10 second per-process cache, so it cannot become store or provider traffic", async () => {
+  it("finding N1: health polling costs zero store commands, and its body is cached for a minute per process", async () => {
     const p = new FakeProvider([]);
     const { rt, server } = runtimeFor(p);
     let reads = 0;
-    const realGet = server.store.get.bind(server.store);
-    server.store.get = async (k: string) => { reads++; return realGet(k); };
-    for (let i = 0; i < 50; i++) await handleHealth(rt);
-    expect(reads).toBe(1);
-    server.clock.t += 11_000;
+    for (const m of ["get", "peek", "incr", "incrLite", "set", "setIfAbsent", "take", "del", "delIfEquals"] as const) {
+      const real = (server.store[m] as (...a: unknown[]) => unknown).bind(server.store);
+      (server.store as unknown as Record<string, unknown>)[m] = (...a: unknown[]) => (reads++, real(...a));
+    }
+    for (let i = 0; i < 100; i++) await handleHealth(rt);
+    expect(reads).toBe(0);
+    expect(p.listCalls).toBe(1);
+    server.clock.t += 59_000;
     await handleHealth(rt);
-    expect(reads).toBe(2);
+    expect(p.listCalls).toBe(1); // still the cached body
+    server.clock.t += 2_000; // past a minute: rebuilt, but still no store read
+    await handleHealth(rt);
+    expect(reads).toBe(0);
+  });
+  it("reports budget exhaustion from the process's last observed total, and a recent store failure as protection_unavailable", async () => {
+    const { rt, server } = runtimeFor(new FakeProvider([]), { dailyBudgetUsd: 0.5 });
+    const r = await rt.agent.budget.reserve(0.4);
+    await rt.agent.budget.settle(r!, 0.5);
+    expect((await (await handleHealth(rt)).json()).degradedReason).toBe("budget_exhausted");
+    server.clock.t += 61_000;
+    server.deps.signals!.storeDownAt = server.clock.t - 1_000;
+    expect((await (await handleHealth(rt)).json()).degradedReason).toBe("protection_unavailable");
+    server.clock.t += 200_000; // the failure is old news and the budget cache is from the same window
+    server.deps.signals!.storeDownAt = 0;
+    expect((await (await handleHealth(rt)).json()).degradedReason).toBe("budget_exhausted");
   });
   it("reports the protection mode as an enum", async () => {
     const shared = runtimeFor(new FakeProvider([]), { protection: "shared" });

@@ -24,8 +24,8 @@ import { bundleKey, constraintsOf } from "./validator";
 export interface GreedyFinalist {
   bundleId: string;
   candidateIds: string[];
-  /** Template text without any numbers. */
-  tradeoff: string;
+  /** Application-authored label without any numbers: how this finalist was chosen. */
+  note: string;
 }
 
 /** Candidates in the deterministic exploration order: round-robin over types, cheapest first. */
@@ -125,7 +125,7 @@ export function greedyFinalists(
     .map((r) => ({
       bundleId: r.bundleId,
       candidateIds: r.candidateIds,
-      tradeoff: "Ranked by deterministic search on the goal metric; check its cost tier and worst case first.",
+      note: "Ranked by deterministic search (not AI) on the goal metric.",
     }));
 }
 
@@ -157,9 +157,12 @@ export async function greedySearch(opts: {
     if (bundles.length === 0) break;
     known.push(...bundles);
     const res = await opts.evaluate(bundles, { mission: opts.mission, round, signal: opts.signal });
-    rows.push(...res.rows);
-    bundlesEvaluated += res.bundlesEvaluated;
-    futuresEvaluated += res.futuresEvaluated;
+    // Counted from the rows themselves, never from an aggregate the evaluator claims.
+    for (const { futures, ...r } of res.rows) {
+      rows.push(r);
+      bundlesEvaluated += 1;
+      futuresEvaluated += futures;
+    }
     rounds = round;
   }
   return { finalists: greedyFinalists(rows, opts.mission), rows, rounds, bundlesEvaluated, futuresEvaluated };

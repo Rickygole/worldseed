@@ -15,8 +15,9 @@ import { readConfig } from "./config";
 import { logEvent } from "./log";
 import { MissionLedger } from "./missions";
 import { ModelResolver, buildRoleChains } from "./models";
-import { DailyBudget, StoreRateLimiter } from "./ratelimit";
-import { createSharedStore, type SharedStore } from "./store";
+import { DailyBudget, FrontDoor, setIpSalt, StoreRateLimiter } from "./ratelimit";
+import { createSharedStore, sharedStoreCredentials, sharedStoreRefusal, type SharedStore } from "./store";
+import { createHmac, randomBytes } from "node:crypto";
 import { createTavilyClient, type ClosuresState, type SearchClient } from "./tavily";
 import { createOpenAIClient, createTokenFactoryProvider, ProviderBackoff } from "./tokenfactory";
 
@@ -25,6 +26,8 @@ export interface Runtime {
   store: SharedStore;
   search: SearchClient | null;
   closures: ClosuresState;
+  /** Signs stateless closure-confirmation tokens (WS_CONFIRM_SECRET, else derived from the store token, else random per process). */
+  confirmSecret: string;
   /** Short per-process cache of the public health body, so polling cannot turn into store or provider traffic. */
   healthCache?: { at: number; body: string };
 }
@@ -46,6 +49,27 @@ export function createRuntime(
     });
   }
   if (config.baseUrlIssue) logEvent("warn", "base_url_rejected", { issue: config.baseUrlIssue });
+  const refusal = sharedStoreRefusal(env);
+  if (refusal) logEvent("warn", "store_refused", { issue: refusal });
+
+  // Secrets that must agree across instances are derived from the store token when not set
+  // explicitly, so a shared deployment works without extra configuration and nothing is guessable.
+  const creds = sharedStoreCredentials(env);
+  const derive = (label: string) => createHmac("sha256", (creds as { token: string }).token).update(label).digest("hex");
+  const saltEnv = env.WS_IP_HASH_SALT?.trim();
+  if (saltEnv) setIpSalt(saltEnv);
+  else if (creds) {
+    setIpSalt(derive("ws-ip-salt"));
+    logEvent("warn", "ip_salt_derived", { note: "WS_IP_HASH_SALT unset; derived from the store token" });
+  } else setIpSalt("");
+  let confirmSecret = env.WS_CONFIRM_SECRET?.trim() ?? "";
+  if (!confirmSecret) {
+    if (creds) confirmSecret = derive("ws-confirm");
+    else {
+      confirmSecret = randomBytes(32).toString("hex");
+      logEvent("warn", "confirm_secret_random", { note: "WS_CONFIRM_SECRET unset; tokens are valid on this process only" });
+    }
+  }
 
   const provider =
     config.apiKey && !config.baseUrlIssue
@@ -59,14 +83,23 @@ export function createRuntime(
       resolver,
       limiter: new StoreRateLimiter(store),
       budget: new DailyBudget(store, config.dailyBudgetUsd, now, config.budgetResetHourUtc),
-      missions: new MissionLedger(store),
+      missions: new MissionLedger(store, undefined, now),
       backoff: new ProviderBackoff(now),
+      frontDoor: new FrontDoor({
+        perIpPerMin: config.frontDoorPerIpPerMin,
+        globalPerMin: config.frontDoorGlobalPerMin,
+        closuresPerIpPerHour: config.ipClosuresPerHour,
+        missionsPerIpPerDay: config.ipMissionsPerDay,
+        now,
+      }),
+      signals: { storeDownAt: 0 },
       loadCatalog: createCatalogLoader(),
       now,
     },
     store,
     search: config.tavilyKey && config.liveAi ? createTavilyClient({ apiKey: config.tavilyKey }) : null,
-    closures: { inflight: null },
+    closures: { inflight: null, cache: null },
+    confirmSecret,
   };
 }
 

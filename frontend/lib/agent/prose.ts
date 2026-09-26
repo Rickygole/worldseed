@@ -1,31 +1,43 @@
 /**
- * Prose screen: what a model may write in a text field.
+ * Commentary screen: what a model may write in a text field.
  *
- * The honest claim is narrow: model prose is SCREENED, and numbers appear only through
- * server-filled {{slot}} placeholders. The screen is not proof that a sentence contains no
- * quantitative claim; it removes every route we know of and is written as a positive allowlist
- * first, blacklists second.
+ * The design decision behind it: the model never writes an outcome sentence. Every headline and
+ * result line next to a figure is an application template filled from simulator numbers, with the
+ * real sign and direction. The only model text is "AI commentary", limited to MECHANISM and
+ * rationale: what an option physically or operationally does, which corridor or shore it touches,
+ * what it depends on, its cost tier. This module is the screen that keeps commentary to that.
+ *
+ * The honest claim is narrow: numbers and outcomes are computed by the simulator; AI commentary
+ * describes mechanism only and is screened. The screen is a filter with known limits, not a proof
+ * that a sentence makes no quantitative claim; it is written as a positive allowlist first and a
+ * vocabulary blacklist second.
  *
  * Pipeline (docs/ARCHITECTURE.md 2.7, rule 5):
  *   1. Normalize: drop format and invisible characters (zero-width, soft hyphen), NFKC-fold
  *      look-alike and full-width forms, collapse every run of whitespace (newline, tab, NBSP).
- *   2. Slots: a well-formed {{slot}} is replaced by a space; everything else in braces is an error.
- *      Bundle-qualified slots may name only the item's OWN bundle (see SlotPolicy).
+ *   2. No placeholders: commentary has no slots (figures live only in application templates).
  *   3. Exact catalog / minted bundle IDs passed in `allowedTokens` are replaced by a space.
  *      Model-authored identifiers are never whitelisted (bundle IDs are minted by the application).
- *   4. What is left must be plain English: ASCII letters, spaces and basic punctuation only.
- *      That alone rejects digits in any script, Roman-numeral and circled forms, look-alike
- *      letters, CJK and accented number words, markup, brackets, slashes, at-signs and entities.
- *   5. Blacklists on top: number words in English and common other languages (with or without a
- *      unit), ASCII Roman numerals, multiplier and fraction words, comparative / direction words
- *      (direction is written by the application next to a filled number, never by a model),
- *      links and bare domains, and operational-emergency vocabulary.
+ *   4. What is left must be plain English: ASCII letters, spaces, basic punctuation and
+ *      parentheses. That alone rejects digits in any script, Roman-numeral and circled forms,
+ *      look-alike letters, CJK and accented number words, markup, brackets, slashes and at-signs.
+ *   5. Vocabulary: number words in several languages, ASCII Roman numerals, fractions and
+ *      multipliers (code number_word); change and comparison words (direction); quantifier and
+ *      absolute words (absolute); size and amount words (magnitude); negations (negation);
+ *      outcome-state words (outcome, strict profile only); links; and operational-emergency and
+ *      product-claim vocabulary (wording). Every rejection names the dictionary word that caused
+ *      it, taken from the fixed lists below and never copied from the model.
  *
- * Whitelist by design (everything else is rejected): well-formed slots, exact IDs from
- * `allowedTokens`, and ordinal words (first, second, third), which contain no digits.
+ * Two profiles: "card" (finalist notes and narration, shown next to results) is the strict one.
+ * "rationale" (the planner's decision-log commentary) also allows a few natural phrases that cannot
+ * carry a result claim: "unresolved", "cut off", "drop/dropping" next to a bundle, outcome-state
+ * words, and small counts of catalog things the application itself lists ("two bundles").
+ *
+ * Whitelist by design (everything else is rejected): exact IDs from `allowedTokens` and ordinal
+ * words (first, second) that carry no digits.
  */
 
-/** Metrics a slot may name. */
+/** Metrics a slot may name (slots exist only in application templates; commentary has none). */
 export const SLOT_METRICS = ["p50", "p90", "pctWithin", "isolated", "equityGap", "pGoal", "cost"] as const;
 export type SlotMetric = (typeof SLOT_METRICS)[number];
 
@@ -33,7 +45,7 @@ export type SlotMetric = (typeof SLOT_METRICS)[number];
  * The one sentence about prose that the product may defend. It is deliberately not "the model
  * cannot state a number": the screen is a filter with known limits, not a proof.
  */
-export const PROSE_CLAIM = "Model prose is screened; numbers appear only through slots the application fills from simulator results.";
+export const PROSE_CLAIM = "Numbers and outcomes are computed by the simulator; AI commentary describes mechanism only and is screened.";
 
 const BUNDLE_SLOT_ID = "B(?:1[0-2]|[1-9])";
 const SLOT_BODY =
@@ -41,7 +53,6 @@ const SLOT_BODY =
   `(?:${SLOT_METRICS.join("|")})` +
   "(?:\\.(?:baseline|current|delta))?";
 const SLOT_EXACT = new RegExp(`^${SLOT_BODY}$`);
-const SLOT_TOKEN = /\{\{\s*([^{}]*?)\s*\}\}/g;
 
 export function isValidSlot(body: string): boolean {
   return SLOT_EXACT.test(body);
@@ -54,7 +65,7 @@ export interface ParsedSlot {
   variant?: "baseline" | "current" | "delta";
 }
 
-/** Splits a valid slot body into its parts (undefined when the body is not a valid slot). */
+/** Splits a valid slot body into its parts (undefined when the body is not a valid slot). Used by the slot filler. */
 export function parseSlot(body: string): ParsedSlot | undefined {
   if (!isValidSlot(body)) return undefined;
   const parts = body.split(".");
@@ -66,101 +77,135 @@ export function parseSlot(body: string): ParsedSlot | undefined {
   return { bundleId, metric: parts[0] as SlotMetric, variant: parts[1] as ParsedSlot["variant"] };
 }
 
-/**
- * Which slots a field may use. With no `ownerBundleId` (log sentences, hypotheses, tradeoffs) only
- * baseline figures, which belong to no bundle, are allowed. With an owner (a finalist's own
- * headline and body) that bundle's own figures are allowed too, written unqualified or qualified
- * with the same ID. A slot naming any other bundle is refused.
- */
-export interface SlotPolicy {
-  ownerBundleId?: string;
-}
+export type ProseIssueCode =
+  | "digits"
+  | "number_word"
+  | "bad_slot"
+  | "link"
+  | "wording"
+  | "charset"
+  | "direction"
+  | "absolute"
+  | "magnitude"
+  | "negation"
+  | "outcome";
 
-function slotAllowed(slot: ParsedSlot, policy: SlotPolicy): boolean {
-  if (slot.bundleId !== undefined && slot.bundleId !== policy.ownerBundleId) return false;
-  if (slot.metric === "cost") return slot.variant === undefined && policy.ownerBundleId !== undefined;
-  if (slot.metric === "pGoal") return slot.variant === undefined && policy.ownerBundleId !== undefined;
-  if (slot.variant === "baseline") return slot.bundleId === undefined; // baseline belongs to no bundle
-  return policy.ownerBundleId !== undefined; // current / delta / bare need an own bundle
-}
-
-export type ProseIssueCode = "digits" | "number_word" | "bad_slot" | "link" | "wording" | "charset" | "direction";
 export interface ProseIssue {
   code: ProseIssueCode;
   message: string;
+  /** The fixed-list word (or stem) that triggered it, never text copied from the model. */
+  word?: string;
 }
 
-/* --------------------------------- word lists -------------------------------- */
+export type ProseProfile = "card" | "rationale";
 
-const list = (s: string): string[] => s.split(" ").filter(Boolean);
+/* --------------------------------- dictionaries -------------------------------- */
+
+/** A dictionary entry: the stem shown in messages and the pattern (matched against one lowercase word). */
+type Entry = readonly [stem: string, re: RegExp];
+const entries = (defs: readonly (readonly [string, string])[]): Entry[] => defs.map(([stem, src]) => [stem, new RegExp(`^(?:${src})$`)] as const);
+const stemOf = (w: string): readonly [string, string] => [w, w];
+const words = (list: string): Entry[] => entries(list.split(" ").filter(Boolean).map(stemOf));
+
+/** Change and comparison words. Direction is written by the application next to a filled number, never by a model. */
+const DIRECTION: Entry[] = [
+  ...entries([
+    ["improve*", "improv\\w*"], ["worsen*", "worsen\\w*"], ["reduc*", "reduc\\w*"], ["cut", "cuts?|cutting"], ["save*", "sav(?:e|es|ed|ing|ings)"],
+    ["gain*", "gain(?:s|ed|ing)?"], ["boost*", "boost\\w*"], ["ease*", "eas(?:e|es|ed|ing)"], ["increas*", "increas\\w*"], ["decreas*", "decreas\\w*"],
+    ["lower*", "lower(?:s|ed|ing)?"], ["drop*", "drop(?:s|ped|ping)?"], ["raise*", "rais(?:e|es|ed|ing)"], ["grow*", "grow(?:s|n|ing|th)?"], ["shrink*", "shrink(?:s|ing)?|shrank"],
+    ["shorten*", "shorten\\w*"], ["lengthen*", "lengthen\\w*"], ["speed*", "speed(?:s|ed|ing)?"], ["slash*", "slash\\w*"], ["trim*", "trim\\w*"],
+    ["narrow*", "narrow(?:s|ed|ing)?"], ["widen*", "widen\\w*"], ["elimin*", "elimin\\w*"], ["fix*", "fix(?:es|ed|ing)?"], ["solv*", "solv(?:e|es|ed|ing)"],
+    ["resolv*", "resolv(?:e|es|ed|ing)"], ["recover*", "recover\\w*"], ["restor*", "restor\\w*"], ["regain*", "regain\\w*"], ["return*", "return(?:s|ed|ing)"],
+    ["beat*", "beat(?:s|ing)?"], ["outperform*", "outperform\\w*"], ["exceed*", "exceed\\w*"], ["match*", "match(?:es|ed|ing)"], ["close*", "clos(?:e|es|ed|ing)"],
+    ["recommend*", "recommend\\w*"],
+  ]),
+  ...words(
+    "higher faster slower quicker sooner later shorter longer better worse cheaper costlier pricier smaller larger bigger greater lesser easier harder " +
+      "best worst cheapest fastest slowest quickest highest lowest largest smallest biggest longest shortest greatest stronger strongest weaker weakest " +
+      "lighter lightest heavier heaviest safer safest more less fewer extra most least than baseline optimal ideal winner superior inferior preferred",
+  ),
+];
+/** Quantifiers and absolutes: statements about everyone or no one are outcome claims. */
+const ABSOLUTE: Entry[] = [
+  ...entries([
+    ["entire*", "entire\\w*"], ["complete*", "complet\\w*"], ["total*", "total\\w*"], ["guarantee*", "guarantee\\w*"], ["virtually", "virtual(?:ly)?"],
+    ["essential*", "essentially"], ["practical*", "practically"], ["effective*", "effectively"], ["absolute*", "absolute(?:ly)?"], ["definite*", "definite(?:ly)?"],
+    ["sure*", "surely"], ["full*", "fully"], ["permanent*", "permanent(?:ly)?"],
+  ]),
+  ...words("all every everyone everybody everything none nobody nothing never always almost nearly forever undoubtedly solely enough sufficient adequate"),
+];
+/** Amounts and sizes. */
+const MAGNITUDE: Entry[] = [
+  ...entries([
+    ["dramatic*", "dramatic\\w*"], ["vast*", "vast\\w*"], ["sharp*", "sharp(?:ly|er|est)?"], ["slight*", "slight\\w*"], ["marginal*", "marginal\\w*"],
+    ["substantial*", "substantial\\w*"], ["significant*", "significan\\w*"], ["considerabl*", "considerabl\\w*"], ["massive*", "massive\\w*"],
+    ["enormous*", "enormous\\w*"], ["minute*", "minutes?"], ["hour*", "hours?"], ["day*", "days?"], ["week*", "weeks?"], ["month*", "months?"], ["year*", "years?"],
+    ["mile*", "miles?"], ["kilometer*", "kilomet(?:er|re)s?"], ["block*", "blocks?"],
+  ]),
+  ...words(
+    "majority minority handful few several many numerous multiple countless plenty lot lots little tiny minor major negligible huge large small big steep " +
+      "greatly mostly largely roughly approximately nil zero score fortnight dozen dozens couple",
+  ),
+];
+/** Negations: a negative claim is an outcome claim ("does not help ...", "no one ..."). */
+const NEGATION_WORDS = words("no not nor cannot neither nowhere barely hardly scarcely");
+const NEGATION_CONTRACTION = /\b\w+n['’]t\b/i;
+/** Outcome-state words: what an option leaves behind. Rejected next to results; allowed in decision-log rationale. */
+const OUTCOME: Entry[] = [
+  ...entries([["leave*", "leav(?:e|es|ing)"], ["remain*", "remain\\w*"], ["isolat*", "isolat\\w+"], ["unresolved", "unresolved"], ["stranded", "strand\\w*"]]),
+  ...words("left"),
+];
 
 /** English, French, German, Spanish, Italian, Portuguese number words (ASCII spellings). */
 const NUMBER_TOKENS = new Set(
-  list(
+  (
     "zero two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen " +
-      "twenty thirty forty fifty sixty seventy eighty ninety hundred thousand million billion trillion dozen dozens couple " +
-      "half halves halve halved halving quarter quarters double doubles doubled doubling triple triples tripled tripling quadruple quadrupled " +
-      "twice thrice twofold threefold fourfold fivefold sixfold sevenfold eightfold ninefold tenfold " +
-      "percent percents percentage percentages pct cent cents " +
-      // French
-      "zero un une deux trois quatre cinq sept huit neuf dix onze douze treize quatorze quinze seize vingt trente quarante cinquante soixante cent mille moitie " +
-      // German
-      "null eins zwei drei vier funf fuenf sechs sieben acht neun zehn elf zwolf zwoelf dreizehn vierzehn funfzehn zwanzig dreissig vierzig hundert tausend halb " +
-      // Spanish
-      "cero uno dos tres cuatro cinco seis siete ocho nueve diez doce trece catorce quince veinte treinta cuarenta cincuenta ciento mil mitad " +
-      // Italian and Portuguese
-      "tre quattro sei sette otto nove dieci dodici tredici venti trenta cento mille quatro cinquenta dezoito vinte trinta doze",
-  ),
+    "twenty thirty forty fifty sixty seventy eighty ninety hundred thousand million billion trillion dozen dozens couple " +
+    "half halves halve halved halving quarter quarters double doubles doubled doubling triple triples tripled tripling quadruple quadrupled " +
+    "twice thrice twofold threefold fourfold fivefold sixfold sevenfold eightfold ninefold tenfold tenth tenths thirds " +
+    "percent percents percentage percentages pct cent cents " +
+    "zero un une deux trois quatre cinq sept huit neuf dix onze douze treize quatorze quinze seize vingt trente quarante cinquante soixante cent mille moitie " +
+    "null eins zwei drei vier funf fuenf sechs sieben acht neun zehn elf zwolf zwoelf dreizehn vierzehn funfzehn zwanzig dreissig vierzig hundert tausend halb " +
+    "cero uno dos tres cuatro cinco seis siete ocho nueve diez doce trece catorce quince veinte treinta cuarenta cincuenta ciento mil mitad " +
+    "tre quattro sei sette otto nove dieci dodici tredici venti trenta cento mille quatro cinquenta dezoito vinte trinta doze"
+  )
+    .split(" ")
+    .filter(Boolean),
 );
 /** Long number words are also caught inside a longer run of letters (for example glued to a unit). */
-const NUMBER_SUBSTRINGS = list(
-  "twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty thirty hundred thousand million billion dozen",
-);
-const UNIT_WORDS =
-  "minutes?|mins?|seconds?|secs?|hours?|hrs?|days?|weeks?|months?|years?|blocks?|miles?|kilometers?|kilometres?|lanes?|households|residents|people|workers|homes|groups|areas";
-/**
- * "one" is an ordinary pronoun ("the one that", "one of the options"), so it is rejected only where
- * it reads as a quantity: next to a unit ("one minute") or after a word that introduces a value
- * ("by one", "is one.", "only one").
- */
-const ONE_WITH_UNIT = new RegExp(
-  `\\bone[- ](?:${UNIT_WORDS})\\b|\\b(?:by|is|are|was|were|be|to|of|about|around|nearly|almost|only|just|exactly|at|from)\\s+one\\b(?!\\s+(?:of|that|which|who|option|bundle|corridor|link|connector))`,
-  "i",
-);
+const NUMBER_SUBSTRINGS = "twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty thirty hundred thousand million billion dozen".split(" ");
+/** "one" is an ordinary pronoun ("the one that", "one of the options"); it is rejected only where it reads as a quantity. */
+const ONE_QUANTITY =
+  /\bone[- ](?:minutes?|mins?|hours?|days?|weeks?|months?|years?|blocks?|miles?|lanes?|households|residents|people|workers|homes|groups|areas)\b|\b(?:by|is|are|was|were|be|to|of|about|around|nearly|almost|only|just|exactly|at|from)\s+one\b(?!\s+(?:of|that|which|who|option|bundle|corridor|link|connector))/i;
+/** A fraction: "a third", "one fifth", "a tenth of". */
+const FRACTION = /\b(?:a|one|two|three|four|five)\s+(?:third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)s?\b|\b(?:third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)s\b/i;
+/** Small counts of things the application itself lists. Allowed only in the rationale profile. */
+const CATALOG_COUNT =
+  /\b(?:two|three|four|five|six|both)\s+(?:of\s+the\s+)?(?:bundles?|options?|candidates?|interventions?|links?|corridors?|sites?|signals?|connectors?|shuttles?|types?|rounds?|mechanisms?)\b/gi;
 
 const ROMAN = /^M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})$/i;
 const ROMAN_OK_WORDS = new Set(["mix"]);
 
-/**
- * Direction and magnitude words. A model must not author "better", "cuts", "halves" or
- * "cheaper": the application prints the direction next to a filled number, computed from the real
- * sign. Fragments are joined where a word could trip the repository wording checks.
- */
-const DIRECTION_WORDS = new RegExp(
-  "^(?:" +
-    [
-      "improv\\w*", "reduc\\w*", "cuts?", "cutting", "sav(?:e|es|ed|ing|ings)", "gain(?:s|ed|ing)?", "boost\\w*", "eas(?:e|es|ed|ing)",
-      "increas\\w*", "decreas\\w*", "lower(?:s|ed|ing)?", "higher", "rais(?:e|es|ed|ing)", "drop(?:s|ped|ping)?",
-      "grow(?:s|n|ing|th)?", "shrink(?:s|ing)?", "shrank", "shorten\\w*", "lengthen\\w*",
-      "faster", "slower", "quicker", "shorter", "longer", "better", "worse", "worsen\\w*", "cheaper", "costlier", "pricier",
-      "smaller", "larger", "bigger", "greater", "lesser", "easier", "harder", "best", "cheapest", "fastest", "more", "less", "fewer",
-      "extra", "most", "least", "than", "beat(?:s|ing)?", "outperform\\w*", "exceed\\w*",
-    ].join("|") +
-    ")$",
-  "i",
-);
-
-const BANNED_WORDS = [
-  ["dis", "patch\\w*"].join(""),
-  ["tri", "age\\w*"].join(""),
-  ["real[- ]?", "time"].join(""),
-  ["prioriti", "[sz]\\w*"].join(""),
-  ["respon", "ders?"].join(""),
-  ["life[- ]?", "sav\\w*"].join(""),
-  ["lives?\\s+", "saved"].join(""),
-  ["sav(?:e|es|ed|ing)\\s+(?:a\\s+|\\w+\\s+)?", "li(?:fe|ves)"].join(""),
+/* Operational-emergency and product-claim vocabulary. Fragments are joined so the words do not appear as literals in the source. */
+const WORDING_ENTRIES: Entry[] = entries([
+  [["dis", "patch*"].join(""), ["dis", "patch\\w*"].join("")],
+  [["tri", "age*"].join(""), ["tri", "age\\w*"].join("")],
+  [["prioriti", "z*"].join(""), ["prioriti", "[sz]\\w*"].join("")],
+  [["respon", "der*"].join(""), ["respon", "ders?"].join("")],
+  ["rescue*", "rescu\\w*"],
+  ["deploy*", "deploy\\w*"],
+  ["protect*", "protect\\w*"],
+  ["routing", "routing"],
+  ["operational*", "operation(?:al|s)?"],
+  ["lives", "lives?"],
+  ["lifesaving", "life[- ]?sav\\w*"],
+  ["guidance", "guidance"],
+]);
+const BANNED_PHRASES: [string, RegExp][] = [
+  [["real", " ", "time"].join(""), new RegExp(["real[- ]?", "time"].join(""), "i")],
+  ["live operations", /\blive\s+(?:operations?|aid|routing|response|guidance|use|tool)\b/i],
+  ["on the fly", /\bon the fly\b/i],
 ];
-const BANNED_RE = new RegExp(`\\b(?:${BANNED_WORDS.join("|")})\\b`, "i");
 /** Same words with every non-letter removed, so punctuation cannot split them. */
 const SQUEEZED_BANNED = new RegExp(
   [
@@ -179,7 +224,7 @@ const SQUEEZED_BANNED = new RegExp(
 const LINK_RE = /(?:https?:|www\.|<\s*\/?\s*[a-z])/i;
 const BARE_DOMAIN = /[a-z0-9-]{2,}\.(?:com|org|net|io|gov|edu|us|co|dev|app|xyz|info|biz|ly|me|example|test|local|internal)\b/i;
 
-const CHARSET_BAD = /[^A-Za-z .,;:!?'"‘’“”\-–—\p{N}]/u;
+const CHARSET_BAD = /[^A-Za-z .,;:!?'"()‘’“”\-–—\p{N}]/u;
 const ANY_NUMBER = /\p{N}/u;
 const INVISIBLE = /[\p{Cf}­]/gu;
 
@@ -190,7 +235,7 @@ function escapeRe(s: string): string {
 export interface ProseOptions {
   /** Exact identifiers that may appear even though they contain digits (catalog IDs, minted bundle IDs). */
   allowedTokens?: readonly string[];
-  slots?: SlotPolicy;
+  profile?: ProseProfile;
 }
 
 /** The text as the screen sees it: invisible characters gone, NFKC-folded, whitespace collapsed. */
@@ -202,24 +247,36 @@ export function normalizeProse(text: string): string {
     .trim();
 }
 
-/** Returns the list of problems (empty when the text is acceptable prose). */
+const firstHit = (list: readonly Entry[], tokens: readonly string[]): string | undefined => {
+  for (const w of tokens) for (const [stem, re] of list) if (re.test(w)) return stem;
+  return undefined;
+};
+
+/** Returns the list of problems (empty when the text is acceptable commentary). */
 export function proseIssues(text: string, opts: ProseOptions = {}): ProseIssue[] {
   const issues: ProseIssue[] = [];
-  const policy = opts.slots ?? {};
-  const bad = (code: ProseIssueCode, message: string) => {
-    if (!issues.some((i) => i.code === code)) issues.push({ code, message });
+  const profile = opts.profile ?? "card";
+  const bad = (code: ProseIssueCode, message: string, word?: string) => {
+    if (!issues.some((i) => i.code === code)) issues.push({ code, message, word });
   };
   let t = normalizeProse(text);
 
-  t = t.replace(SLOT_TOKEN, (_m, body: string) => {
-    const slot = parseSlot(body);
-    if (!slot) bad("bad_slot", "a placeholder is not an allowed slot");
-    else if (!slotAllowed(slot, policy)) bad("bad_slot", "a placeholder names a figure this text may not use");
-    return " ";
-  });
-  if (t.includes("{{") || t.includes("}}")) {
-    bad("bad_slot", "malformed placeholder braces");
-    t = t.replace(/[{}]/g, " ");
+  if (t.includes("{") || t.includes("}")) {
+    // The whole placeholder is dropped so the field is withheld (bad_slot) rather than rejected for the digits inside it.
+    bad("bad_slot", "commentary may not contain placeholders or braces; figures come from the application");
+    t = t.replace(/\{\{[^{}]*\}\}/g, " ").replace(/[{}]/g, " ");
+  }
+
+  // Natural phrases that cannot carry a result claim.
+  t = t.replace(/\b(?:stays?\s+|stayed\s+|kept\s+)?cut[- ]off\b/gi, " "); // "cut off", "stay cut off"
+  t = t.replace(/\bdrop(?:s|ped|ping)?(?=\s+(?:the\s+)?(?:bundles?\s+)?B(?:1[0-2]|[1-9])\b)/gi, " "); // "dropping B4"
+  // "pair a link with a site" is a verb; "a pair of ..." is a count.
+  if (/\bpair(?:s|ed|ing)?\s+of\b/i.test(t)) bad("magnitude", 'contains the amount word "pair of"', "pair of");
+  t = t.replace(/\bpair(?:s|ed|ing)?\b/gi, " ");
+  if (profile === "rationale") {
+    t = t.replace(/\bworst[- ]case\b/gi, " "); // a metric name, used to say what the planner is looking at
+    t = t.replace(/\bunresolved\b/gi, " ");
+    t = t.replace(CATALOG_COUNT, " ");
   }
 
   for (const tok of opts.allowedTokens ?? []) {
@@ -228,25 +285,38 @@ export function proseIssues(text: string, opts: ProseOptions = {}): ProseIssue[]
     t = t.replace(re, "$1 ");
   }
 
-  if (ANY_NUMBER.test(t)) bad("digits", "prose contains digits; cite numbers only as {{slot}} placeholders");
-  if (CHARSET_BAD.test(t)) bad("charset", "prose may use plain letters and basic punctuation only");
+  if (ANY_NUMBER.test(t)) bad("digits", "prose contains digits; figures come from the application, never from commentary");
+  if (CHARSET_BAD.test(t)) bad("charset", "commentary may use plain letters, basic punctuation and parentheses only");
 
-  const words = t.match(/[A-Za-z]+/g) ?? [];
-  const lower = words.map((w) => w.toLowerCase());
-  const number =
-    lower.some((w) => NUMBER_TOKENS.has(w)) ||
-    lower.some((w) => w.length > 6 && NUMBER_SUBSTRINGS.some((n) => w.includes(n))) ||
-    ONE_WITH_UNIT.test(t) ||
-    words.some((w) => w.length >= 2 && ROMAN.test(w) && !ROMAN_OK_WORDS.has(w.toLowerCase())) ||
-    words.some((w) => /^(?=.*O)(?=.*[lI])[lIO]{2,}$/.test(w));
-  if (number) bad("number_word", "prose contains a number word or numeral; cite numbers only as {{slot}} placeholders");
+  const raw = t.match(/[A-Za-z]+/g) ?? [];
+  const lower = raw.map((w) => w.toLowerCase());
 
-  if (words.some((w) => DIRECTION_WORDS.test(w))) {
-    bad("direction", "prose may not state a direction or size of change; the application adds it next to filled numbers");
+  const numWord = lower.find((w) => NUMBER_TOKENS.has(w)) ?? lower.find((w) => w.length > 6 && NUMBER_SUBSTRINGS.find((n) => w.includes(n)));
+  if (numWord && NUMBER_TOKENS.has(numWord)) bad("number_word", `contains the number word "${numWord}"; numbers come from the application`, numWord);
+  else if (numWord) bad("number_word", "contains a number word glued to other letters", NUMBER_SUBSTRINGS.find((n) => numWord.includes(n)));
+  else if (raw.some((w) => w.length >= 2 && ROMAN.test(w) && !ROMAN_OK_WORDS.has(w.toLowerCase()))) bad("number_word", "contains a Roman numeral");
+  else if (raw.some((w) => /^(?=.*O)(?=.*[lI])[lIO]{2,}$/.test(w))) bad("number_word", "contains a look-alike numeral");
+  else if (ONE_QUANTITY.test(t)) bad("number_word", 'uses "one" as a quantity');
+  else if (FRACTION.test(t)) bad("number_word", "contains a fraction word");
+
+  const dir = firstHit(DIRECTION, lower);
+  if (dir) bad("direction", `contains the change or comparison word "${dir}"; direction is written by the application next to figures`, dir);
+  const abs = firstHit(ABSOLUTE, lower);
+  if (abs) bad("absolute", `contains the absolute or quantifier word "${abs}"`, abs);
+  else if (/\bno one\b/i.test(t)) bad("absolute", 'contains the absolute phrase "no one"', "no one");
+  const mag = firstHit(MAGNITUDE, lower);
+  if (mag) bad("magnitude", `contains the amount or size word "${mag}"`, mag);
+  const neg = firstHit(NEGATION_WORDS, lower);
+  if (neg) bad("negation", `contains the negation "${neg}"; describe what the option does, not what it does not do`, neg);
+  else if (NEGATION_CONTRACTION.test(t)) bad("negation", "contains a negative contraction", "n't");
+  if (profile === "card") {
+    const out = firstHit(OUTCOME, lower);
+    if (out) bad("outcome", `contains the outcome word "${out}"; commentary describes mechanism, not results`, out);
   }
+
   if (LINK_RE.test(t) || BARE_DOMAIN.test(t)) bad("link", "prose must not contain links or markup");
-  if (BANNED_RE.test(t) || SQUEEZED_BANNED.test(t.replace(/[^A-Za-z]/g, ""))) {
-    bad("wording", "prose uses operational-emergency vocabulary; describe counterfactual planning only");
-  }
+  const wording = firstHit(WORDING_ENTRIES, lower) ?? BANNED_PHRASES.find(([, re]) => re.test(t))?.[0];
+  if (wording) bad("wording", `uses the operational or product-claim word "${wording}"; describe counterfactual planning only`, wording);
+  else if (SQUEEZED_BANNED.test(t.replace(/[^A-Za-z]/g, ""))) bad("wording", "uses operational-emergency vocabulary; describe counterfactual planning only");
   return issues;
 }
