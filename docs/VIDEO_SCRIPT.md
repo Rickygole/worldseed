@@ -1,4 +1,4 @@
-# Demo video script (target 2:40, hard limit under 3:00)
+# Demo video script (target 2:50, hard limit under 3:00)
 
 Status as of 2026-09-26: **the video cannot be recorded yet.** Moments 3 to 5 depend
 on things that were not live: the AI planner verified against live Nemotron models on
@@ -34,10 +34,12 @@ Rules this script follows (docs/LEGAL.md rule 7, docs/DEDICATION.md):
 | 2 | 0:25 - 0:45 | What did NOT break: first response held, and why | 20 s |
 | 3 | 0:45 - 1:30 | Nemotron at work: mission, parse, confirm, propose, futures, critic, refine | 45 s |
 | 4 | 1:30 - 1:50 | The guardrail: a visible validator rejection, and the one-line architecture | 20 s |
-| 5 | 1:50 - 2:40 | Payoff and honesty: finalists, apply, terrain sinks, residual loss, audience | 50 s |
+| 5 | 1:50 - 2:50 | Payoff and honesty: finalists, apply, terrain sinks, residual loss, the range and what our study found, audience | 60 s |
 
-The voiceover is about 350 words. Record it first in one calm take, time it, and
-trim the wording (not the speed) if it runs over 2:45. Slack to the 3:00 limit is
+The voiceover is about 385 words (it grew when the sensitivity-study sentence was
+added). Record it first in one calm take, time it, and trim the wording (not the speed)
+if it runs over 2:52; the first candidates to cut are the "Regional averages hide local
+disasters" line in moment 2 and the Tavily sentence in moment 4. Slack to the 3:00 limit is
 about 20 s; do not use it.
 
 ## Moment by moment
@@ -53,15 +55,16 @@ about 20 s; do not use it.
     ribbon at baseline (cross-harbor 20.6 min, regional 0 s, first response 6.1 min).
   - 0:14-0:25. Click **Remove Key Bridge link**. Camera flies to the change, terrain
     rises over the Sparrows Point / Edgemere peninsula, the ribbon rolls. Cursor on the
-    Regional tile ("+3 s"), then the Cross-harbor tile ("20,100").
+    Regional tile ("+3 s"), then the Cross-harbor tile ("20,100"). Add the caption
+    "Head-count depends on assumptions; range shown later" (see captions).
 - **Voiceover.**
   > In memory of the six construction workers who died when the Francis Scott Key
   > Bridge collapsed on March 26, 2024.
   >
   > A regional model says losing the bridge costs about three seconds on average.
-  > Remove it here, and for about twenty thousand people on the Sparrows Point and
-  > Edgemere peninsula, more than ten percent of the jobs they can reach across the
-  > harbor in thirty minutes are gone.
+  > Remove it here, and for about twenty thousand people, mostly on the Sparrows Point
+  > and Edgemere peninsula, more than ten percent of the jobs they can reach across the
+  > harbor in thirty minutes are gone. About twenty thousand, and we show the range.
 
 ### Moment 2: What did not break (0:25 - 0:45)
 
@@ -140,7 +143,7 @@ submit this cut; see the fallback at the end of this moment.
 - **Tavily line is [VERIFY]:** keep it only if the closure lookup works on the
   deployed site with a real key. Otherwise delete the last sentence.
 
-### Moment 5: Payoff and honesty (1:50 - 2:40)
+### Moment 5: Payoff and honesty (1:50 - 2:50)
 
 - **On screen.**
   1. **[VERIFY]** Three finalist cards with fan charts of their simulated futures
@@ -151,15 +154,21 @@ submit this cut; see the fallback at the end of this moment.
   3. Hold on the ribbon so the remaining loss is visible. The residual cross-harbor
      loss must be readable on screen: read the applied number from the app and say it
      as the app shows it.
-  4. Close on the Assumptions drawer for 3 s (every parameter listed), then the app
+  4. Show the range (5 s): the scoreboard table at the top of `docs/METHODOLOGY.md`
+     on the repository page (51 variants; cross-harbor head-count 6,667 to 96,277 in
+     the speed variants), or a plain text card with the same figures. The range must
+     be on screen, not only spoken.
+  5. Close on the Assumptions drawer for 3 s (every parameter listed), then the app
      footer and disclaimer, then a plain dark card with the wordmark and URL.
 - **Voiceover.**
   > Finalists come back with the range of their simulated futures. I compare one, and
   > apply it, and the terrain sinks. But look at what remains: the best hypothetical
   > option recovers about forty percent of the cross-harbor loss, and that rests on an
   > assumed corridor speed. **[VERIFY: replace "about forty percent" with the figure
-  > the app shows for the applied finalist, and say the remaining loss plainly.]** Most
-  > options in the catalog do not help. This is a screening tool for state
+  > the app shows for the applied finalist, and say the remaining loss plainly.]** We
+  > stress-tested this in fifty-one variants: the head-count ranges from about seven
+  > thousand to ninety-six thousand, the peninsula stays worst hit in fifty, and
+  > free-flow is a lower bound on real disruption. This is a screening tool for state
   > transportation and metropolitan planning analysts, with the Key Bridge as the case
   > study. It runs in your browser at no server cost, on open data. Simulated, not
   > measured, not dispatch, and a human decides. WorldSeed: don't predict the future,
@@ -171,9 +180,9 @@ submit this cut; see the fallback at the end of this moment.
 > Bridge collapsed on March 26, 2024.
 >
 > A regional model says losing the bridge costs about three seconds on average. Remove
-> it here, and for about twenty thousand people on the Sparrows Point and Edgemere
-> peninsula, more than ten percent of the jobs they can reach across the harbor in
-> thirty minutes are gone.
+> it here, and for about twenty thousand people, mostly on the Sparrows Point and
+> Edgemere peninsula, more than ten percent of the jobs they can reach across the
+> harbor in thirty minutes are gone. About twenty thousand, and we show the range.
 >
 > Just as important is what did not break. First-response times are unchanged. Both
 > shores have their own fire stations and hospitals, so in this model that held.
@@ -197,7 +206,9 @@ submit this cut; see the fallback at the end of this moment.
 > Finalists come back with the range of their simulated futures. I compare one, and
 > apply it, and the terrain sinks. But look at what remains: the best hypothetical
 > option recovers about forty percent of the cross-harbor loss, and that rests on an
-> assumed corridor speed. Most options in the catalog do not help. This is a screening
+> assumed corridor speed. We stress-tested this in fifty-one variants: the head-count
+> ranges from about seven thousand to ninety-six thousand, the peninsula stays worst
+> hit in fifty, and free-flow is a lower bound on real disruption. This is a screening
 > tool for state transportation and metropolitan planning analysts, with the Key
 > Bridge as the case study. It runs in your browser at no server cost, on open data.
 > Simulated, not measured, not dispatch, and a human decides. WorldSeed: don't predict
@@ -210,6 +221,7 @@ instead, say so in its place.
 ## On-screen captions (small, lower left, plain text)
 
 - Moment 1: "Roads as of 1 March 2024, free-flow speeds. Computed locally in your browser."
+- Moment 1 (on the Cross-harbor tile): "Head-count depends on assumptions: about 6,700 to 96,000 across variants tested."
 - Moment 2: "Simulated results, not measurements."
 - Moment 3: "Model names and token counts as shown by the app."
 - Moment 5: "Hypothetical scenario options. No agency proposed these."
@@ -261,7 +273,8 @@ recording.
 
 - [ ] The site loads without login, and the first-run disclaimer banner shows.
 - [ ] Baseline numbers read as expected: cross-harbor 20.6 min, first response 6.1 min. If they differ, re-read every figure in this script.
-- [ ] After removal: regional +3 s, first response unchanged, cross-harbor about 20,100 residents losing more than 10% (the voiceover must match the screen; adjust the words, not the app).
+- [ ] After removal: regional +3 s, first response unchanged, cross-harbor about 20,100 residents losing more than 10% (the voiceover must match the screen; adjust the words, not the app). The voiceover must never give the head-count without saying the range is shown, and the range (about 6,700 to 96,000) must appear on screen.
+- [ ] The figures in the study paragraph still match `docs/METHODOLOGY.md` (51 variants; peninsula worst-hit in 50 of 51; 6,667 to 96,277 across the speed variants).
 - [ ] `/api/health` shows which model resolved for each role. Write down the actual planner, critic, parser and extractor models. The voiceover says "small Nemotron" and "largest Nemotron available"; if the app shows different model names on screen, make the words match.
 - [ ] A full AI mission runs end to end on the deployed site: goal chips, proposal, futures grid, decision log with model names and token counts, three finalists with fan charts, Preview, Compare, Apply. Note how long it takes.
 - [ ] A real validator rejection has been captured in the decision log (or the test-output fallback is prepared and labeled as a test).
@@ -273,5 +286,5 @@ recording.
 - [ ] The daily AI budget has room for several takes. Check the budget state, and raise the ceiling temporarily only if the project owner agrees.
 - [ ] Nothing in the recording shows an API key, an `.env` file, a terminal with secrets, or a personal email.
 - [ ] No third-party logos, no music, no collapse imagery in any shot.
-- [ ] Final cut duration is under 3:00 (target 2:40) and the audio names both Nebius Token Factory and NVIDIA Nemotron.
+- [ ] Final cut duration is under 3:00 (target 2:50) and the audio names both Nebius Token Factory and NVIDIA Nemotron.
 - [ ] The demo, the video and the Devpost description all say the same thing about what is live.

@@ -14,8 +14,9 @@ a counterfactual run rather than a forecast. We make no prediction claim.)
 ## 30-second pitch
 
 A regional model says losing the Key Bridge costs about three seconds on average. For
-about twenty thousand people on the Sparrows Point and Edgemere peninsula, it cut more
-than ten percent of the jobs they can reach across the harbor in thirty minutes. And
+about twenty thousand people, mostly on the Sparrows Point and Edgemere peninsula, it cut
+more than ten percent of the jobs they can reach across the harbor in thirty minutes, a
+count that depends on assumptions, and we show the range. And
 first-response times did not change at all, because both shores have their own
 stations. WorldSeed is a screening tool that shows all three side by side, computed in
 your browser on the 2024 road network. A Nemotron planner on Nebius Token Factory
@@ -40,7 +41,10 @@ a good tool shows it. Regional job access: about three seconds. Cross-harbor job
 access: for the Sparrows Point and Edgemere peninsula, the eight hardest-hit block
 groups lose between twenty-seven and seventy-seven percent of the jobs on the other
 shore that they could reach within thirty minutes, and about twenty thousand residents
-lose more than ten percent. We defined that third lens before we saw its results,
+lose more than ten percent. That head-count depends on speed and time-budget
+assumptions: about 6,700 to 96,000 across the variants we tested. The time-based
+measures, about eleven to seventeen seconds added on average, and the identity of the
+worst-hit block groups, are stable. We defined that third lens before we saw its results,
 because the bridge's function was crossing the Patapsco, and the regional average hides
 it. Low-wage workers are not disproportionately hit; the tool reports that either way.
 
@@ -75,15 +79,16 @@ loads the 2024 pre-collapse OpenStreetMap road network for the Key Bridge region
 Baltimore with Census population and jobs data, lets you remove a link, and recomputes
 first-response, regional access and cross-harbor access side by side in the browser at
 free-flow speeds. The result: first response held, regional access moved about three
-seconds, and for about twenty thousand people on the Sparrows Point and Edgemere
-peninsula, cross-harbor job access fell by more than ten percent, and by 27 to 77
-percent in the eight hardest-hit block groups. A Nemotron planner on Nebius Token
+seconds, and for about twenty thousand people, mostly on the Sparrows Point and Edgemere
+peninsula, cross-harbor job access fell by more than ten percent (a count that ranges
+from about 6,700 to 96,000 across the assumptions we tested), and by 27 to 77 percent in
+the eight hardest-hit block groups. A Nemotron planner on Nebius Token
 Factory screens a catalog of twenty-four hypothetical options, but it chooses only by
 catalog ID, strict validators reject anything else, and the simulator computes every
 metric, so the model can never state a number. **[VERIFY: planner live.]** It is a
 research prototype for resilience analysts, not a dispatch system, and a human decides.
 
-## Ten likely judge questions
+## Eleven likely judge questions
 
 **1. Why only Baltimore?**
 Depth and validation over breadth. One place, checked hex by hex against an independent
@@ -118,18 +123,25 @@ Planned, not built: screening other crossings, a freight and hazmat trip lens, a
 quantitative comparison to observations. **[VERIFY: update this answer to the state on
 the day.]**
 
-**4. How do you know the numbers are right?**
-Two ways, with one caveat. The TypeScript simulator is tested against an independent
-Python reference built on networkx and scipy, hex by hex, within half a second. The
-inputs are labeled, and every constant is listed in the Assumptions drawer. The caveat:
-the cross-harbor lens in the app is a faster variant of the exact all-pairs version, and
-its headline counts differ slightly (about 19,700 versus about 20,100 residents losing
-more than 10%). We have not compared the model to observed traffic after the collapse;
-the reality-check endpoint only lists published sources, unverified, and a quantitative
-comparison is **[PLANNED]**, so we do not claim the results are validated against
-real-world traffic. Separately, an exhaustive-search check (built, interface wiring in
-progress) scores every bundle of up to three options to test the AI's finalists against
-the true optimum. That checks the planner, not the road model.
+**4. How do you know it is right?**
+We do not claim it is right; we claim we know how far it can be trusted. Three checks.
+The TypeScript simulator matches an independent Python reference (networkx and scipy),
+hex by hex. Against the public OpenStreetMap-based OSRM router, rank agreement over
+about 5,000 origin-destination pairs is 0.98 (Spearman), and the model is about 22%
+faster, because it is free-flow with no signals or turns. And we stress-tested the
+finding across 51 assumption variants. The honest limit: we found one reported real
+commute, Dundalk to Ferndale, about 20 minutes before the collapse and about 41 after,
+and the model adds about 1.2 minutes for the same pair, about 9 even with both tunnels
+also closed. So free-flow is a lower bound on real disruption; the model measures lost
+connectivity, not queues. We have not compared the model to observed traffic beyond that
+one commute. The reality-check endpoint only lists published sources, unverified, and a
+quantitative comparison is **[PLANNED]**. One more caveat: the app's cross-harbor lens is
+a faster variant of the exact all-pairs version. At its default setting its headline
+count is within about 2% (about 19,700 exact versus about 20,100 in the app); at the
+setting used for futures it is off by about 9 to 11%. Separately, an exhaustive-search
+check (built, interface wiring in progress) scores every bundle of up to three options
+to test the AI's finalists against the true optimum. That checks the planner, not the
+road model.
 
 **5. Three seconds is tiny. Is your model just missing congestion?**
 Partly, and we say so. The deterministic run uses free-flow speeds, so tunnel and
@@ -137,7 +149,10 @@ bridge-approach delays are understated. Congestion enters only in the stress fut
 The three-second regional figure is not a claim about real travel times. It is a claim
 that, at equal conditions, most trips in the region never used the bridge, so the
 average barely moves. That is the point: the average is the wrong place to look. The
-local figure is also free-flow, so the real local effect may be larger.
+local figure is also free-flow, so it is a lower bound: the one reported commute we could
+source roughly doubled (about 20 to 41 minutes), far more than the model's free-flow
+increase for that pair. With tunnel congestion after the closure, the median cross-harbor
+resident's added time is about 11 to 17 seconds rather than under a second.
 
 **6. First response did not change. Isn't that a sign the model is too simple?**
 It is a limit and a result. Both shores have fire stations and hospitals inside the
@@ -178,12 +193,29 @@ by any agency, and costs are relative tiers. The tool screens where mitigation w
 matter; it does not design it. **[VERIFY: re-read the "about forty percent" figure from
 the app or the candidate-effects data before saying it.]**
 
+**11. What did your sensitivity study break?**
+Four things, and we published them (docs/METHODOLOGY.md). First, the head-count: about
+20,000 residents losing more than 10% of cross-harbor jobs ranges from about 6,700 to
+96,000 when speeds move 20%, and the time budget behaves the same way, so it is a
+cliff-edge statistic and we quote it only with its range. Second, "the typical resident
+is unaffected" holds only at free-flow: if the tunnels slow down after the closure, the
+median added time is about 11 to 17 seconds. Third, the model does not reproduce the one
+reported detour we could source (Dundalk to Ferndale, about 20 to 41 minutes, versus
+about +1.2 minutes in the model), so free-flow is a lower bound. Fourth, against random
+comparable motorway cuts the Key Bridge is not exceptional on the regional measure, so we
+call it a concentrated cross-harbor bottleneck, not the most consequential link. What
+held: the regional (about 3 s) and first-response (unchanged) conclusions in all 51
+variants, and the peninsula block groups stayed the worst-hit in 50 of 51. Time-based
+measures (about 11 to 17 s average added) are stable; counts are not. Three of 15 null
+controls failed our pre-declared rule, all closures of a dead-end street a hex snaps to.
+
 ## Numbers you may quote (all from the app and the snapshot, on 2026-09-26)
 
 - 36,610 road nodes; OpenStreetMap as of 2024-03-01; 74 fire stations, 2 ambulance stations, 10 hospitals.
 - First response: p90 6.1 min before and after; 96% of residents within 8 min.
 - Regional job access: about +3 s on average.
-- Cross-harbor: about 20,100 residents lose more than 10% of reachable jobs; about 11,400 lose more than 25%; the 8 hardest-hit block groups lose 27-77%; worst-off 1% add at least 4.3 min.
+- Cross-harbor: about 20,000 residents lose more than 10% of reachable jobs (app 20,100; exact reference 19,705), **always quoted with the range about 6,700 to 96,000 across the variants we tested**; about 11,400 lose more than 25%; the 8 hardest-hit block groups lose 27-77%; worst-off 1% add at least 4.3 min; average added time about 11 to 17 s across speed variants (stable).
+- Study: 51 variants; regional and first-response conclusions held in all 51; peninsula worst-hit in 50 of 51; router rank agreement 0.98 (Spearman), model about 22% faster; reported Dundalk to Ferndale commute about 20 to 41 min versus about +1.2 min in the model (about +9 with both tunnels closed).
 - Low-wage workers: 1,380 lose more than 10%, which is 1.8% of low-wage workers against 1.9% of all residents.
 - Catalog: 24 hypothetical options; only about four meaningfully help; shuttle links did not.
 

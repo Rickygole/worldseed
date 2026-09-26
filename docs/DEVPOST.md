@@ -39,7 +39,7 @@ WorldSeed is a counterfactual screening tool that shows who loses access when a 
 
 ## Two-sentence version
 
-A regional model says losing the Key Bridge costs about 3 seconds on average; for about 20,100 people on the Sparrows Point / Edgemere peninsula it cut more than 10% of the jobs they can reach across the harbor within 30 minutes, and WorldSeed shows both, plus the first-response times that held. NVIDIA Nemotron on Nebius Token Factory screens hypothetical options, but it only chooses from catalog IDs, and the simulator computes every metric. **[VERIFY BEFORE SUBMIT: the Nemotron screening must run live on the deployed site, or change "screens" to "is built to screen" and describe the deterministic search.]**
+A regional model says losing the Key Bridge costs about 3 seconds on average; for about 20,000 people, mostly on the Sparrows Point / Edgemere peninsula, it cut more than 10% of the jobs they can reach across the harbor within 30 minutes (a count that depends on speed and time-budget assumptions, about 6,700 to 96,000 across the variants we tested), and WorldSeed shows both, plus the first-response times that held. NVIDIA Nemotron on Nebius Token Factory screens hypothetical options, but it only chooses from catalog IDs, and the simulator computes every metric. **[VERIFY BEFORE SUBMIT: the Nemotron screening must run live on the deployed site, or change "screens" to "is built to screen" and describe the deterministic search.]**
 
 ---
 
@@ -49,7 +49,7 @@ A regional model says losing the Key Bridge costs about 3 seconds on average; fo
 
 ### Inspiration
 
-A regional model says losing the Key Bridge costs about 3 seconds on average. For about 20,100 people on the Sparrows Point / Edgemere peninsula it cut more than 10% of the jobs they can reach across the harbor within 30 minutes, and for the eight hardest-hit block groups, 27 to 77%. Both statements are true. Only one of them tells a planner where to look.
+A regional model says losing the Key Bridge costs about 3 seconds on average. For about 20,000 people, mostly on the Sparrows Point / Edgemere peninsula, it cut more than 10% of the jobs they can reach across the harbor within 30 minutes, and for the eight hardest-hit block groups, 27 to 77%. (The head-count depends on speed and time-budget assumptions, about 6,700 to 96,000 across the variants we tested; the time-based measures and the worst-hit places are stable.) Both statements are true. Only one of them tells a planner where to look.
 
 We wanted a tool that puts the average and the local effect side by side, and that also shows what did not break, because "the thing you feared held" is a finding too. We also wanted an AI system that works with a simulator instead of pretending to be one. Language models are good at proposing options and bad at being trusted with numbers. So in WorldSeed the model proposes, the simulator scores, and application templates write every result sentence.
 
@@ -61,7 +61,7 @@ One click removes the Key Bridge link and every lens recomputes on the road netw
 
 - **First response held.** The simulated time from the nearest fire or EMS station does not change. Both shores have their own stations and hospitals.
 - **Regional job access barely moved.** About 3 seconds on the average drive to the region's main job centers. Most trips never used the bridge.
-- **Cross-harbor job access broke for one place.** The eight hardest-hit block groups on the peninsula lose 27 to 77% of the jobs on the other shore that were reachable within 30 minutes. About 20,100 residents lose more than 10%.
+- **Cross-harbor job access broke for one place.** The eight hardest-hit block groups on the peninsula lose 27 to 77% of the jobs on the other shore that were reachable within 30 minutes. About 20,000 residents lose more than 10% (the app shows 20,100; the exact reference is 19,705), but that count depends on speed and time-budget assumptions: about 6,700 to 96,000 across the variants we tested. The time-based measures (about 11 to 17 s average added) and the identity of the worst-hit block groups are stable.
 
 Low-wage workers are not disproportionately hit: 1,380 of them lose more than 10%, which is 1.8% of low-wage workers against 1.9% of all residents. The tool reports that gap either way. Click any hexagon and WorldSeed shows its block group, Census figures and the route that changed. Every figure is computed by the simulator or is cited Census data, never typed by hand.
 
@@ -69,7 +69,9 @@ Then the planner can screen for where mitigation would matter. Describe a goal i
 
 A Tavily-backed feed can propose current road closures near the model area. Each proposal is an unverified news report with its source link and quote, and nothing enters the model until you confirm it with a signed, single-use token. A separate reality-check endpoint lists recent sources about detours after the 2024 collapse (title, domain, date, snippet and link, all labeled unverified, with no model call); it does not compare anything to the simulator's numbers, and its interface was still being wired. **[VERIFY BEFORE SUBMIT: the closure lookup must run with a real Tavily key on the deployed site. As of 2026-09-26 it is pending a key.]**
 
-**Who it is for.** Resilience and criticality screening for state DOT and metropolitan planning organization analysts, with emergency managers as a secondary audience through the first-response lens. It is screening, not design. The Key Bridge is the case study; screening any other crossing is **[PLANNED]**.
+**Who it is for.** Resilience and criticality screening for state DOT and metropolitan planning organization analysts, with emergency managers as a secondary audience through the first-response lens. It is screening, not design. The Key Bridge is the case study; screening any other crossing is **[PLANNED]**. We call the bridge a concentrated cross-harbor bottleneck, not the most consequential link: against random comparable motorway cuts it is unremarkable on the regional measure.
+
+**What our own study says.** We stress-tested the finding across 51 variants of the assumptions (speeds, tunnel congestion, time budget, shore rule, snap time) and checked the model against an independent router and a reported commute. The regional conclusion (about 3 seconds; under 30 s in every variant) and the first-response conclusion (unchanged) held in all 51 variants, and the peninsula block groups stayed the worst-hit in 50 of 51. The head-count did not hold still: it depends on speed and time-budget assumptions, from about 6,700 to about 96,000 when speeds move 20%, so we quote it with its range. "The typical resident is unaffected" holds only at free-flow; if the tunnels slow down after the closure, the median added time is about 11 to 17 seconds. Free-flow is a lower bound on real disruption: one reported commute (Dundalk to Ferndale) went from about 20 to 41 minutes, while the model adds about 1.2 minutes (about 9 with both tunnels also closed). Against the public OpenStreetMap-based OSRM router, rank agreement is 0.98 (Spearman) and the model is about 22% faster. Full study: docs/METHODOLOGY.md in the repository.
 
 ### How we built it
 
@@ -90,7 +92,7 @@ A Tavily-backed feed can propose current road closures near the model area. Each
 
 ### Accomplishments that we're proud of
 
-- A finding we did not expect and did not tune: first response held, regional access barely moved, and the loss is concentrated on the peninsula.
+- A finding we did not expect and did not tune: first response held, regional access barely moved, and the loss is concentrated on the peninsula. We then tried to break it with a 51-variant sensitivity study and reported what failed: the head-count moves by more than an order of magnitude, and one reported commute is far larger than the model's free-flow increase.
 - A simulator in the browser that matches an independent reference, so the numbers on screen can be reproduced.
 - An AI layer where the model has no route to a number, and where every rejected output is visible in a decision log. **[VERIFY BEFORE SUBMIT: confirm a real rejection is visible in the live decision log, or reword to "designed so that every rejected output is visible".]**
 - An honest catalog result: most of the options we wrote do not help, and the tool says so.
@@ -99,7 +101,7 @@ A Tavily-backed feed can propose current road closures near the model area. Each
 ### What we learned
 
 - The most useful thing a simulator can do is tell you where the problem is not.
-- A single region-wide average can be accurate and still be the wrong number to look at.
+- A single region-wide average can be accurate and still be the wrong number to look at, and a head-count of people affected can be as assumption-sensitive as the average is misleading. Report the range, and prefer the measures that stay stable.
 - Constraining a model to choose from a catalog and having software measure the outcome is far easier to trust and to test than asking it for an analysis.
 - Historical open data (OpenStreetMap attic queries) is a strong base for counterfactual work.
 

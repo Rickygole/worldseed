@@ -7,11 +7,13 @@
 Live demo: https://worldseed-mu.vercel.app (no login, runs in your browser)
 
 A regional model says losing the Key Bridge costs about 3 seconds on average. For
-about 20,100 people on the Sparrows Point / Edgemere peninsula it cut more than 10%
-of the jobs they can reach across the harbor within 30 minutes, and for the eight
-hardest-hit block groups, 27-77%. WorldSeed puts those two facts side by side, and
-shows the third: first-response times did not change, because both shores have
-their own stations.
+about 20,000 people, mostly on the Sparrows Point / Edgemere peninsula, it cut more
+than 10% of the jobs they can reach across the harbor within 30 minutes, and for the
+eight hardest-hit block groups, 27-77%. (That head-count depends on speed and
+time-budget assumptions: about 6,700 to 96,000 across the variants we tested. The
+time-based measures, and which block groups are worst hit, are stable.) WorldSeed
+puts those facts side by side, and shows the third: first-response times did not
+change in the model, because both shores have their own stations.
 
 WorldSeed is a counterfactual infrastructure-planning simulator and a screening
 tool. It computes consequences on the 2024 OpenStreetMap road network at free-flow
@@ -70,7 +72,7 @@ interesting result is somewhere else.
 | --- | --- |
 | Did first-response times change? | **No. It held.** The simulated 90th-percentile time stays at 6.1 min; 96% of residents remain within 8 min. Both shores have their own fire stations and hospitals. |
 | Did regional job access change? | **Barely.** About +3 seconds on the average drive to the region's main job centers. Most trips in the region never used the bridge. |
-| Did cross-harbor job access change? | **Yes, for the Sparrows Point / Edgemere peninsula.** The 8 hardest-hit block groups lose 27-77% of the jobs on the other shore reachable within 30 minutes. About 20,100 residents lose more than 10% of those jobs; about 11,400 lose more than 25%. The worst-off 1% add at least 4.3 min to the average cross-harbor trip. |
+| Did cross-harbor job access change? | **Yes, for the Sparrows Point / Edgemere peninsula.** The 8 hardest-hit block groups lose 27-77% of the jobs on the other shore reachable within 30 minutes. About 20,000 residents lose more than 10% of those jobs (the app shows 20,100; the exact reference is 19,705); about 11,400 lose more than 25%. The worst-off 1% add at least 4.3 min to the average cross-harbor trip. **These counts depend on speed and time-budget assumptions: about 6,700 to 96,000 across the variants we tested.** The time-based measures (about 11 to 17 s average added) and the identity of the worst-hit block groups are stable. |
 | Were low-wage workers hit harder? | **Not disproportionately.** 1,380 low-wage workers lose more than 10% of cross-harbor jobs: 1.8% of low-wage workers against 1.9% of all residents. The tool reports this gap either way. |
 | Did the tool find a fix? | **No.** In the catalog measurements only about four of the 24 hypothetical options meaningfully help, and the shuttle links did not. The best single option recovers about 40% of the cross-harbor loss, and that result comes from an assumed corridor speed factor, not from an agency study. |
 
@@ -79,7 +81,47 @@ repository or is cited Census data; none is typed by hand. The plain-language
 reading (region-wide, cross-harbor, where, first response) is generated in the app
 by templates from those results. Figures come from free-flow travel times on 2024
 data and are simulated results, not measurements. See
+[What our own study says](#what-our-own-study-says) and
 [Known modeling limitations](#known-modeling-limitations).
+
+## What our own study says
+
+We stress-tested the finding ([docs/METHODOLOGY.md](docs/METHODOLOGY.md); scripts and
+raw outputs in `pipeline/sensitivity/`). We re-ran the three lenses under 51 variants
+of the assumptions (one at a time, plus four combined corners: speeds, tunnel
+congestion, time budget, shore rule, snap time). What held and what did not:
+
+- **Held in all 51 variants.** The regional conclusion (average added time under 30 s;
+  the reference is about 3 s) and the first-response conclusion (unchanged, changes
+  under 1 s). The low-wage result (no disproportionate burden) also held in all 51.
+  The size of the regional figure is less certain: 1.6 to 9.3 s across the number of
+  job anchors.
+- **The peninsula stayed worst-hit in 50 of 51 variants.** The one exception is an
+  extreme corner (slow speeds, congested tunnels, short time budget).
+- **The head-count is assumption-sensitive.** About 20,000 residents lose more than 10%
+  in the reference run, but the count moves from about 6,700 to about 96,000 when all
+  speeds move plus or minus 20%, and the time budget behaves the same way (24 to 36
+  minutes). Extreme corners went as low as 9 and as high as about 106,000. It is a
+  cliff-edge statistic, so quote it with its range, never as a point estimate. The
+  time-based measures (about 11 to 17 s average added across the speed variants) are
+  stable.
+- **"The typical resident is unaffected" holds only at free-flow.** If the tunnels slow
+  down after the bridge closes, the median added time becomes about 11 to 17 s and the
+  count losing more than 10% becomes about 40,000 to 76,000.
+- **Free-flow is a lower bound on real disruption.** One reported commute (Dundalk to
+  Ferndale) went from about 20 to 41 minutes. The model adds about 1.2 minutes for the
+  same pair, and about 9 minutes even with both tunnels also closed. The model measures
+  lost connectivity, not queues on the diversion routes.
+- **Agreement with an independent router.** Against the public OpenStreetMap-based OSRM
+  router, rank agreement over about 5,000 origin-destination pairs is 0.98 (Spearman),
+  and the model's free-flow times are about 22% shorter (median ratio 0.78).
+- **The bridge is a concentrated cross-harbor bottleneck.** We do not claim it is the
+  most consequential link. Against random comparable motorway cuts it is unremarkable on
+  the regional measure and high on the share of people losing more than 25% of
+  cross-harbor jobs (92nd percentile).
+
+Nothing in this study validates the model against observed post-collapse traffic beyond
+the one reported commute above.
 
 ## How it works
 
@@ -323,8 +365,9 @@ demo is on Vercel Hobby).
    trip; after removal the terrain rises over the Sparrows Point / Edgemere
    peninsula and the ribbon shows the deltas.
 3. Read the ribbon: regional access about +3 s, first response unchanged,
-   cross-harbor access with about 20,100 residents losing more than 10% of reachable
-   jobs. Switch lenses above the map; the ribbon keeps all of them visible.
+   cross-harbor access with about 20,000 residents (the app shows 20,100) losing more
+   than 10% of reachable jobs, a count that varies from about 6,700 to 96,000 under
+   other speed and time-budget assumptions. Switch lenses above the map; the ribbon keeps all of them visible.
 4. Click a populated hexagon to see its block group, Census figures and the route
    that changed.
 5. Open **Assumptions** to see every parameter and data vintage.
@@ -346,11 +389,21 @@ A guided version of this walk-through (`?tour=keybridge`) is in progress; see
   text. Snapshot files are hashed in `manifest.json`.
 - **Model output checks.** Validators, prose screens and fake-provider tests cover the
   planner, critic, parser, extractor and closure screen.
+- **Sensitivity and null controls.** 51 assumption variants, 200 job-block bootstrap
+  resamples, and 15 remote-closure null controls (12 of 15 passed the rule we set in
+  advance; the three that failed close a dead-end street a hex snaps to). See
+  [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
+- **Independent router cross-check.** Rank agreement with the public OSRM router is
+  0.98 (Spearman); the model is about 22% faster (free-flow, no signals or turns).
 - **One caveat, stated up front.** The cross-harbor lens in the app is a fast variant
-  (job-weighted anchors); the exact all-pairs version is the test oracle, and its
-  headline counts differ slightly (for example about 19,700 versus about 20,100
-  residents losing more than 10%).
-- **Not validated against observed traffic.** An evidence endpoint can list published
+  (job-weighted anchors); the exact all-pairs version is the test oracle. At the
+  default 64 anchors per shore the headline count is within about 2% (about 19,700
+  exact versus about 20,100 in the app), but at the 32 anchors used for futures it is
+  off by about 9 to 11%, and small counts (more than 25% loss) can be off more. Use the
+  exact numbers for any count you quote.
+- **Not validated against observed traffic.** The one reported commute we could source
+  (Dundalk to Ferndale, about 20 to 41 minutes) is about 17 times the model's free-flow
+  increase. An evidence endpoint can list published
   sources about the 2024 detours (sources only, unverified; see the Tavily section),
   but nothing compares the model's numbers to observations, and nothing here should be
   read as validated against observed traffic.
@@ -364,7 +417,11 @@ A guided version of this walk-through (`?tour=keybridge`) is in progress; see
 - The first-response lens counts every fire station as a source and does not model
   unit counts, staffing, availability or stations outside the study area
   (bbox W -76.80, S 39.10, E -76.40, N 39.34), which can make edge block groups look
-  under-served.
+  under-served. "First response unchanged" means unchanged under that lens: it has no
+  hospital transport, cross-harbor mutual aid or incident load.
+- Cross-harbor counts are cliff-edge statistics (jobs within a fixed time budget) and
+  vary by more than 10 times over plausible parameters; see
+  [What our own study says](#what-our-own-study-says).
 - Shuttle links are one graph edge with a baked wait in a car-drive-time model; mode
   change and schedules are not modeled.
 - The bridge is removed as a link, not modeled as an event; the model says nothing
@@ -386,6 +443,7 @@ the final write-up is compiled from it.
 - [Status board](docs/STATUS.md): what is done, in progress, next, blocked; submission checklist and key dates.
 - [Architecture](docs/ARCHITECTURE.md): design decisions, data contract, agent tools and validator rules.
 - [Data sources](docs/DATA_SOURCES.md): every source, method, license and known gap.
+- [Methodology](docs/METHODOLOGY.md): sensitivity study, null controls, validation against a router and a reported detour, and what would change our conclusions.
 - [Feedback notes](docs/FEEDBACK_NOTES.md): running log for the Nebius / NVIDIA feedback the hackathon requires.
 - [Attributions](docs/ATTRIBUTIONS.md): data, library, font, and service credits (draft, pending legal review).
 - [Dedication](docs/DEDICATION.md): in memory of the six workers lost in the Key Bridge collapse.
