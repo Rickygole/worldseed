@@ -1,7 +1,7 @@
 {
  "snapshotId": "keybridge-2024-03-01-v1",
  "pipelineVersion": "1.0.0",
- "builtAt": "2026-09-26T18:39:59Z",
+ "builtAt": "2026-09-26T22:05:57Z",
  "osmDate": "2024-03-01T00:00:00Z",
  "acsVintage": "2020-2024 5-year",
  "lodes": "LODES8 MD 2023",
@@ -23,9 +23,9 @@
  },
  "files": {
   "LICENSE.md": {
-   "sha256": "c4e4adc4bba64fabe9ecf85cb89093de945e8d2d0a33a922144921a163283e7d",
-   "bytes": 5253,
-   "gzipBytes": 2398
+   "sha256": "73d6d960318f617cca767bf85100e8c80824ef2535aa02780dbd6923ea265718",
+   "bytes": 5616,
+   "gzipBytes": 2566
   },
   "access_sensitivity.json": {
    "sha256": "2df6af714ba93b8823992ce6a28384e863537181f7439a62b5c9a31f34e79073",
@@ -33,9 +33,9 @@
    "gzipBytes": 2748
   },
   "assumptions.json": {
-   "sha256": "dbc8d98b449ce07ab76c1215abca4c29755a362d40cfbe72f85d883ac6e842be",
-   "bytes": 11018,
-   "gzipBytes": 3907
+   "sha256": "5c3f36a88354890681f4ec20e217970f77a48850f94bc051d896235275e59cf9",
+   "bytes": 13634,
+   "gzipBytes": 4789
   },
   "blockgroups.geojson": {
    "sha256": "3b4464a3189370a8e3277030466095576bf34f08daae4729bfa310380a67da5d",
@@ -48,14 +48,14 @@
    "gzipBytes": 45720
   },
   "candidate_effects.json": {
-   "sha256": "8a937c3c18c1870200beee6b5ca4e2058a4822c6d821118d8f3b9a5ecc128b35",
-   "bytes": 54556,
-   "gzipBytes": 3255
+   "sha256": "29595eddaa9d498a8cbb3404f2e419bcf3ee917a333982a39b1e8bbb57f311a4",
+   "bytes": 133812,
+   "gzipBytes": 6640
   },
   "candidates.json": {
-   "sha256": "0a3c7185ac3ee6c2c1689f0b3d0826be6e28327adfd4ae437cb8ad336c601a94",
-   "bytes": 25993,
-   "gzipBytes": 3541
+   "sha256": "8b4624d4577c8d381ef3f81dba8984dceb64eae208e79160e76406dc2df866c5",
+   "bytes": 18393,
+   "gzipBytes": 2936
   },
   "destinations.json": {
    "sha256": "8852dc69ad1bfa8954486049b2b6bf4bb969480e96ed83117c740d5936f12c63",
@@ -73,19 +73,19 @@
    "gzipBytes": 100927
   },
   "golden.json": {
-   "sha256": "044700f6330d4d93d10635c04e0d72ea1f2fdcb42587fe267325be6367f232de",
-   "bytes": 1844740,
-   "gzipBytes": 718403
+   "sha256": "49436e61cbdef1f1256c6e5d2ddd6548d0afc942c3bda830997307ef0d8f3440",
+   "bytes": 1877278,
+   "gzipBytes": 721925
   },
   "graph.bin": {
-   "sha256": "b1feec1f151aef8e03bc8864bfedf9fc5ae24036a311be2887b1b2fc4c464296",
-   "bytes": 3810928,
-   "gzipBytes": 1658420
+   "sha256": "4edcd097908a7354db3c6b9f2ae5237d8003de89401622bf293b824ee8040e2e",
+   "bytes": 3810640,
+   "gzipBytes": 1658258
   },
   "graph.meta.json": {
-   "sha256": "fc21e6138d030b56749d480ec9c14d57142e33860dc8afc0cee392a74a26c01d",
-   "bytes": 3658,
-   "gzipBytes": 1082
+   "sha256": "a9f62a20a8c769e6abc2233628607573adf2d6c10e73748a38fe9e4f450d7b90",
+   "bytes": 3135,
+   "gzipBytes": 974
   },
   "hexes.bin": {
    "sha256": "5f482913e4605c5100e19ed8ad71ddc591affcec5cbb3c116f6e20dad71fdb3f",
@@ -98,9 +98,9 @@
    "gzipBytes": 22291
   },
   "links.geojson": {
-   "sha256": "664b371f1848263401900685fcbcee3838bddf0d57d2f6e59ead424188000d60",
-   "bytes": 93867,
-   "gzipBytes": 22971
+   "sha256": "82ddda01fc34ab3bc75f8b914dd0c4463d99b9a85d5aa59fef00ee6d6dc023d3",
+   "bytes": 92995,
+   "gzipBytes": 22817
   }
  },
  "sources": [
@@ -117,6 +117,13 @@
    "attribution": "MD iMAP, DoIT, MCAC, MSFA (fire stations); MD iMAP, DHMH OHCQ (hospitals)",
    "url": "https://mdgeodata.md.gov/imap/rest/services",
    "use": "fire stations and hospitals (second source)"
+  },
+  {
+   "name": "Maryland Transportation Authority (rule source only)",
+   "license": "State of Maryland web content; cited, not redistributed (to be confirmed by legal review)",
+   "attribution": "Maryland Transportation Authority, Transporting Hazardous Materials Across Our Toll Facilities",
+   "url": "https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits",
+   "use": "source of the hazmat tunnel prohibition (A-HAZMAT-TUNNELS)"
   },
   {
    "name": "US Census Bureau ACS 5-Year Estimates",
@@ -153,7 +160,7 @@
    "attribution": "U.S. Census Bureau, LEHD Origin-Destination Employment Statistics (LODES) 8"
   }
  ],
- "totalBytes": 7199185,
+ "totalBytes": 7304675,
  "notes": [
   "Artifact hashes are deterministic for fixed cached inputs; builtAt is the only wall-clock field.",
   "The acsVintage differs from the architecture example (2018-2022): the latest ACS 5-year available through the keyless Census Reporter API was used."

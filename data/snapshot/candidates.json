@@ -4,7 +4,7 @@
   "type": "temp_link",
   "kind": "temporary_link",
   "title": "Hypothetical scenario option: harbor shuttle link, Tradepoint Atlantic to Hawkins Point",
-  "mechanism": "Adds a scenario-only shuttle connection between the Tradepoint Atlantic road network on the north bank and the Fort Armistead road network at Hawkins Point on the south bank, roughly where the Key Bridge used to cross. It is modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline; enabling it lets cross-harbor trips skip the long drive around the harbor.",
+  "mechanism": "Adds a scenario-only shuttle connection between the Tradepoint Atlantic road network on the north bank and the Fort Armistead road network at Hawkins Point on the south bank, roughly where the Key Bridge used to cross. It is modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline; enabling it lets cross-harbor trips skip the long drive around the harbor. It carries people and cars only: vehicles carrying hazardous materials cannot use it.",
   "lens": [
    "access",
    "xharbor",
@@ -41,195 +41,8 @@
   "assumptions": [
    "A-CANDIDATES-HYPOTHETICAL",
    "A-SHUTTLE-SPEED",
-   "A-SHUTTLE-WAIT"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
-  "id": "TL-SHUTTLE-BROENING-CURTISBAY",
-  "type": "temp_link",
-  "kind": "temporary_link",
-  "title": "Hypothetical scenario option: harbor shuttle link, Broening Highway southern end to Curtis Bay",
-  "mechanism": "Adds a scenario-only shuttle connection between the southern end of Broening Highway on the north bank and Pennington Avenue in Curtis Bay on the south bank, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. The crossing is longer than the one at the old bridge site, so it mainly helps trips between the Dundalk port area and Curtis Bay.",
-  "lens": [
-   "access",
-   "xharbor",
-   "ems"
-  ],
-  "costTier": "$$",
-  "costSource": null,
-  "leadTime": "months",
-  "hypothetical": true,
-  "effect": {
-   "op": "enable_edges",
-   "edges": [
-    81439,
-    81440
-   ]
-  },
-  "refs": {
-   "nodes": [
-    1446,
-    14163
-   ],
-   "osmNodes": [
-    37283045,
-    49506822
-   ],
-   "sites": [
-    "Southern end of Broening Highway",
-    "Pennington Avenue, Curtis Bay"
-   ],
-   "mode": "shuttle",
-   "lenM": 7466.9,
-   "timeS": 1844.5
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-SHUTTLE-SPEED",
-   "A-SHUTTLE-WAIT"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
-  "id": "TL-SHUTTLE-EDGEMERE-RIVIERA",
-  "type": "temp_link",
-  "kind": "temporary_link",
-  "title": "Hypothetical scenario option: river-mouth shuttle link, Edgemere to Riviera Beach",
-  "mechanism": "Adds a scenario-only shuttle connection across the mouth of the Patapsco between the Edgemere area on the north bank and Fort Smallwood Road at Riviera Beach on the south bank, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. It is the longest water crossing in the catalog and serves the far eastern and southern ends of the study area.",
-  "lens": [
-   "access",
-   "xharbor",
-   "ems"
-  ],
-  "costTier": "$$",
-  "costSource": null,
-  "leadTime": "months",
-  "hypothetical": true,
-  "effect": {
-   "op": "enable_edges",
-   "edges": [
-    81441,
-    81442
-   ]
-  },
-  "refs": {
-   "nodes": [
-    5636,
-    18475
-   ],
-   "osmNodes": [
-    37700343,
-    102577441
-   ],
-   "sites": [
-    "Sparrows Point Road at Armistead Road, Edgemere",
-    "Fort Smallwood Road at Kingsway Drive, Riviera Beach"
-   ],
-   "mode": "shuttle",
-   "lenM": 10473.3,
-   "timeS": 2345.5
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-SHUTTLE-SPEED",
-   "A-SHUTTLE-WAIT"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
-  "id": "TL-SHUTTLE-CANTON-FAIRFIELD",
-  "type": "temp_link",
-  "kind": "temporary_link",
-  "title": "Hypothetical scenario option: inner-harbor shuttle link, Canton to Fairfield",
-  "mechanism": "Adds a scenario-only shuttle connection between the Canton waterfront on the north bank and East Patapsco Avenue in Fairfield on the south bank, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. It sits west of the old bridge site and mostly serves inner-harbor neighborhoods rather than the Sparrows Point and Dundalk side.",
-  "lens": [
-   "access",
-   "xharbor",
-   "ems"
-  ],
-  "costTier": "$$",
-  "costSource": null,
-  "leadTime": "months",
-  "hypothetical": true,
-  "effect": {
-   "op": "enable_edges",
-   "edges": [
-    81443,
-    81444
-   ]
-  },
-  "refs": {
-   "nodes": [
-    30625,
-    33304
-   ],
-   "osmNodes": [
-    3292944991,
-    5270570880
-   ],
-   "sites": [
-    "Canton waterfront, Baylis Street",
-    "East Patapsco Avenue, Fairfield"
-   ],
-   "mode": "shuttle",
-   "lenM": 5399.2,
-   "timeS": 1499.9
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-SHUTTLE-SPEED",
-   "A-SHUTTLE-WAIT"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
-  "id": "TL-SHUTTLE-CANTON-LOCUSTPOINT",
-  "type": "temp_link",
-  "kind": "temporary_link",
-  "title": "Hypothetical scenario option: same-bank water link, Canton to Locust Point",
-  "mechanism": "Adds a scenario-only shuttle connection between the Canton waterfront and East Fort Avenue in Locust Point, both on the north bank of the Patapsco, modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both directions. Disabled in the baseline. Both ends are on the same shore, so it does not connect the two banks and is expected to do little for cross-harbor access.",
-  "lens": [
-   "access",
-   "xharbor",
-   "ems"
-  ],
-  "costTier": "$$",
-  "costSource": null,
-  "leadTime": "months",
-  "hypothetical": true,
-  "effect": {
-   "op": "enable_edges",
-   "edges": [
-    81445,
-    81446
-   ]
-  },
-  "refs": {
-   "nodes": [
-    30625,
-    36241
-   ],
-   "osmNodes": [
-    3292944991,
-    9964148679
-   ],
-   "sites": [
-    "Canton waterfront, Baylis Street",
-    "East Fort Avenue, Locust Point"
-   ],
-   "mode": "shuttle",
-   "lenM": 2104.0,
-   "timeS": 950.7
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-SHUTTLE-SPEED",
-   "A-SHUTTLE-WAIT"
+   "A-SHUTTLE-WAIT",
+   "A-SHUTTLE-NO-HAZMAT"
   ],
   "sources": [],
   "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
@@ -252,8 +65,8 @@
   "effect": {
    "op": "enable_edges",
    "edges": [
-    81447,
-    81448
+    81439,
+    81440
    ]
   },
   "refs": {
@@ -298,8 +111,8 @@
   "effect": {
    "op": "enable_edges",
    "edges": [
-    81449,
-    81450
+    81441,
+    81442
    ]
   },
   "refs": {
@@ -647,39 +460,6 @@
   "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
  },
  {
-  "id": "SS-HAWKINS-POINT",
-  "type": "prepos_site",
-  "kind": "staging_site",
-  "title": "Hypothetical scenario option: staging site at Hawkins Point",
-  "mechanism": "Places a scenario-only staging location for response units at Dock Road and Fort Armistead Road on the south bank near the old bridge abutment. The EMS lens treats it as one more station. It matters where the nearest existing station is far away.",
-  "lens": [
-   "ems"
-  ],
-  "costTier": "$",
-  "costSource": null,
-  "leadTime": "weeks",
-  "hypothetical": true,
-  "effect": {
-   "op": "add_source",
-   "facilityLike": {
-    "lat": 39.208202,
-    "lng": -76.542595,
-    "node": 8565
-   },
-   "delayS": 0
-  },
-  "refs": {
-   "osmNode": 49379171,
-   "node": 8565
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-STAGING-DELAY"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
   "id": "SS-TRADEPOINT",
   "type": "prepos_site",
   "kind": "staging_site",
@@ -704,39 +484,6 @@
   "refs": {
    "osmNode": 9222322309,
    "node": 35673
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-STAGING-DELAY"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
-  "id": "SS-EDGEMERE",
-  "type": "prepos_site",
-  "kind": "staging_site",
-  "title": "Hypothetical scenario option: staging site at Edgemere",
-  "mechanism": "Places a scenario-only staging location for response units on Sparrows Point Road at Armistead Road in Edgemere, at the eastern end of the peninsula. The EMS lens treats it as one more station.",
-  "lens": [
-   "ems"
-  ],
-  "costTier": "$",
-  "costSource": null,
-  "leadTime": "weeks",
-  "hypothetical": true,
-  "effect": {
-   "op": "add_source",
-   "facilityLike": {
-    "lat": 39.237442,
-    "lng": -76.44873,
-    "node": 5636
-   },
-   "delayS": 0
-  },
-  "refs": {
-   "osmNode": 37700343,
-   "node": 5636
   },
   "assumptions": [
    "A-CANDIDATES-HYPOTHETICAL",
@@ -812,134 +559,103 @@
   "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
  },
  {
-  "id": "SS-FAIRFIELD",
-  "type": "prepos_site",
-  "kind": "staging_site",
-  "title": "Hypothetical scenario option: staging site at Fairfield",
-  "mechanism": "Places a scenario-only staging location for response units on East Patapsco Avenue in Fairfield on the south bank. The EMS lens treats it as one more station.",
+  "id": "HW-HARBOR-TUNNEL-ESCORT",
+  "type": "hazmat_window",
+  "kind": "hazmat_window",
+  "title": "Hypothetical scenario option: scheduled escorted window for hazardous-materials vehicles in the Harbor Tunnel",
+  "mechanism": "Allows vehicles that carry hazardous materials to use the Harbor Tunnel during a scheduled, escorted window, at the price of a fixed extra delay for each passage through the tunnel. It changes nothing for cars. It only shortens freight trips that would otherwise have to take the long way around the harbor. This is a scenario-only lever; whether such a window is allowed is a matter for the responsible agencies.",
   "lens": [
-   "ems"
+   "freight"
   ],
-  "costTier": "$",
+  "costTier": "$$",
   "costSource": null,
-  "leadTime": "weeks",
+  "leadTime": "months",
   "hypothetical": true,
   "effect": {
-   "op": "add_source",
-   "facilityLike": {
-    "lat": 39.23233,
-    "lng": -76.584564,
-    "node": 33304
-   },
-   "delayS": 0
+   "op": "allow_class_on",
+   "edges": [
+    36049,
+    57845,
+    60467,
+    60469,
+    60471,
+    68075
+   ],
+   "vehicleClass": "hazmat",
+   "timePenaltyS": 300.0,
+   "penaltyEdges": [
+    36049,
+    60471
+   ]
+  },
+  "params": {
+   "timePenaltyS": {
+    "default": 300.0,
+    "min": 60.0,
+    "max": 900.0,
+    "assumption": "A-HAZMAT-ESCORT-PENALTY"
+   }
   },
   "refs": {
-   "osmNode": 5270570880,
-   "node": 33304
+   "link": "L-HARBORTUNNEL",
+   "edgeCount": 6,
+   "boreMinLenM": 1000.0
   },
   "assumptions": [
    "A-CANDIDATES-HYPOTHETICAL",
-   "A-STAGING-DELAY"
+   "A-HAZMAT-ESCORT-PENALTY",
+   "A-HAZMAT-TUNNELS"
   ],
   "sources": [],
   "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
  },
  {
-  "id": "SS-RIVIERA-BEACH",
-  "type": "prepos_site",
-  "kind": "staging_site",
-  "title": "Hypothetical scenario option: staging site at Riviera Beach",
-  "mechanism": "Places a scenario-only staging location for response units on Fort Smallwood Road at Riviera Beach, on the south bank near the river mouth. The EMS lens treats it as one more station.",
+  "id": "HW-FORT-MCHENRY-ESCORT",
+  "type": "hazmat_window",
+  "kind": "hazmat_window",
+  "title": "Hypothetical scenario option: scheduled escorted window for hazardous-materials vehicles in the Fort McHenry Tunnel",
+  "mechanism": "Allows vehicles that carry hazardous materials to use the Fort McHenry Tunnel during a scheduled, escorted window, at the price of a fixed extra delay for each passage through the tunnel. It changes nothing for cars. It only shortens freight trips that would otherwise have to take the long way around the harbor. This is a scenario-only lever; whether such a window is allowed is a matter for the responsible agencies.",
   "lens": [
-   "ems"
+   "freight"
   ],
-  "costTier": "$",
+  "costTier": "$$",
   "costSource": null,
-  "leadTime": "weeks",
+  "leadTime": "months",
   "hypothetical": true,
   "effect": {
-   "op": "add_source",
-   "facilityLike": {
-    "lat": 39.170815,
-    "lng": -76.534637,
-    "node": 18475
-   },
-   "delayS": 0
+   "op": "allow_class_on",
+   "edges": [
+    27665,
+    57844,
+    60459,
+    60619
+   ],
+   "vehicleClass": "hazmat",
+   "timePenaltyS": 300.0,
+   "penaltyEdges": [
+    27665,
+    57844,
+    60459,
+    60619
+   ]
+  },
+  "params": {
+   "timePenaltyS": {
+    "default": 300.0,
+    "min": 60.0,
+    "max": 900.0,
+    "assumption": "A-HAZMAT-ESCORT-PENALTY"
+   }
   },
   "refs": {
-   "osmNode": 102577441,
-   "node": 18475
+   "link": "L-FORTMCHENRY",
+   "edgeCount": 4,
+   "boreMinLenM": 1000.0
   },
   "assumptions": [
    "A-CANDIDATES-HYPOTHETICAL",
-   "A-STAGING-DELAY"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
-  "id": "SS-HOSPITAL-HARBOR",
-  "type": "prepos_site",
-  "kind": "staging_site",
-  "title": "Hypothetical scenario option: staging site at MedStar Harbor Hospital",
-  "mechanism": "Places a scenario-only staging location for response units at MedStar Harbor Hospital in South Baltimore. The EMS lens treats it as one more station.",
-  "lens": [
-   "ems"
-  ],
-  "costTier": "$",
-  "costSource": null,
-  "leadTime": "weeks",
-  "hypothetical": true,
-  "effect": {
-   "op": "add_source",
-   "facilityLike": {
-    "lat": 39.251798,
-    "lng": -76.614619,
-    "node": 30378
-   },
-   "delayS": 0
-  },
-  "refs": {
-   "facility": "F-HOSP-002",
-   "facilityName": "MedStar Harbor Hospital",
-   "node": 30378
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-STAGING-DELAY"
-  ],
-  "sources": [],
-  "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."
- },
- {
-  "id": "SS-CANTON",
-  "type": "prepos_site",
-  "kind": "staging_site",
-  "title": "Hypothetical scenario option: staging site at the Canton waterfront",
-  "mechanism": "Places a scenario-only staging location for response units at Baylis Street on the Canton waterfront, in an area that already has several stations nearby. The EMS lens treats it as one more station. It is included as a control option.",
-  "lens": [
-   "ems"
-  ],
-  "costTier": "$",
-  "costSource": null,
-  "leadTime": "weeks",
-  "hypothetical": true,
-  "effect": {
-   "op": "add_source",
-   "facilityLike": {
-    "lat": 39.279079,
-    "lng": -76.567612,
-    "node": 30625
-   },
-   "delayS": 0
-  },
-  "refs": {
-   "osmNode": 3292944991,
-   "node": 30625
-  },
-  "assumptions": [
-   "A-CANDIDATES-HYPOTHETICAL",
-   "A-STAGING-DELAY"
+   "A-HAZMAT-ESCORT-PENALTY",
+   "A-HAZMAT-TUNNELS"
   ],
   "sources": [],
   "notes": "Hypothetical scenario option; not proposed, studied or endorsed by any agency."

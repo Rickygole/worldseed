@@ -101,7 +101,7 @@ def corridor_of(tags: dict, wid: int, compiled) -> int:
     return config.NO_CORRIDOR
 
 
-def build() -> tuple[graphio.Graph, dict, dict]:
+def build(include_pruned: bool = False) -> tuple[graphio.Graph, dict, dict]:
     ways = load_ways()
     kb_info = fix_keybridge.verify_keybridge(ways)
     tun_info = fix_keybridge.verify_tunnels(ways)
@@ -177,7 +177,7 @@ def build() -> tuple[graphio.Graph, dict, dict]:
 
     # --- candidate edge slots: temporary links from candidates.yaml, appended AFTER all real edges so every
     # existing edge index is unchanged. Disabled at runtime by the CANDIDATE flag. ----------------------
-    cand, cand_infos = build_candidates.temp_link_edges(nodes_osm, lat, lon, ways)
+    cand, cand_infos = build_candidates.temp_link_edges(nodes_osm, lat, lon, ways, include_pruned)
     n_real = len(e_from)
     if cand:
         ce = len(cand)
@@ -186,7 +186,7 @@ def build() -> tuple[graphio.Graph, dict, dict]:
         e_len = np.concatenate([e_len, np.array([c["lenM"] for c in cand], dtype=np.float32)])
         e_time = np.concatenate([e_time, np.array([c["timeS"] for c in cand], dtype=np.float32)])
         e_cls = np.concatenate([e_cls, np.full(ce, CLASS_ID["candidate"], dtype=np.uint8)])
-        e_flags = np.concatenate([e_flags, np.full(ce, F["CANDIDATE"], dtype=np.uint8)])
+        e_flags = np.concatenate([e_flags, np.array([c["flags"] for c in cand], dtype=np.uint8)])
         e_cor = np.concatenate([e_cor, np.array([c.get("corridor", config.NO_CORRIDOR) for c in cand], dtype=np.uint16)])
         e_way = np.concatenate([e_way, np.zeros(ce)])
         geom_ref += [None] * ce

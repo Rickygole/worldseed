@@ -167,12 +167,12 @@
  },
  {
   "id": "A-HAZMAT-TUNNELS",
-  "label": "Hazmat prohibited in the Fort McHenry and Harbor tunnels",
-  "value": "HAZMAT_PROHIBITED flag on the tunnel bore edges",
+  "label": "Vehicles carrying listed hazardous materials are prohibited in the Fort McHenry (I-95) and Baltimore Harbor (I-895) tunnels",
+  "value": "HAZMAT_PROHIBITED flag on the tunnel bore edges; the hazmat_truck class removes flagged edges",
   "unit": null,
-  "status": "assumption",
-  "source": null,
-  "note": "Reflects the widely known hazmat restriction on Baltimore's harbor tunnels; not re-verified against MDTA rules in this build. To be confirmed."
+  "status": "sourced",
+  "source": "Maryland Transportation Authority, 'Transporting Hazardous Materials Across Our Toll Facilities', https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits (accessed 2026-09-26); cites COMAR Title 11, Subtitle 7, Chapter 1 (11.07.01)",
+  "note": "The MDTA page states that vehicles carrying bottled propane gas above a stated container limit, bulk gasoline, flammable liquids, explosives, radioactive and other hazardous materials are prohibited from using the Fort McHenry Tunnel (I-95) or the Baltimore Harbor Tunnel (I-895). The model's hazmat_truck class is a vehicle carrying such materials; not every truck is one. No hazmat rule other than these two tunnel prohibitions is modeled (no city-street rules, time-of-day rules or permits). The Key Bridge carried no such prohibition on this page; that is an absence of a stated restriction, not a checked permission."
  },
  {
   "id": "A-BBOX",
@@ -302,5 +302,57 @@
   "unit": "s",
   "status": "assumption",
   "source": null
+ },
+ {
+  "id": "A-TRIPS-DEFINITION",
+  "label": "Named industrial trip pairs for the freight comparison",
+  "value": "7 real anchors (3 north/east bank, 4 south/west bank), 12 cross-harbor pairs and 4 same-shore controls, both directions",
+  "unit": null,
+  "status": "assumption",
+  "source": null,
+  "note": "Fixed in pipeline/trips.yaml before results were seen. Anchors are real road nodes pinned by OSM node id; names describe the area, not a specific facility."
+ },
+ {
+  "id": "A-TRIPS-CLASSES",
+  "label": "Vehicle classes for trips",
+  "value": "car (all edges) and hazmat_truck (HAZMAT_PROHIBITED edges removed)",
+  "unit": null,
+  "status": "assumption",
+  "source": null
+ },
+ {
+  "id": "A-TRIPS-TIME",
+  "label": "Trip time is free-flow node-to-node shortest drive time",
+  "value": "seconds, no snap time, no loading or dwell time",
+  "unit": "s",
+  "status": "assumption",
+  "source": null
+ },
+ {
+  "id": "A-TRIPS-TOL",
+  "label": "Tolerance for the simulator match on trips",
+  "value": 0.5,
+  "unit": "s",
+  "status": "assumption",
+  "source": null
+ },
+ {
+  "id": "A-SHUTTLE-NO-HAZMAT",
+  "label": "A vehicle carrying hazardous materials cannot use a shuttle link",
+  "value": "shuttle candidate edges carry HAZMAT_PROHIBITED",
+  "unit": null,
+  "status": "assumption",
+  "source": null
+ },
+ {
+  "id": "A-HAZMAT-ESCORT-PENALTY",
+  "label": "Extra delay per tunnel traversal for an escorted hazmat window",
+  "value": 300,
+  "unit": "s",
+  "status": "assumption",
+  "source": null,
+  "min": 60,
+  "max": 900,
+  "note": "Contract op allow_class_on with timePenaltyS. The penalty is added to each edge in `penaltyEdges` (the tunnel bore edges, at least 1,000 m long) that a hazmat vehicle uses; short portal stub edges are allowed with no penalty, so one traversal pays it once."
  }
 ]

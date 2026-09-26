@@ -13,6 +13,9 @@ SOURCES_STATIC = [
     {"name": "Maryland iMAP (State of Maryland open data)", "license": "State of Maryland data disclaimer (to be confirmed by legal review)",
      "attribution": "MD iMAP, DoIT, MCAC, MSFA (fire stations); MD iMAP, DHMH OHCQ (hospitals)",
      "url": "https://mdgeodata.md.gov/imap/rest/services", "use": "fire stations and hospitals (second source)"},
+    {"name": "Maryland Transportation Authority (rule source only)", "license": "State of Maryland web content; cited, not redistributed (to be confirmed by legal review)",
+     "attribution": "Maryland Transportation Authority, Transporting Hazardous Materials Across Our Toll Facilities",
+     "url": "https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits", "use": "source of the hazmat tunnel prohibition (A-HAZMAT-TUNNELS)"},
 ]
 
 

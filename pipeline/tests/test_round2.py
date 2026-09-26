@@ -119,17 +119,17 @@ def test_xharbor_effect_is_directional(gold):
 
 # ------------------------------------------------------------------------------------- candidates
 def test_catalog_shape(cands):
-    assert 18 <= len(cands) <= 30
+    assert 10 <= len(cands) <= 30
     ids = [c["id"] for c in cands]
     assert len(ids) == len(set(ids))
-    assert {c["type"] for c in cands} == {"temp_link", "signal_priority", "prepos_site"}
+    assert {c["type"] for c in cands} == {"temp_link", "signal_priority", "prepos_site", "hazmat_window"}
     for c in cands:
         assert c["hypothetical"] is True and c["costSource"] is None and c["sources"] == []
         assert c["costTier"] in ("$", "$$", "$$$") and c["leadTime"] in ("days", "weeks", "months")
         assert c["title"].startswith("Hypothetical scenario option")
         assert not re.search(r"\d", c["title"] + c["mechanism"]), c["id"]
         assert not re.search(r"dispatch|triage|real-?time|propos|endors", c["title"] + c["mechanism"] + c["notes"].replace("not proposed, studied or endorsed", ""), re.I), c["id"]
-        assert c["effect"]["op"] in ("enable_edges", "corridor_speed", "add_source")
+        assert c["effect"]["op"] in ("enable_edges", "corridor_speed", "add_source", "allow_class_on")
 
 
 def test_candidate_refs_resolve_and_disabled_by_default(cands, g):
@@ -148,6 +148,13 @@ def test_candidate_refs_resolve_and_disabled_by_default(cands, g):
             a, b = c["refs"]["nodes"]
             assert {int(g.edgeFrom[e["edges"][0]]), int(g.edgeTo[e["edges"][0]])} == {a, b}
             assert int(g.nodeOsmId[a]) == c["refs"]["osmNodes"][0]
+        elif e["op"] == "allow_class_on":
+            assert e["vehicleClass"] == "hazmat" and set(e["penaltyEdges"]) <= set(e["edges"])
+            for i in e["edges"]:
+                assert g.edgeFlags[i] & F["HAZMAT_PROHIBITED"] and not (g.edgeFlags[i] & F["CANDIDATE"])
+            assert all(g.edgeLenM[i] >= build_candidates.BORE_MIN_LEN_M for i in e["penaltyEdges"])
+            p = c["params"]["timePenaltyS"]
+            assert p["min"] <= e["timePenaltyS"] <= p["max"]
         elif e["op"] == "corridor_speed":
             assert e["corridor"] in corridors
             p = c["params"]["factor"]
@@ -157,6 +164,11 @@ def test_candidate_refs_resolve_and_disabled_by_default(cands, g):
             n = e["facilityLike"]["node"]
             assert 0 <= n < g.n
     assert used == cand_edges                                              # every candidate edge belongs to an entry
+    # shuttle edges cannot carry hazmat vehicles; road connectors can
+    for c in cands:
+        if c["effect"]["op"] == "enable_edges":
+            for i in c["effect"]["edges"]:
+                assert bool(g.edgeFlags[i] & F["HAZMAT_PROHIBITED"]) == (c["refs"]["mode"] == "shuttle"), c["id"]
 
 
 def test_baseline_ignores_candidate_edges(g, gold):
@@ -169,13 +181,13 @@ def test_baseline_ignores_candidate_edges(g, gold):
 
 
 def test_unresolved_osm_id_fails_the_build(monkeypatch, g):
-    bad = [{"id": "TL-BAD", "type": "temp_link", "link": {"mode": "road",
+    bad = [{"id": "TL-BAD", "type": "temp_link", "status": "kept", "link": {"mode": "road",
             "a": {"osmNode": 1, "expectNames": []}, "b": {"osmNode": 2, "expectNames": []}}}]
     monkeypatch.setattr(build_candidates, "load_catalog", lambda: bad)
     with pytest.raises(build_candidates.CatalogError):
         build_candidates.temp_link_edges(g.nodeOsmId.astype(np.int64), g.nodeLat, g.nodeLon, {})
     good_id = int(g.nodeOsmId[0])
-    wrong = [{"id": "TL-BAD2", "type": "temp_link", "link": {"mode": "road",
+    wrong = [{"id": "TL-BAD2", "type": "temp_link", "status": "kept", "link": {"mode": "road",
               "a": {"osmNode": good_id, "expectNames": ["No Such Road Anywhere"]}, "b": {"osmNode": int(g.nodeOsmId[1])}}}]
     monkeypatch.setattr(build_candidates, "load_catalog", lambda: wrong)
     with pytest.raises(build_candidates.CatalogError):
@@ -262,29 +274,49 @@ def test_candidate_effects_complete_and_consistent(eff, cands, gold):
     reg = next(w for w in gold["worlds"] if w["id"] == "keybridge_removed")
     assert ref["keybridge_removed"]["access"]["popMeanAddedS"] == pytest.approx(reg["access"]["metrics"]["popAddedS"], abs=2e-3)
     assert ref["baseline"]["ems"]["p90S"] == pytest.approx(gold["worlds"][0]["ems"]["metrics"]["p90S"], abs=2e-3)
-    for e in eff["candidates"]:
+    for e in eff["candidates"] + eff["pruned"]:
         for ctx in ("inBaseline", "inKeybridgeRemoved"):
             b = e[ctx]["benefits"]
             assert all(b[k] >= -1e-6 for k in ("xharborTimeSavedS", "xharborJobsGain", "accessTimeSavedS", "emsP90SavedS",
-                                              "emsPctWithinGain")), (e["id"], ctx)
+                                              "emsPctWithinGain", "freightCarMeanSavedS", "freightHazmatMeanSavedS")), (e["id"], ctx)
+
+
+def test_pruned_recorded_with_reasons(eff, cands):
+    import yaml
+    yml = yaml.safe_load(build_candidates.CAT_YAML.read_text())["candidates"]
+    pruned_ids = [c["id"] for c in yml if c.get("status") == "pruned"]
+    assert [e["id"] for e in eff["pruned"]] == pruned_ids and pruned_ids
+    kept_ids = [c["id"] for c in yml if c.get("status", "kept") == "kept"]
+    assert kept_ids == [c["id"] for c in cands]
+    assert set(pruned_ids).isdisjoint(kept_ids)
+    for e in eff["pruned"]:
+        assert e["pruneReason"] and e["status"] == "pruned"
+    # documented rules hold in the data
+    kept_stage = [c["id"] for c in cands if c["type"] == "prepos_site"]
+    assert set(kept_stage) == set(eff["pruneRules"]["stagingRank"][:3])
+    assert len(kept_stage) == 3
+    for e in eff["pruned"]:
+        if e["type"] == "temp_link":                       # pruned links did nothing population-wide on any lens
+            b = e["inKeybridgeRemoved"]["benefits"]
+            assert b["xharborTimeSavedS"] < 0.01 and b["accessTimeSavedS"] < 0.01 and b["freightCarMeanSavedS"] < 0.01
+    # every corridor option was kept, and every connector that helps
+    assert {c["id"] for c in yml if c["type"] == "signal_priority"} <= set(kept_ids)
+    for c in cands:
+        if c["type"] == "temp_link" and c["refs"]["mode"] == "road":
+            e = next(x for x in eff["candidates"] if x["id"] == c["id"])
+            assert e["inKeybridgeRemoved"]["helps"]
 
 
 def test_catalog_has_helpful_and_useless_options(eff):
     helpful = [e for e in eff["candidates"] if e["inKeybridgeRemoved"]["helps"]]
     useless = [e for e in eff["candidates"] if not e["inKeybridgeRemoved"]["helps"]]
-    assert len(helpful) >= 3 and len(useless) >= 3        # the search is not trivial
-    assert any("xharbor" in e["inKeybridgeRemoved"]["helps"] for e in helpful)
-    assert any("ems" in e["inKeybridgeRemoved"]["helps"] for e in helpful)
-    for e in useless:
-        b = e["inKeybridgeRemoved"]["benefits"]
-        assert b["xharborTimeSavedS"] < 1 and b["accessTimeSavedS"] < 1
-    # the same-shore water link cannot help cross-harbor access
-    same = next(e for e in eff["candidates"] if e["id"] == "TL-SHUTTLE-CANTON-LOCUSTPOINT")
-    assert same["inKeybridgeRemoved"]["benefits"]["xharborTimeSavedS"] < 0.01
-    # temporary links do shorten the terminal-to-terminal trip they were built for
+    assert len(helpful) >= 5 and len(useless) >= 2        # the search is still not trivial
+    lenses = {q for e in helpful for q in e["inKeybridgeRemoved"]["helps"]}
+    assert {"xharbor", "ems", "freight", "access"} <= lenses
+    # the kept shuttle shortens the terminal-to-terminal trip it was built for
     tp = next(e for e in eff["candidates"] if e["id"] == "TL-SHUTTLE-TRADEPOINT-HAWKINS")
     t = tp["inKeybridgeRemoved"]["local"]["terminalPairTimeS"]
     assert t["with"] < t["without"]
-    for e in eff["candidates"]:
+    for e in eff["candidates"] + eff["pruned"]:
         for d in e["dominatedBy"]:
             assert d in {x["id"] for x in eff["candidates"]} and d != e["id"]

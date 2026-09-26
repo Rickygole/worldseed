@@ -26,13 +26,23 @@ class World:
     enabled: frozenset = frozenset()
     corridor_factor: tuple = ()      # ((corridor index, factor), ...)
     extra_sources: tuple = ()        # (node, ...)
+    hazmat_allowed: tuple = ()       # ((edge index, time penalty s; 0 = none), ...): allow_class_on for the hazmat_truck class
 
     def key(self) -> str:
         return self.id
 
 
-def edge_arrays(g: Graph, w: World):
-    """(from, to, time float64) of enabled edges, after corridor factors."""
+HAZ = config.FLAGS["HAZMAT_PROHIBITED"]
+VEHICLES = ("car", "hazmat_truck")
+
+
+def edge_arrays(g: Graph, w: World, vehicle: str = "car"):
+    """(from, to, time float64) of enabled edges, after corridor factors.
+
+    vehicle "car" ignores the HAZMAT_PROHIBITED flag. vehicle "hazmat_truck" drops every HAZMAT_PROHIBITED edge
+    unless the world lists it in `hazmat_allowed`, in which case the edge stays and its time gets the listed
+    penalty (an escorted or scheduled window)."""
+    assert vehicle in VEHICLES, vehicle
     on = (g.edgeFlags & CAND) == 0
     if w.enabled:
         on = on | np.isin(np.arange(g.e), np.array(sorted(w.enabled), dtype=np.int64))
@@ -41,6 +51,14 @@ def edge_arrays(g: Graph, w: World):
     t = g.edgeTimeS.astype(np.float64).copy()
     for cidx, f in w.corridor_factor:
         t[g.edgeCorridor == cidx] /= float(f)
+    if vehicle == "hazmat_truck":
+        allowed = dict(w.hazmat_allowed)
+        prohibited = (g.edgeFlags & HAZ) != 0
+        if allowed:
+            idx = np.array(sorted(allowed), dtype=np.int64)
+            t[idx] += np.array([float(allowed[i]) for i in sorted(allowed)])
+            prohibited[idx] = False
+        on = on & ~prohibited
     return g.edgeFrom[on].astype(np.int64), g.edgeTo[on].astype(np.int64), t[on]
 
 
@@ -52,13 +70,13 @@ def _dedupe_min(u, v, t):
     return u[first], v[first], t[first]
 
 
-def matrix(g: Graph, w: World) -> csr_matrix:
-    u, v, t = _dedupe_min(*edge_arrays(g, w))
+def matrix(g: Graph, w: World, vehicle: str = "car") -> csr_matrix:
+    u, v, t = _dedupe_min(*edge_arrays(g, w, vehicle))
     return csr_matrix((t, (u, v)), shape=(g.n, g.n))
 
 
-def digraph(g: Graph, w: World) -> nx.DiGraph:
-    u, v, t = _dedupe_min(*edge_arrays(g, w))
+def digraph(g: Graph, w: World, vehicle: str = "car") -> nx.DiGraph:
+    u, v, t = _dedupe_min(*edge_arrays(g, w, vehicle))
     G = nx.DiGraph()
     G.add_nodes_from(range(g.n))
     G.add_weighted_edges_from(zip(u.tolist(), v.tolist(), t.tolist()))

@@ -1,0 +1,27 @@
+# Named industrial trip pairs for the freight / hazmat comparison (defined before results were seen).
+#
+# Why: both harbor tunnels prohibit vehicles carrying listed hazardous materials (MDTA page cited in
+# assumptions.yaml, A-HAZMAT-TUNNELS); the Key Bridge did not. A hazmat truck therefore has no tunnel option
+# and depends on the Key Bridge or the western I-695 arc. A car may use the tunnels.
+#
+# Anchors are real road nodes pinned by OSM node id (checked against the names of the ways touching the node).
+# `shore` is the bank (0 north/east, 1 south/west) and is checked against the hex `shore` field in tests.
+# Pairs: every north-shore anchor with every south-shore anchor (cross_harbor), plus same-shore controls that
+# do not need the bridge. Each pair is evaluated in both directions.
+version: 1
+anchors:
+  - {id: TP,  name: "Tradepoint Atlantic (Sparrows Point)",            shore: 0, osmNode: 9222322309, expectNames: [Tradepoint Avenue]}
+  - {id: DMT, name: "Dundalk Marine Terminal / Seagirt-Broening area", shore: 0, osmNode: 49470897,   expectNames: [Broening Highway]}
+  - {id: EDG, name: "Edgemere (Sparrows Point Road at Armistead Road)", shore: 0, osmNode: 37700343,  expectNames: [Sparrows Point Road, Armistead Road]}
+  - {id: CB,  name: "Curtis Bay (Curtis Avenue at Blossom Street)",     shore: 1, osmNode: 49497199,   expectNames: [Curtis Avenue]}
+  - {id: HP,  name: "Hawkins Point (Dock Road at Fort Armistead Road)", shore: 1, osmNode: 49379171,   expectNames: [Dock Road, Fort Armistead Road]}
+  - {id: FF,  name: "Fairfield (East Patapsco Avenue)",                 shore: 1, osmNode: 5270570880, expectNames: [East Patapsco Avenue]}
+  - {id: GBI, name: "Glen Burnie industrial (West Ordnance Road)",      shore: 1, osmNode: 586470634,  expectNames: [West Ordnance Road]}
+cross_harbor:
+  north: [TP, DMT, EDG]
+  south: [HP, CB, FF, GBI]
+controls:
+  - [TP, DMT]
+  - [EDG, DMT]
+  - [HP, CB]
+  - [FF, CB]

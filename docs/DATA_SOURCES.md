@@ -31,7 +31,7 @@ Fetch date for every source below: 2026-09-26 (the build day).
   HAZMAT_PROHIBITED` and are registered as links `L-FORTMCHENRY` (4 edges) and `L-HARBORTUNNEL` (6 edges).
   No other `tunnel=yes` motorway/trunk way with an I-95/I-895 ref or "Tunnel"/"Thruway" name exists in the data.
 - The manual re-add fallback of the plan (step 8) was **not needed**; it is not implemented.
-- Hazmat prohibition on both tunnels is an assumption (A-HAZMAT-TUNNELS), not re-verified against MDTA rules.
+- Hazmat prohibition on both tunnels is now **sourced** (round 3): see section 10 (MDTA page, accessed 2026-09-26).
 
 ## 2. Maryland iMAP (second facilities source)
 
@@ -115,14 +115,14 @@ first value (sorted by value, then hex index) whose cumulative weight >= q x tot
 isolated block groups (pop-weighted BG median > 8 min); equity gap = zero-vehicle-household-weighted p90 minus
 pop-weighted p90.
 
-**Access lens** (hero): K=8 anchors from weighted k-means of LODES WAC block points (weights = jobs, seed 7),
+**Regional Access lens** (a side-by-side comparison lens; the hero lens is the cross-harbor `xharbor` lens defined below): K=8 anchors from weighted k-means of LODES WAC block points (weights = jobs, seed 7),
 destination = nearest street node to the cluster's job-weighted medoid block, weight w_k = cluster jobs / total.
 `t_k` = reverse Dijkstra driving time hex node -> anchor (unreachable = 7,200 s cap);
 `hexT = min(7200, sum_k w_k t_k + snapS)`; `added = hexT_world - hexT_baseline`; pop-weighted p50/p90 of `hexT`;
 % pop with added <= 5 min; "cut-off" block groups (pop-weighted BG median added > 10 min); equity gap =
 low-wage-worker-weighted mean added minus pop-weighted mean added.
 
-### Cross-harbor lens `xharbor` (added in round 2; the contract lens above is unchanged)
+### Cross-harbor lens `xharbor` (the hero lens; added in round 2; the contract lens above is unchanged)
 
 **Why it exists.** The region-wide job-access average barely moves when the Key Bridge is removed (about +3 s per
 person), because most trips in the region never use the bridge. The bridge's actual function is crossing the
@@ -149,27 +149,40 @@ fact. The regional lens stays in `golden.json` next to it so both can be read to
   engine: scipy csgraph (independent of the networkx code used for the regional lens); a test recomputes sample
   hexes with networkx.
 
-## 8. Candidate catalog and gazetteer (round 2)
+## 8. Candidate catalog and gazetteer (round 2, pruned in round 3)
 
-`pipeline/candidates.yaml` is the source of truth; `build_candidates.py` writes `candidates.json` and fails the
-build on any unresolved OSM node id, node/way-name mismatch, unknown corridor or facility, digits or dollar
-figures in title/mechanism text, or a title that does not start with "Hypothetical scenario option".
-- 24 entries: 7 temporary links (`temp_link`; 5 shuttle links between terminal road nodes and 2 local road
-  connectors; their edges are appended to `graph.bin` AFTER every real edge with class `candidate` and flag
-  `CANDIDATE`, so all existing edge indices are unchanged), 8 corridor priorities (`signal_priority`; a speed
-  factor on a registered corridor with declared bounds) and 9 staging sites (`prepos_site`; a new EMS source).
-  The contract's three type names are used; `kind` (`temporary_link`, `corridor_priority`, `staging_site`) is an
-  additive readable alias.
+`pipeline/candidates.yaml` is the source of truth; `build_candidates.py` writes `candidates.json` (the kept
+entries) and fails the build on any unresolved OSM node id, node/way-name mismatch, unknown corridor, link or
+facility, digits or dollar figures in title/mechanism text, a title that does not start with "Hypothetical scenario
+option", or a pruned entry without a reason.
+- **Kept (16):** 3 temporary links (`temp_link`: the Tradepoint to Hawkins Point shuttle and 2 local road
+  connectors), 8 corridor priorities (`signal_priority`, a speed factor on a registered corridor with declared
+  bounds), 3 staging sites (`prepos_site`) and 2 hazmat windows (`hazmat_window`, round 3, see below). `kind`
+  (`temporary_link`, `corridor_priority`, `staging_site`, `hazmat_window`) is an additive readable alias.
+- **Pruned (10), recorded with reasons and measured effects in `candidate_effects.json` under `pruned`:**
+  4 shuttle links and 6 staging sites. Round 2 measured exactly zero population-wide effect for 3 shuttle links
+  on every lens (car-only edges; the modeled crossing plus a fixed wait is slower than driving around) and the
+  same-shore shuttle was a control that the freight trip set now covers with same-shore control pairs. Staging
+  sites only move the EMS lens, which the bridge does not change; the 3 with the largest EMS p90 gain in the
+  baseline context are kept (rule fixed before pruning; the ranking is in `pruneRules.stagingRank`).
+  Honest finding that stays inspectable: shuttle links did not help in a car-only free-flow model.
+- **Connectors:** both kept, because both help on the freight lens (they shorten the Tradepoint to Dundalk Marine
+  Terminal trip, which is a same-shore trip); the Dundalk Avenue connector is dominated by the Broening Highway one.
+  **Corridors:** all 8 kept.
+- **Hazmat windows (added in round 3):** `allow_class_on` lets the hazmat vehicle class use a tunnel with a fixed
+  delay per passage (assumption `A-HAZMAT-ESCORT-PENALTY`, applied once on the bore edge; portal stub edges allowed
+  with no penalty). They change nothing for cars.
 - All are hypothetical scenario options. None was proposed, studied or endorsed by any agency. Cost tiers are
   relative labels only ($, $$, $$$), with no dollar figures; `costSource` is null.
-- Numeric effects (shuttle speed and wait, connector speed, corridor speed factors) are labeled assumptions
-  (`A-SHUTTLE-*`, `A-CONNECTOR-SPEED`, `A-CORRIDOR-FACTOR-*`); nothing is sourced from an agency study.
-  Corridors are exclusive (first match wins): `C-I895-TUNNEL` are the tunnel bores only and `C-I895` the rest of
-  I-895; the Beltway candidate acts on the whole `C-I695` corridor, including the western arc.
-- `candidate_effects.json` measures every candidate alone, in the baseline and in the bridge-removed world, on the
-  regional Access lens, the xharbor lens and the EMS lens, with the reference code (definitions and materiality
-  thresholds in the `candidate_effects.py` docstring). It also lists dominated entries (same or lower cost tier
-  and at least as good on every benefit).
+- Numeric effects (shuttle speed and wait, connector speed, corridor speed factors, escort delay) are labeled
+  assumptions; nothing is sourced from an agency study. Shuttle edges also carry `HAZMAT_PROHIBITED` (a hazmat
+  vehicle cannot ride a shuttle, `A-SHUTTLE-NO-HAZMAT`). Corridors are exclusive (first match wins).
+- `candidate_effects.json` measures every entry alone, in the baseline and in the bridge-removed world, on the
+  regional Access lens, the xharbor lens, the EMS lens and the freight trips (definitions and materiality
+  thresholds in the `candidate_effects.py` docstring). It lists dominated entries (same or lower cost tier and at
+  least as good on every benefit; only kept entries dominate).
+- Temporary-link edges live in `graph.bin` after every real edge. Pruned links are appended to an in-memory graph
+  only for the effect record; kept links come first there, so kept edge indices are identical.
 
 `gazetteer.json` (455 neighborhoods from OSM place nodes with hexes assigned to the nearest place within 3 km,
 325 roads (motorway to secondary) with canonical edge lists, 86 facilities, 3 links, 8 corridors) carries
@@ -189,3 +202,34 @@ boundaries.
 - Free-flow times understate tunnel and bridge approach congestion; stress futures are a later layer.
 - Anchor names are derived from OSM place nodes and can be loose (for example the anchor named after Dundalk
   sits near Seagirt / Broening Highway).
+
+## 10. Freight and hazmat trips (round 3)
+
+**Why.** Both harbor tunnels prohibit vehicles carrying listed hazardous materials; the Key Bridge did not. A hazmat
+truck therefore loses its only short harbor crossing when the bridge is removed, while a car can still use a
+tunnel. This is the strongest true effect found so far, so it gets its own point-to-point trip set. The set was
+defined before results were seen (`pipeline/trips.yaml`).
+
+**Rule source.** Maryland Transportation Authority, "Transporting Hazardous Materials Across Our Toll Facilities",
+https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits, accessed 2026-09-26 (raw copy cached in
+`data/raw/`). The page states that vehicles carrying bottled propane gas above a stated container limit, bulk
+gasoline, flammable liquids, explosives, radioactive and other hazardous materials are prohibited from using the Fort
+McHenry Tunnel (I-95) or the Baltimore Harbor Tunnel (I-895), and points to COMAR Title 11, Subtitle 7, Chapter 1
+(11.07.01) for the specifics. `A-HAZMAT-TUNNELS` is therefore marked sourced. Limits: the model's `hazmat_truck` is
+a vehicle carrying such materials (not every truck is one); no other hazmat rule is modeled; the page does not
+say anything about permission on the Key Bridge, so "the bridge was open to hazmat" is an absence of a stated
+restriction. License of the page text: State of Maryland web content, quoted for citation only; to be confirmed by
+legal review.
+
+**Definition** (`trips.py` docstring, assumptions `A-TRIPS-*`): 7 real road-node anchors (north/east bank:
+Tradepoint Atlantic, Dundalk Marine Terminal / Seagirt-Broening, Edgemere; south/west bank: Hawkins Point, Curtis
+Bay, Fairfield, Glen Burnie industrial), 12 cross-harbor pairs, 4 same-shore controls (TP-DMT, EDG-DMT, HP-CB,
+FF-CB), each in both directions (32 trips). Classes: `car` (all enabled edges) and `hazmat_truck`
+(`HAZMAT_PROHIBITED` edges removed, unless a hazmat window allows them). Worlds: baseline, keybridge_removed,
+harbor_tunnel_closed, keybridge_and_harbor_tunnel_closed. Time: free-flow node-to-node shortest drive time in
+seconds, no snap, dwell or loading time. Unreachable: `timeS` null (never happens in this snapshot: the western
+I-695 arc and city streets connect every pair without the tunnels or the bridge; a test checks the hazmat route
+crosses the Beltway west of the harbor). Tolerance for a simulator: 0.5 s per trip and class.
+
+**Residents for styling.** No separate array is needed: `hexes.bin` `pop` is residents per hex and `jobs` is jobs
+per hex, so populated cells are `pop > 0` and job-only cells are `pop == 0 && jobs > 0`.

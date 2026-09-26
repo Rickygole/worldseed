@@ -40,7 +40,7 @@ from concurrent.futures import ProcessPoolExecutor
 import networkx as nx
 import numpy as np
 
-from . import binio, config, xharbor
+from . import binio, build_graph, config, trips as trips_mod, xharbor
 from . import worlds as worlds_mod
 from .worlds import World
 from .golden_util import wquantile  # noqa: F401  (re-exported; tests import golden.wquantile)
@@ -255,6 +255,7 @@ def compute(verbose: bool = True) -> dict:
     rows.sort(key=lambda r: (-r["meanAddedS"], r["geoid"]))
 
     xh = compute_xharbor(g, hx, links, verbose)
+    trips_out = trips_mod.compute(g, links, build_graph.load_ways(), WORLDS)
 
     out = {
         "snapshotId": config.SNAPSHOT_ID,
@@ -268,6 +269,7 @@ def compute(verbose: bool = True) -> dict:
         "worlds": worlds,
         "keybridgeWorstBlockGroups": rows[:15],
         "xharbor": xh,
+        "trips": trips_out,
     }
     return out
 

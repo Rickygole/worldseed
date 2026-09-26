@@ -8,7 +8,7 @@ import sys
 import time
 
 from . import (analysis_access, assumptions, build_candidates, build_destinations, build_facilities, build_gazetteer,
-               build_graph, build_hexes, candidate_effects, config, fetch_census, fetch_osm, golden, manifest,
+               build_graph, build_hexes, candidate_effects, config, fetch_census, fetch_osm, fetch_rules, golden, manifest,
                snapshot_license)
 
 
@@ -24,6 +24,7 @@ def main() -> None:
     config.RAW.mkdir(parents=True, exist_ok=True)
     step("fetch_osm (Overpass attic, cached)", fetch_osm.main)
     step("fetch_census (ACS + TIGER + LODES, cached)", fetch_census.run)
+    step("fetch_rules (MDTA hazmat tunnel rule, cached and checked)", fetch_rules.run)
     step("build_graph (+ Key Bridge / tunnel verification)", build_graph.run)
     step("build_facilities (OSM + Maryland iMAP)", build_facilities.run)
     step("build_hexes (H3 res 9, block groups)", build_hexes.run)

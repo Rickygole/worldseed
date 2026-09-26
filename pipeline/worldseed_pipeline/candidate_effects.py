@@ -12,6 +12,15 @@ WITHOUT the candidate, with the sign convention "positive = better":
   emsP90SavedS        reduction of the pop-weighted EMS p90
   emsPctWithinGain    increase (percentage points) of the share of people within 8 min
 
+Freight (round 3): the trips of trips.py (32 trips, classes car and hazmat_truck) are evaluated in every world too.
+  freight<Car|Hazmat>MeanSavedS  mean saving over the cross-harbor trips of that class
+A candidate helps the freight lens when it saves at least 60 s on some trip. Hazmat trucks cannot use shuttle links
+or the tunnels (HAZMAT_PROHIBITED) unless a hazmat_window entry allows a tunnel with a penalty per segment.
+
+Pruning (round 3): entries with `status: pruned` in candidates.yaml are still evaluated (on an in-memory graph that
+also holds their edges) and recorded under `pruned` with the reason, so the finding stays inspectable. The catalog
+offered to the planner (`candidates.json`, `candidates` here) is the kept entries only.
+
 Materiality (chosen a priori, deliberately small so that only true zeros are called "no effect"): a candidate
 `helps` a lens when it improves that lens by at least 1 s (time metrics), 100 jobs (xharbor jobs) or 0.01 points
 (EMS % within). Dominance: A dominates B when A's cost tier is not higher than B's, A is at least as good as B on
@@ -27,18 +36,21 @@ from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 
-from . import config, golden, worlds as worlds_mod, xharbor
+from . import build_candidates, build_graph, config, golden, trips as trips_mod, worlds as worlds_mod, xharbor
 from .graphio import load_graph
-from .worlds import World
+from .worlds import VEHICLES, World
 
 _S: dict = {}
 
 
 def _state():
+    """Per-process state. The graph is the FULL in-memory graph: real edges plus the edges of kept AND pruned
+    temporary links (kept links first, so their edge indices equal those in graph.bin)."""
     if not _S:
-        g = load_graph()
+        g, _diag, aux = build_graph.build(include_pruned=True)
         hx = golden.load_hexes()
-        _S.update(g=g, hx=hx, prep=xharbor.prepare(hx),
+        anchors, trips = trips_mod.resolve(g, aux["ways"])
+        _S.update(g=g, hx=hx, prep=xharbor.prepare(hx), ways=aux["ways"], trips=trips,
                   dests=json.loads((config.SNAP / "destinations.json").read_text()),
                   fac=json.loads((config.SNAP / "facilities.json").read_text()))
     return _S
@@ -52,7 +64,8 @@ def eval_world(w: World) -> dict:
     sources = sorted({f["node"] for f in s["fac"] if f["active"] and f["kind"] in ("fire_station", "ems_station")}
                      | set(w.extra_sources))
     return {"ems": golden.ems_field(G, hx, sources), "access": golden.access_field(G.reverse(copy=False), hx, s["dests"]),
-            "xh": xharbor.compute_arrays(worlds_mod.matrix(g, w), hx, s["prep"])}
+            "xh": xharbor.compute_arrays(worlds_mod.matrix(g, w), hx, s["prep"]),
+            "trips": {c: trips_mod.trip_times(g, w, s["trips"], c) for c in VEHICLES}}
 
 
 def _r(x, nd=3):
@@ -74,6 +87,25 @@ def metrics(res: dict, ref_access: np.ndarray, base_xh: dict, hx: dict) -> dict:
     }
 
 
+FREIGHT_HELP_S = 60.0
+
+
+def freight_summary(trips: list[dict], ref_t: dict, res_t: dict) -> dict:
+    """Per class: trip savings (seconds, positive = faster) against the same context without the candidate."""
+    cross = np.array([t["kind"] == "cross_harbor" for t in trips])
+    out = {}
+    for c in VEHICLES:
+        r, x = ref_t[c], res_t[c]
+        ok = np.isfinite(r) & np.isfinite(x)
+        saved = np.where(ok, r - x, 0.0)
+        k = int(np.argmax(saved))
+        out[c] = {"crossHarborMeanSavedS": _r(saved[cross].mean(), 2), "maxSavedS": _r(saved[k], 1),
+                  "maxSavedTrip": trips[k]["id"] if saved[k] > 0 else None,
+                  "tripsSaved60s": int((saved >= FREIGHT_HELP_S).sum()),
+                  "savedS": [_r(v, 1) for v in saved]}
+    return out
+
+
 def benefits(c: dict, ref: dict) -> dict:
     return {
         "xharborTimeSavedS": _r(ref["xharbor"]["popMeanAddedS"] - c["xharbor"]["popMeanAddedS"]),
@@ -81,6 +113,9 @@ def benefits(c: dict, ref: dict) -> dict:
         "accessTimeSavedS": _r(ref["access"]["popMeanAddedS"] - c["access"]["popMeanAddedS"]),
         "emsP90SavedS": _r(ref["ems"]["p90S"] - c["ems"]["p90S"]),
         "emsPctWithinGain": _r(c["ems"]["pctWithin"] - ref["ems"]["pctWithin"], 4),
+        "freightCarMeanSavedS": c["freight"]["car"]["crossHarborMeanSavedS"],
+        "freightHazmatMeanSavedS": c["freight"]["hazmat_truck"]["crossHarborMeanSavedS"],
+        "freightMaxSavedS": max(c["freight"]["car"]["maxSavedS"], c["freight"]["hazmat_truck"]["maxSavedS"]),
     }
 
 
@@ -92,10 +127,13 @@ def helps(b: dict) -> list[str]:
         out.append("access")
     if b["emsP90SavedS"] >= 1 or b["emsPctWithinGain"] >= 0.01:
         out.append("ems")
+    if b["freightMaxSavedS"] >= FREIGHT_HELP_S:
+        out.append("freight")
     return out
 
 
-VEC = ("xharborTimeSavedS", "xharborJobsGain", "accessTimeSavedS", "emsP90SavedS", "emsPctWithinGain")
+VEC = ("xharborTimeSavedS", "xharborJobsGain", "accessTimeSavedS", "emsP90SavedS", "emsPctWithinGain",
+       "freightCarMeanSavedS", "freightHazmatMeanSavedS")
 TIER = {"$": 1, "$$": 2, "$$$": 3}
 
 
@@ -126,14 +164,25 @@ def world_for(c: dict, kb_edges: frozenset) -> tuple[World, World]:
         kw["corridor_factor"] = ((c["refs"]["corridorIndex"], eff["factor"]),)
     elif eff["op"] == "add_source":
         kw["extra_sources"] = (eff["facilityLike"]["node"],)
+    elif eff["op"] == "allow_class_on":
+        pen = set(eff["penaltyEdges"])
+        kw["hazmat_allowed"] = tuple((e, eff["timePenaltyS"] if e in pen else 0.0) for e in eff["edges"])
     return World(id=c["id"] + "@baseline", **kw), World(id=c["id"] + "@keybridge_removed", disabled=kb_edges, **kw)
 
 
 def compute(verbose: bool = True) -> dict:
     t0 = time.time()
     s = _state()
-    g, hx = s["g"], s["hx"]
-    cands = json.loads((config.SNAP / "candidates.json").read_text())
+    g, hx, trips = s["g"], s["hx"], s["trips"]
+    facilities = s["fac"]
+    written = load_graph()
+    # the full in-memory graph must extend graph.bin exactly: real edges and kept candidate edges identical
+    assert g.e >= written.e and all(np.array_equal(getattr(g, k)[:written.e], getattr(written, k))
+                                    for k in ("edgeFrom", "edgeTo", "edgeTimeS", "edgeLenM", "edgeClass", "edgeFlags",
+                                              "edgeCorridor", "edgeOsmWay")), "full graph does not extend graph.bin"
+    all_entries = build_candidates.load_catalog()
+    resolved = {r["id"]: r for r in build_candidates.resolve_entries(g, all_entries, s["ways"], facilities)}
+    cands = [dict(resolved[c["id"]], status=c["status"], pruneReason=c.get("pruneReason")) for c in all_entries]
     kb = frozenset(next(l for l in g.meta["links"] if l["id"] == "L-KEYBRIDGE")["edges"])
     ref_worlds = [World(id="baseline"), World(id="keybridge_removed", disabled=kb)]
     todo = list(ref_worlds)
@@ -148,21 +197,29 @@ def compute(verbose: bool = True) -> dict:
     base_xh = base_res["xh"]
     ref = {"baseline": metrics(base_res, base_res["access"], base_xh, hx),
            "keybridge_removed": metrics(kb_res, base_res["access"], base_xh, hx)}
+    for name, r in (("baseline", base_res), ("keybridge_removed", kb_res)):
+        ref[name]["tripMinutes"] = {c: [None if not np.isfinite(x) else _r(x / 60, 2) for x in r["trips"][c]] for c in VEHICLES}
     entries = []
     for k, c in enumerate(cands):
         rb, rk = results[2 + 2 * k], results[3 + 2 * k]
+        wb, wk = world_for(c, kb)
         mb = metrics(rb, base_res["access"], base_xh, hx)
         mk = metrics(rk, base_res["access"], base_xh, hx)
+        mb["freight"] = freight_summary(trips, base_res["trips"], rb["trips"])
+        mk["freight"] = freight_summary(trips, kb_res["trips"], rk["trips"])
         bb, bk = benefits(mb, ref["baseline"]), benefits(mk, ref["keybridge_removed"])
-        wb, wk = world_for(c, kb)
         bk["xharborShareOfBridgeLossRecovered"] = _r(bk["xharborTimeSavedS"] / ref["keybridge_removed"]["xharbor"]["popMeanAddedS"], 4)
-        entries.append({"id": c["id"], "type": c["type"], "kind": c["kind"], "costTier": c["costTier"],
-                        "inBaseline": {"metrics": mb, "benefits": bb, "helps": helps(bb),
-                                       "local": local_effect(c, rb, base_res, hx, g, wb, ref_worlds[0])},
-                        "inKeybridgeRemoved": {"metrics": mk, "benefits": bk, "helps": helps(bk),
-                                               "local": local_effect(c, rk, kb_res, hx, g, wk, ref_worlds[1])}})
-    # dominance in the bridge-removed context, among entries with any measurable benefit
-    eff = [e for e in entries if e["inKeybridgeRemoved"]["helps"]]
+        e = {"id": c["id"], "type": c["type"], "kind": c["kind"], "costTier": c["costTier"],
+             "inBaseline": {"metrics": mb, "benefits": bb, "helps": helps(bb),
+                            "local": local_effect(c, rb, base_res, hx, g, wb, ref_worlds[0])},
+             "inKeybridgeRemoved": {"metrics": mk, "benefits": bk, "helps": helps(bk),
+                                    "local": local_effect(c, rk, kb_res, hx, g, wk, ref_worlds[1])},
+             "status": c["status"]}
+        if c["status"] == "pruned":
+            e["pruneReason"] = c["pruneReason"]
+        entries.append(e)
+    # dominance in the bridge-removed context, by KEPT entries that help
+    eff = [e for e in entries if e["status"] == "kept" and e["inKeybridgeRemoved"]["helps"]]
     for e in entries:
         e["measurableEffectInKeybridgeRemoved"] = bool(e["inKeybridgeRemoved"]["helps"])
         v = [e["inKeybridgeRemoved"]["benefits"][q] for q in VEC]
@@ -175,11 +232,24 @@ def compute(verbose: bool = True) -> dict:
                     (any(a > b + 1e-9 for a, b in zip(w, v)) or (w == v and o["id"] < e["id"])):
                 dom.append(o["id"])
         e["dominatedBy"] = sorted(dom)
+    # staging rank (rule behind the prune): p90 saved in the baseline context, desc, then % within, then id
+    stg = sorted((e for e in entries if e["type"] == "prepos_site"),
+                 key=lambda e: (-e["inBaseline"]["benefits"]["emsP90SavedS"], -e["inBaseline"]["benefits"]["emsPctWithinGain"], e["id"]))
     out = {"snapshotId": config.SNAPSHOT_ID,
            "note": "Effects of each candidate alone, measured by the reference code (see candidate_effects.py docstring). "
-                   "Positive benefit = better. Hypothetical scenario options; not forecasts.",
-           "materiality": {"timeS": 1, "jobs": 100, "emsPctWithinPoints": 0.01},
-           "reference": ref, "candidates": entries}
+                   "Positive benefit = better. Hypothetical scenario options; not forecasts. `candidates` = the catalog "
+                   "offered to the planner (kept); `pruned` = entries removed from it, with the reason and the measured effect.",
+           "materiality": {"timeS": 1, "jobs": 100, "emsPctWithinPoints": 0.01, "freightTripS": FREIGHT_HELP_S},
+           "pruneRules": {"shuttle": "removed when the measured population-wide effect is zero on every lens (car-only edges, wait longer than driving); "
+                                     "the one shuttle with a measurable local effect is kept",
+                          "staging": "keep the 3 staging sites with the largest EMS p90 gain in the baseline context",
+                          "stagingRank": [e["id"] for e in stg],
+                          "connector": "kept when it helps on any lens including freight",
+                          "corridor": "all kept"},
+           "tripIds": [t["id"] for t in trips],
+           "reference": ref,
+           "candidates": [e for e in entries if e["status"] == "kept"],
+           "pruned": [e for e in entries if e["status"] == "pruned"]}
     return out
 
 

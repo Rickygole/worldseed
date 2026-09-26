@@ -19,11 +19,11 @@ candidates:
       Adds a scenario-only shuttle connection between the Tradepoint Atlantic road network on the north bank and
       the Fort Armistead road network at Hawkins Point on the south bank, roughly where the Key Bridge used to
       cross. It is modeled as a fixed boarding wait plus a straight-line crossing at constant speed, in both
-      directions. Disabled in the baseline; enabling it lets cross-harbor trips skip the long drive around the harbor.
+      directions. Disabled in the baseline; enabling it lets cross-harbor trips skip the long drive around the harbor. It carries people and cars only: vehicles carrying hazardous materials cannot use it.
     lens: [access, xharbor, ems]
     costTier: "$$"
     leadTime: months
-    assumptions: [A-CANDIDATES-HYPOTHETICAL, A-SHUTTLE-SPEED, A-SHUTTLE-WAIT]
+    assumptions: [A-CANDIDATES-HYPOTHETICAL, A-SHUTTLE-SPEED, A-SHUTTLE-WAIT, A-SHUTTLE-NO-HAZMAT]
     link:
       mode: shuttle
       a: {osmNode: 9222322309, expectNames: [Tradepoint Avenue], site: "Tradepoint Atlantic, Tradepoint Avenue at Plate Mill Road"}
@@ -31,6 +31,8 @@ candidates:
   - id: TL-SHUTTLE-BROENING-CURTISBAY
     type: temp_link
     kind: temporary_link
+    status: pruned
+    pruneReason: "Round 2 measured exactly zero population-wide effect for this link on every lens (regional access, cross-harbor access, EMS): the modeled crossing plus the fixed wait is slower than driving around, and a shuttle link carries cars only. The measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: harbor shuttle link, Broening Highway southern end to Curtis Bay"
     mechanism: >
       Adds a scenario-only shuttle connection between the southern end of Broening Highway on the north bank and
@@ -48,6 +50,8 @@ candidates:
   - id: TL-SHUTTLE-EDGEMERE-RIVIERA
     type: temp_link
     kind: temporary_link
+    status: pruned
+    pruneReason: "Round 2 measured exactly zero population-wide effect for this link on every lens (regional access, cross-harbor access, EMS): the modeled crossing plus the fixed wait is slower than driving around, and a shuttle link carries cars only. The measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: river-mouth shuttle link, Edgemere to Riviera Beach"
     mechanism: >
       Adds a scenario-only shuttle connection across the mouth of the Patapsco between the Edgemere area on the
@@ -65,6 +69,8 @@ candidates:
   - id: TL-SHUTTLE-CANTON-FAIRFIELD
     type: temp_link
     kind: temporary_link
+    status: pruned
+    pruneReason: "Round 2 measured exactly zero population-wide effect for this link on every lens (regional access, cross-harbor access, EMS): the modeled crossing plus the fixed wait is slower than driving around, and a shuttle link carries cars only. The measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: inner-harbor shuttle link, Canton to Fairfield"
     mechanism: >
       Adds a scenario-only shuttle connection between the Canton waterfront on the north bank and East Patapsco
@@ -82,6 +88,8 @@ candidates:
   - id: TL-SHUTTLE-CANTON-LOCUSTPOINT
     type: temp_link
     kind: temporary_link
+    status: pruned
+    pruneReason: "Same-shore negative control with zero effect by construction. Dropped because a documented negative control already exists in the freight trip set (same-shore control pairs in trips.yaml). Its measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: same-bank water link, Canton to Locust Point"
     mechanism: >
       Adds a scenario-only shuttle connection between the Canton waterfront and East Fort Avenue in Locust Point,
@@ -247,6 +255,8 @@ candidates:
   - id: SS-HAWKINS-POINT
     type: prepos_site
     kind: staging_site
+    status: pruned
+    pruneReason: "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: staging site at Hawkins Point"
     mechanism: >
       Places a scenario-only staging location for response units at Dock Road and Fort Armistead Road on the
@@ -273,6 +283,8 @@ candidates:
   - id: SS-EDGEMERE
     type: prepos_site
     kind: staging_site
+    status: pruned
+    pruneReason: "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: staging site at Edgemere"
     mechanism: >
       Places a scenario-only staging location for response units on Sparrows Point Road at Armistead Road in
@@ -309,6 +321,8 @@ candidates:
   - id: SS-FAIRFIELD
     type: prepos_site
     kind: staging_site
+    status: pruned
+    pruneReason: "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: staging site at Fairfield"
     mechanism: >
       Places a scenario-only staging location for response units on East Patapsco Avenue in Fairfield on the south
@@ -321,6 +335,8 @@ candidates:
   - id: SS-RIVIERA-BEACH
     type: prepos_site
     kind: staging_site
+    status: pruned
+    pruneReason: "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: staging site at Riviera Beach"
     mechanism: >
       Places a scenario-only staging location for response units on Fort Smallwood Road at Riviera Beach, on the
@@ -333,6 +349,8 @@ candidates:
   - id: SS-HOSPITAL-HARBOR
     type: prepos_site
     kind: staging_site
+    status: pruned
+    pruneReason: "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: staging site at MedStar Harbor Hospital"
     mechanism: >
       Places a scenario-only staging location for response units at MedStar Harbor Hospital in South Baltimore.
@@ -345,6 +363,8 @@ candidates:
   - id: SS-CANTON
     type: prepos_site
     kind: staging_site
+    status: pruned
+    pruneReason: "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`."
     title: "Hypothetical scenario option: staging site at the Canton waterfront"
     mechanism: >
       Places a scenario-only staging location for response units at Baylis Street on the Canton waterfront, in an
@@ -355,3 +375,35 @@ candidates:
     leadTime: weeks
     assumptions: [A-CANDIDATES-HYPOTHETICAL, A-STAGING-DELAY]
     site: {osmNode: 3292944991, expectNames: [Baylis Street, Brewers Green Way]}
+
+  # ------------------------------------------------------------------ hazmat windows (lift the tunnel prohibition for the hazmat vehicle class)
+  - id: HW-HARBOR-TUNNEL-ESCORT
+    type: hazmat_window
+    kind: hazmat_window
+    title: "Hypothetical scenario option: scheduled escorted window for hazardous-materials vehicles in the Harbor Tunnel"
+    mechanism: >
+      Allows vehicles that carry hazardous materials to use the Harbor Tunnel during a scheduled, escorted window,
+      at the price of a fixed extra delay for each passage through the tunnel. It changes nothing for cars. It only
+      shortens freight trips that would otherwise have to take the long way around the harbor. This is a
+      scenario-only lever; whether such a window is allowed is a matter for the responsible agencies.
+    hazmatLink: L-HARBORTUNNEL
+    penalty: {assumption: A-HAZMAT-ESCORT-PENALTY}
+    lens: [freight]
+    costTier: "$$"
+    leadTime: months
+    assumptions: [A-CANDIDATES-HYPOTHETICAL, A-HAZMAT-ESCORT-PENALTY, A-HAZMAT-TUNNELS]
+  - id: HW-FORT-MCHENRY-ESCORT
+    type: hazmat_window
+    kind: hazmat_window
+    title: "Hypothetical scenario option: scheduled escorted window for hazardous-materials vehicles in the Fort McHenry Tunnel"
+    mechanism: >
+      Allows vehicles that carry hazardous materials to use the Fort McHenry Tunnel during a scheduled, escorted
+      window, at the price of a fixed extra delay for each passage through the tunnel. It changes nothing for cars.
+      It only shortens freight trips that would otherwise have to take the long way around the harbor. This is a
+      scenario-only lever; whether such a window is allowed is a matter for the responsible agencies.
+    hazmatLink: L-FORTMCHENRY
+    penalty: {assumption: A-HAZMAT-ESCORT-PENALTY}
+    lens: [freight]
+    costTier: "$$"
+    leadTime: months
+    assumptions: [A-CANDIDATES-HYPOTHETICAL, A-HAZMAT-ESCORT-PENALTY, A-HAZMAT-TUNNELS]

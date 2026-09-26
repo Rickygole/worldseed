@@ -1,11 +1,63 @@
 {
  "snapshotId": "keybridge-2024-03-01-v1",
- "note": "Effects of each candidate alone, measured by the reference code (see candidate_effects.py docstring). Positive benefit = better. Hypothetical scenario options; not forecasts.",
+ "note": "Effects of each candidate alone, measured by the reference code (see candidate_effects.py docstring). Positive benefit = better. Hypothetical scenario options; not forecasts. `candidates` = the catalog offered to the planner (kept); `pruned` = entries removed from it, with the reason and the measured effect.",
  "materiality": {
   "timeS": 1,
   "jobs": 100,
-  "emsPctWithinPoints": 0.01
+  "emsPctWithinPoints": 0.01,
+  "freightTripS": 60.0
  },
+ "pruneRules": {
+  "shuttle": "removed when the measured population-wide effect is zero on every lens (car-only edges, wait longer than driving); the one shuttle with a measurable local effect is kept",
+  "staging": "keep the 3 staging sites with the largest EMS p90 gain in the baseline context",
+  "stagingRank": [
+   "SS-BROENING-SOUTH",
+   "SS-CURTIS-BAY",
+   "SS-TRADEPOINT",
+   "SS-HAWKINS-POINT",
+   "SS-CANTON",
+   "SS-RIVIERA-BEACH",
+   "SS-FAIRFIELD",
+   "SS-HOSPITAL-HARBOR",
+   "SS-EDGEMERE"
+  ],
+  "connector": "kept when it helps on any lens including freight",
+  "corridor": "all kept"
+ },
+ "tripIds": [
+  "TP>HP",
+  "HP>TP",
+  "TP>CB",
+  "CB>TP",
+  "TP>FF",
+  "FF>TP",
+  "TP>GBI",
+  "GBI>TP",
+  "DMT>HP",
+  "HP>DMT",
+  "DMT>CB",
+  "CB>DMT",
+  "DMT>FF",
+  "FF>DMT",
+  "DMT>GBI",
+  "GBI>DMT",
+  "EDG>HP",
+  "HP>EDG",
+  "EDG>CB",
+  "CB>EDG",
+  "EDG>FF",
+  "FF>EDG",
+  "EDG>GBI",
+  "GBI>EDG",
+  "TP>DMT",
+  "DMT>TP",
+  "EDG>DMT",
+  "DMT>EDG",
+  "HP>CB",
+  "CB>HP",
+  "FF>CB",
+  "CB>FF"
+ ],
  "reference": {
   "baseline": {
    "access": {
@@ -30,6 +82,76 @@
     "pctWithin": 96.2195,
     "zvhWithin": 99.529,
     "isolatedBgCount": 31
+   },
+   "tripMinutes": {
+    "car": [
+     15.83,
+     12.48,
+     16.97,
+     16.51,
+     19.18,
+     18.32,
+     18.06,
+     16.69,
+     11.54,
+     9.85,
+     12.69,
+     10.74,
+     11.18,
+     8.64,
+     13.77,
+     13.32,
+     14.53,
+     11.85,
+     15.67,
+     15.88,
+     17.88,
+     17.69,
+     16.76,
+     16.07,
+     12.72,
+     12.29,
+     11.42,
+     11.66,
+     6.93,
+     7.22,
+     2.6,
+     2.21
+    ],
+    "hazmat_truck": [
+     15.83,
+     12.48,
+     16.97,
+     16.51,
+     19.18,
+     18.32,
+     18.06,
+     16.69,
+     11.54,
+     9.85,
+     12.69,
+     13.88,
+     14.89,
+     15.69,
+     13.77,
+     14.06,
+     14.53,
+     11.85,
+     15.67,
+     15.88,
+     17.88,
+     17.69,
+     16.76,
+     16.07,
+     12.72,
+     12.29,
+     11.42,
+     11.66,
+     6.93,
+     7.22,
+     2.6,
+     2.21
+    ]
    }
   },
   "keybridge_removed": {
@@ -55,6 +177,76 @@
     "pctWithin": 96.2195,
     "zvhWithin": 99.529,
     "isolatedBgCount": 31
+   },
+   "tripMinutes": {
+    "car": [
+     31.11,
+     28.86,
+     24.68,
+     21.93,
+     22.23,
+     19.83,
+     26.2,
+     24.52,
+     20.06,
+     17.66,
+     13.63,
+     10.74,
+     11.18,
+     8.64,
+     15.15,
+     13.32,
+     28.02,
+     27.67,
+     21.59,
+     20.74,
+     19.13,
+     18.64,
+     23.11,
+     23.33,
+     12.72,
+     12.29,
+     11.42,
+     11.66,
+     6.93,
+     7.22,
+     2.6,
+     2.21
+    ],
+    "hazmat_truck": [
+     39.01,
+     39.61,
+     33.33,
+     33.41,
+     31.06,
+     31.37,
+     33.97,
+     34.38,
+     28.89,
+     28.74,
+     23.14,
+     22.44,
+     20.88,
+     20.41,
+     23.79,
+     23.41,
+     35.86,
+     36.74,
+     30.17,
+     30.54,
+     27.9,
+     28.51,
+     30.82,
+     31.51,
+     12.72,
+     12.29,
+     11.42,
+     11.66,
+     6.93,
+     7.22,
+     2.6,
+     2.21
+    ]
    }
   }
  },
@@ -88,6 +280,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -95,7 +369,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -132,6 +409,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 19.9,
+       "maxSavedS": 306.3,
+       "maxSavedTrip": "TP>HP",
+       "tripsSaved60s": 2,
+       "savedS": [
+        306.3,
+        171.4,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -140,9 +499,14 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 19.9,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 306.3,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
-    "helps": [],
+    "helps": [
+     "freight"
+    ],
     "local": {
      "maxHexXharborTimeSavedS": 0.1,
      "popXharborSaved60s": 0.0,
@@ -153,16 +517,3982 @@
      }
     }
    },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "TL-CONNECTOR-BROENING-TRADEPOINT",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.004,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252966.962,
+      "popMeanLossPct": -0.013,
+      "lowWageMeanLossPct": -0.012,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.12,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 77.91,
+       "maxSavedS": 328.6,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 10,
+       "savedS": [
+        269.2,
+        198.2,
+        269.2,
+        198.2,
+        269.2,
+        198.2,
+        269.2,
+        198.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        328.6,
+        301.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 77.91,
+       "maxSavedS": 328.6,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 10,
+       "savedS": [
+        269.2,
+        198.2,
+        269.2,
+        198.2,
+        269.2,
+        198.2,
+        269.2,
+        198.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        328.6,
+        301.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.12,
+     "xharborJobsGain": 38.9,
+     "accessTimeSavedS": 0.004,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 77.91,
+     "freightHazmatMeanSavedS": 77.91,
+     "freightMaxSavedS": 328.6
+    },
+    "helps": [
+     "freight"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 92.6,
+     "popXharborSaved60s": 50.0,
+     "hexesXharborSaved60s": 5,
+     "terminalPairTimeS": {
+      "without": 597.8,
+      "with": 197.0
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.94,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249649.89,
+      "popMeanLossPct": 1.459,
+      "lowWageMeanLossPct": 1.398,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.218,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 77.45,
+       "maxSavedS": 328.6,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 10,
+       "savedS": [
+        228.6,
+        236.1,
+        228.6,
+        236.1,
+        228.6,
+        236.1,
+        228.6,
+        236.1,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        328.6,
+        301.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 66.09,
+       "maxSavedS": 328.6,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 10,
+       "savedS": [
+        173.1,
+        216.2,
+        176.7,
+        222.3,
+        176.7,
+        222.3,
+        176.7,
+        222.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        328.6,
+        301.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.411,
+     "xharborJobsGain": 154.1,
+     "accessTimeSavedS": 0.006,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 77.45,
+     "freightHazmatMeanSavedS": 66.09,
+     "freightMaxSavedS": 328.6,
+     "xharborShareOfBridgeLossRecovered": 0.0302
+    },
+    "helps": [
+     "xharbor",
+     "freight"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 102.8,
+     "popXharborSaved60s": 50.0,
+     "hexesXharborSaved60s": 5,
+     "terminalPairTimeS": {
+      "without": 597.8,
+      "with": 197.0
+     }
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "TL-CONNECTOR-DUNDALK-TRADEPOINT",
+   "type": "temp_link",
+   "kind": "temporary_link",
+   "costTier": "$$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.002,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 15.34,
+       "maxSavedS": 286.7,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 7,
+       "savedS": [
+        65.7,
+        0.0,
+        65.7,
+        0.0,
+        65.7,
+        105.4,
+        65.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        286.7,
+        261.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 10.95,
+       "maxSavedS": 286.7,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 6,
+       "savedS": [
+        65.7,
+        0.0,
+        65.7,
+        0.0,
+        65.7,
+        0.0,
+        65.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        286.7,
+        261.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.002,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 15.34,
+     "freightHazmatMeanSavedS": 10.95,
+     "freightMaxSavedS": 286.7
+    },
+    "helps": [
+     "freight"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.9,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0,
+     "terminalPairTimeS": {
+      "without": 736.2,
+      "with": 215.5
+     }
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.944,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249534.261,
+      "popMeanLossPct": 1.487,
+      "lowWageMeanLossPct": 1.427,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.501,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 68.28,
+       "maxSavedS": 286.7,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 10,
+       "savedS": [
+        213.3,
+        196.4,
+        213.3,
+        196.4,
+        213.3,
+        196.4,
+        213.3,
+        196.4,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        286.7,
+        261.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 52.48,
+       "maxSavedS": 286.7,
+       "maxSavedTrip": "TP>DMT",
+       "tripsSaved60s": 10,
+       "savedS": [
+        131.2,
+        176.4,
+        134.8,
+        182.5,
+        134.8,
+        182.5,
+        134.8,
+        182.5,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        286.7,
+        261.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.128,
+     "xharborJobsGain": 38.4,
+     "accessTimeSavedS": 0.002,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 68.28,
+     "freightHazmatMeanSavedS": 52.48,
+     "freightMaxSavedS": 286.7,
+     "xharborShareOfBridgeLossRecovered": 0.0094
+    },
+    "helps": [
+     "freight"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 71.6,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 1,
+     "terminalPairTimeS": {
+      "without": 736.2,
+      "with": 215.5
+     }
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": [
+    "TL-CONNECTOR-BROENING-TRADEPOINT"
+   ]
+  },
+  {
+   "id": "CP-BELTWAY-FLOW",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -3.201,
+      "p50S": 904.928,
+      "p90S": 1263.854,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253572.863,
+      "popMeanLossPct": -0.316,
+      "lowWageMeanLossPct": -0.309,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -5.92,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 13.12,
+       "maxSavedS": 22.7,
+       "maxSavedTrip": "TP>GBI",
+       "tripsSaved60s": 0,
+       "savedS": [
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        22.7,
+        21.9,
+        10.5,
+        9.5,
+        10.5,
+        0.0,
+        0.0,
+        0.0,
+        18.3,
+        0.0,
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        22.7,
+        21.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 15.05,
+       "maxSavedS": 22.7,
+       "maxSavedTrip": "TP>GBI",
+       "tripsSaved60s": 0,
+       "savedS": [
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        22.7,
+        21.9,
+        10.5,
+        9.5,
+        10.5,
+        9.5,
+        10.5,
+        9.5,
+        18.3,
+        16.8,
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        14.9,
+        14.6,
+        22.7,
+        21.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 5.92,
+     "xharborJobsGain": 644.8,
+     "accessTimeSavedS": 3.201,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 13.12,
+     "freightHazmatMeanSavedS": 15.05,
+     "freightMaxSavedS": 22.7
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 31.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.268,
+      "p50S": 905.102,
+      "p90S": 1275.726,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249824.075,
+      "popMeanLossPct": 1.336,
+      "lowWageMeanLossPct": 1.278,
+      "popLossGt10pct": 18944.534,
+      "popLossGt25pct": 10708.935,
+      "lowWageLossGt10pct": 1312.841,
+      "popMeanAddedS": 9.307,
+      "popAddedGt60s": 32673.356
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 4.37,
+       "maxSavedS": 10.6,
+       "maxSavedTrip": "HP>EDG",
+       "tripsSaved60s": 0,
+       "savedS": [
+        5.9,
+        0.0,
+        5.9,
+        0.0,
+        5.9,
+        0.0,
+        5.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        9.6,
+        10.6,
+        9.6,
+        10.6,
+        9.6,
+        10.6,
+        9.6,
+        10.6,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 11.48,
+       "maxSavedS": 27.1,
+       "maxSavedTrip": "TP>HP",
+       "tripsSaved60s": 0,
+       "savedS": [
+        27.1,
+        26.9,
+        9.6,
+        10.6,
+        9.6,
+        10.6,
+        14.8,
+        10.6,
+        17.5,
+        16.3,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.6,
+        0.0,
+        27.1,
+        26.9,
+        9.6,
+        10.6,
+        9.6,
+        10.6,
+        14.8,
+        10.6,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 4.322,
+     "xharborJobsGain": 328.3,
+     "accessTimeSavedS": 2.678,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 4.37,
+     "freightHazmatMeanSavedS": 11.48,
+     "freightMaxSavedS": 27.1,
+     "xharborShareOfBridgeLossRecovered": 0.3171
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 22.8,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-HARBOR-TUNNEL-BORES",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.525,
+      "p50S": 906.613,
+      "p90S": 1269.675,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253029.201,
+      "popMeanLossPct": -0.065,
+      "lowWageMeanLossPct": -0.07,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.873,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.8,
+       "maxSavedS": 4.8,
+       "maxSavedTrip": "CB>DMT",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        4.8,
+        4.8,
+        4.8,
+        0.0,
+        4.8,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.873,
+     "xharborJobsGain": 101.1,
+     "accessTimeSavedS": 0.525,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.8,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 4.8
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 4.8,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.353,
+      "p50S": 907.168,
+      "p90S": 1280.162,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249652.943,
+      "popMeanLossPct": 1.407,
+      "lowWageMeanLossPct": 1.344,
+      "popLossGt10pct": 18676.051,
+      "popLossGt25pct": 11429.818,
+      "lowWageLossGt10pct": 1301.542,
+      "popMeanAddedS": 12.516,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 4.82,
+       "maxSavedS": 4.8,
+       "maxSavedTrip": "HP>TP",
+       "tripsSaved60s": 0,
+       "savedS": [
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        4.8,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 1.113,
+     "xharborJobsGain": 157.1,
+     "accessTimeSavedS": 0.593,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 4.82,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 4.8,
+     "xharborShareOfBridgeLossRecovered": 0.0817
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 4.8,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-HARBOR-TUNNEL-APPROACHES",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -2.332,
+      "p50S": 904.081,
+      "p90S": 1268.231,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253445.707,
+      "popMeanLossPct": -0.352,
+      "lowWageMeanLossPct": -0.372,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -3.799,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 1.3,
+       "maxSavedS": 12.2,
+       "maxSavedTrip": "GBI>DMT",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        5.6,
+        7.7,
+        5.6,
+        0.0,
+        12.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 3.799,
+     "xharborJobsGain": 517.6,
+     "accessTimeSavedS": 2.332,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 1.3,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 12.2
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 24.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.411,
+      "p50S": 904.081,
+      "p90S": 1277.537,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 250183.353,
+      "popMeanLossPct": 1.072,
+      "lowWageMeanLossPct": 0.995,
+      "popLossGt10pct": 17408.237,
+      "popLossGt25pct": 11174.805,
+      "lowWageLossGt10pct": 1216.75,
+      "popMeanAddedS": 9.171,
+      "popAddedGt60s": 31072.839
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 8.74,
+       "maxSavedS": 15.0,
+       "maxSavedTrip": "EDG>GBI",
+       "tripsSaved60s": 0,
+       "savedS": [
+        7.7,
+        5.6,
+        7.7,
+        5.6,
+        7.7,
+        5.6,
+        13.0,
+        12.2,
+        7.7,
+        5.6,
+        7.7,
+        5.6,
+        7.7,
+        5.6,
+        13.0,
+        12.2,
+        9.8,
+        7.1,
+        9.8,
+        7.1,
+        9.8,
+        7.1,
+        15.0,
+        13.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 4.458,
+     "xharborJobsGain": 687.5,
+     "accessTimeSavedS": 2.535,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 8.74,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 15.0,
+     "xharborShareOfBridgeLossRecovered": 0.3271
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 24.3,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-FORT-MCHENRY-TUNNEL-BORES",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.237,
+      "p50S": 907.454,
+      "p90S": 1270.196,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252985.871,
+      "popMeanLossPct": -0.045,
+      "lowWageMeanLossPct": -0.048,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.258,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.258,
+     "xharborJobsGain": 57.8,
+     "accessTimeSavedS": 0.237,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 2.9,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.682,
+      "p50S": 908.079,
+      "p90S": 1280.132,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249565.863,
+      "popMeanLossPct": 1.446,
+      "lowWageMeanLossPct": 1.384,
+      "popLossGt10pct": 19504.813,
+      "popLossGt25pct": 11594.161,
+      "lowWageLossGt10pct": 1357.86,
+      "popMeanAddedS": 13.318,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.311,
+     "xharborJobsGain": 70.0,
+     "accessTimeSavedS": 0.264,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0228
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 2.9,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
-    "CP-BELTWAY-FLOW",
-    "CP-HARBOR-TUNNEL-APPROACHES",
     "CP-HARBOR-TUNNEL-BORES",
-    "CP-I95-FLOW",
-    "CP-I97-FLOW",
+    "CP-I97-FLOW"
+   ]
+  },
+  {
+   "id": "CP-I95-FLOW",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -3.122,
+      "p50S": 904.249,
+      "p90S": 1269.395,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253509.916,
+      "popMeanLossPct": -0.398,
+      "lowWageMeanLossPct": -0.415,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -5.141,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 5.141,
+     "xharborJobsGain": 581.8,
+     "accessTimeSavedS": 3.122,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 28.5,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.298,
+      "p50S": 904.249,
+      "p90S": 1277.522,
+      "popAddedGt60s": 14683.8
+     },
+     "xharbor": {
+      "popMeanJobs": 250125.529,
+      "popMeanLossPct": 1.071,
+      "lowWageMeanLossPct": 0.995,
+      "popLossGt10pct": 18090.416,
+      "popLossGt25pct": 11477.005,
+      "lowWageLossGt10pct": 1265.334,
+      "popMeanAddedS": 8.247,
+      "popAddedGt60s": 32260.91
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.32,
+       "maxSavedS": 1.9,
+       "maxSavedTrip": "HP>EDG",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.9,
+        0.0,
+        1.9,
+        0.0,
+        1.9,
+        0.0,
+        1.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 5.382,
+     "xharborJobsGain": 629.7,
+     "accessTimeSavedS": 3.244,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.32,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 1.9,
+     "xharborShareOfBridgeLossRecovered": 0.3949
+    },
+    "helps": [
+     "xharbor",
+     "access"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 28.4,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-BROENING-SIGNALS",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.374,
+      "p50S": 907.039,
+      "p90S": 1269.999,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252970.57,
+      "popMeanLossPct": -0.036,
+      "lowWageMeanLossPct": -0.035,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.445,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 5.79,
+       "maxSavedS": 21.6,
+       "maxSavedTrip": "HP>DMT",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        20.4,
+        21.6,
+        20.4,
+        12.7,
+        18.0,
+        12.7,
+        20.4,
+        12.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.7,
+        0.7,
+        0.7,
+        0.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 6.99,
+       "maxSavedS": 21.6,
+       "maxSavedTrip": "CB>DMT",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        20.4,
+        21.6,
+        20.4,
+        21.6,
+        20.4,
+        21.6,
+        20.4,
+        21.6,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.7,
+        0.7,
+        0.7,
+        0.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.445,
+     "xharborJobsGain": 42.5,
+     "accessTimeSavedS": 0.374,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 5.79,
+     "freightHazmatMeanSavedS": 6.99,
+     "freightMaxSavedS": 21.6
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 15.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.728,
+      "p50S": 908.079,
+      "p90S": 1280.367,
+      "popAddedGt60s": 14547.1
+     },
+     "xharbor": {
+      "popMeanJobs": 249522.137,
+      "popMeanLossPct": 1.485,
+      "lowWageMeanLossPct": 1.426,
+      "popLossGt10pct": 19171.584,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1337.931,
+      "popMeanAddedS": 13.432,
+      "popAddedGt60s": 32260.91
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.266,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 5.12,
+       "maxSavedS": 18.0,
+       "maxSavedTrip": "DMT>CB",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        18.0,
+        12.7,
+        18.0,
+        12.7,
+        18.0,
+        12.7,
+        18.0,
+        12.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.7,
+        0.7,
+        0.7,
+        0.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 4.24,
+       "maxSavedS": 12.7,
+       "maxSavedTrip": "HP>DMT",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        12.7,
+        12.7,
+        12.7,
+        12.7,
+        12.7,
+        12.7,
+        12.7,
+        12.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.7,
+        0.7,
+        0.7,
+        0.7,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.197,
+     "xharborJobsGain": 26.3,
+     "accessTimeSavedS": 0.218,
+     "emsP90SavedS": 0.257,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 5.12,
+     "freightHazmatMeanSavedS": 4.24,
+     "freightMaxSavedS": 18.0,
+     "xharborShareOfBridgeLossRecovered": 0.0145
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 33.2,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-HANOVER-SIGNALS",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.585,
+      "p50S": 907.05,
+      "p90S": 1270.196,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252947.892,
+      "popMeanLossPct": -0.016,
+      "lowWageMeanLossPct": -0.015,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -0.926,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.783,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.926,
+     "xharborJobsGain": 19.8,
+     "accessTimeSavedS": 0.585,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 16.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.361,
+      "p50S": 907.848,
+      "p90S": 1280.367,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249515.649,
+      "popMeanLossPct": 1.481,
+      "lowWageMeanLossPct": 1.423,
+      "popLossGt10pct": 19490.921,
+      "popLossGt25pct": 11481.237,
+      "lowWageLossGt10pct": 1354.273,
+      "popMeanAddedS": 12.7,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.783,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 17.33,
+       "maxSavedS": 28.1,
+       "maxSavedTrip": "CB>TP",
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        19.2,
+        28.1,
+        19.2,
+        27.1,
+        19.2,
+        25.9,
+        0.0,
+        0.0,
+        19.2,
+        28.1,
+        19.2,
+        27.1,
+        19.2,
+        25.9,
+        0.0,
+        0.0,
+        19.2,
+        28.1,
+        19.2,
+        27.1,
+        19.2,
+        25.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.929,
+     "xharborJobsGain": 19.8,
+     "accessTimeSavedS": 0.585,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 17.33,
+     "freightMaxSavedS": 28.1,
+     "xharborShareOfBridgeLossRecovered": 0.0682
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 16.1,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": []
+  },
+  {
+   "id": "CP-I97-FLOW",
+   "type": "signal_priority",
+   "kind": "corridor_priority",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": -0.747,
+      "p50S": 906.004,
+      "p90S": 1269.291,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 253090.459,
+      "popMeanLossPct": -0.105,
+      "lowWageMeanLossPct": -0.104,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": -1.564,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 1.564,
+     "xharborJobsGain": 162.4,
+     "accessTimeSavedS": 0.747,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 12.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.198,
+      "p50S": 906.313,
+      "p90S": 1278.477,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249663.068,
+      "popMeanLossPct": 1.393,
+      "lowWageMeanLossPct": 1.335,
+      "popLossGt10pct": 18703.525,
+      "popLossGt25pct": 10636.995,
+      "lowWageLossGt10pct": 1298.986,
+      "popMeanAddedS": 12.059,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 1.57,
+     "xharborJobsGain": 167.3,
+     "accessTimeSavedS": 0.748,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.1152
+    },
+    "helps": [
+     "xharbor"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 12.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "SS-TRADEPOINT",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.246,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.277,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.246,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.277,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": [
     "SS-CURTIS-BAY"
    ]
   },
+  {
+   "id": "SS-BROENING-SOUTH",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.689,
+      "p90S": 366.84,
+      "pctWithin": 96.2196,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.683,
+     "emsPctWithinGain": 0.0001,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.689,
+      "p90S": 366.84,
+      "pctWithin": 96.2196,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.683,
+     "emsPctWithinGain": 0.0001,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": false,
+   "dominatedBy": []
+  },
+  {
+   "id": "SS-CURTIS-BAY",
+   "type": "prepos_site",
+   "kind": "staging_site",
+   "costTier": "$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.713,
+      "p90S": 367.132,
+      "pctWithin": 96.2327,
+      "zvhWithin": 99.5315,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.391,
+     "emsPctWithinGain": 0.0132,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [
+     "ems"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.713,
+      "p90S": 367.132,
+      "pctWithin": 96.2327,
+      "zvhWithin": 99.5315,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.391,
+     "emsPctWithinGain": 0.0132,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [
+     "ems"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "HW-HARBOR-TUNNEL-ESCORT",
+   "type": "hazmat_window",
+   "kind": "hazmat_window",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 5.13,
+       "maxSavedS": 123.2,
+       "maxSavedTrip": "FF>DMT",
+       "tripsSaved60s": 1,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        123.2,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 5.13,
+     "freightMaxSavedS": 123.2
+    },
+    "helps": [
+     "freight"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 269.8,
+       "maxSavedS": 406.3,
+       "maxSavedTrip": "FF>DMT",
+       "tripsSaved60s": 24,
+       "savedS": [
+        174.2,
+        344.9,
+        218.7,
+        388.7,
+        230.0,
+        392.4,
+        166.1,
+        291.5,
+        229.7,
+        364.8,
+        270.6,
+        402.5,
+        282.0,
+        406.3,
+        218.1,
+        305.3,
+        170.5,
+        244.3,
+        215.0,
+        288.1,
+        226.3,
+        291.9,
+        162.4,
+        190.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 269.8,
+     "freightMaxSavedS": 406.3,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [
+     "freight"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": []
+  },
+  {
+   "id": "HW-FORT-MCHENRY-ESCORT",
+   "type": "hazmat_window",
+   "kind": "hazmat_window",
+   "costTier": "$$",
+   "inBaseline": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 0.0,
+      "p50S": 907.533,
+      "p90S": 1270.256,
+      "popAddedGt60s": 0.0
+     },
+     "xharbor": {
+      "popMeanJobs": 252928.091,
+      "popMeanLossPct": 0.0,
+      "lowWageMeanLossPct": 0.0,
+      "popLossGt10pct": 0.0,
+      "popLossGt25pct": 0.0,
+      "lowWageLossGt10pct": 0.0,
+      "popMeanAddedS": 0.0,
+      "popAddedGt60s": 0.0
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
+    },
+    "helps": [],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "inKeybridgeRemoved": {
+    "metrics": {
+     "access": {
+      "popMeanAddedS": 2.946,
+      "p50S": 908.201,
+      "p90S": 1280.792,
+      "popAddedGt60s": 15202.6
+     },
+     "xharbor": {
+      "popMeanJobs": 249495.815,
+      "popMeanLossPct": 1.497,
+      "lowWageMeanLossPct": 1.438,
+      "popLossGt10pct": 19705.469,
+      "popLossGt25pct": 11622.728,
+      "lowWageLossGt10pct": 1370.605,
+      "popMeanAddedS": 13.629,
+      "popAddedGt60s": 32679.021
+     },
+     "ems": {
+      "p50S": 201.801,
+      "p90S": 367.523,
+      "pctWithin": 96.2195,
+      "zvhWithin": 99.529,
+      "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 37.87,
+       "maxSavedS": 109.4,
+       "maxSavedTrip": "DMT>CB",
+       "tripsSaved60s": 8,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        25.1,
+        0.0,
+        25.1,
+        0.0,
+        25.1,
+        68.5,
+        66.9,
+        109.4,
+        104.5,
+        109.4,
+        104.5,
+        109.4,
+        104.5,
+        0.0,
+        0.0,
+        0.0,
+        18.9,
+        0.0,
+        18.9,
+        0.0,
+        18.9,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     }
+    },
+    "benefits": {
+     "xharborTimeSavedS": 0.0,
+     "xharborJobsGain": 0.0,
+     "accessTimeSavedS": 0.0,
+     "emsP90SavedS": 0.0,
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 37.87,
+     "freightMaxSavedS": 109.4,
+     "xharborShareOfBridgeLossRecovered": 0.0
+    },
+    "helps": [
+     "freight"
+    ],
+    "local": {
+     "maxHexXharborTimeSavedS": 0.0,
+     "popXharborSaved60s": 0.0,
+     "hexesXharborSaved60s": 0
+    }
+   },
+   "status": "kept",
+   "measurableEffectInKeybridgeRemoved": true,
+   "dominatedBy": [
+    "HW-HARBOR-TUNNEL-ESCORT"
+   ]
+  }
+ ],
+ "pruned": [
   {
    "id": "TL-SHUTTLE-BROENING-CURTISBAY",
    "type": "temp_link",
@@ -192,6 +4522,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -199,7 +4611,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -236,6 +4651,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -244,6 +4741,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -257,6 +4757,8 @@
      }
     }
    },
+   "status": "pruned",
+   "pruneReason": "Round 2 measured exactly zero population-wide effect for this link on every lens (regional access, cross-harbor access, EMS): the modeled crossing plus the fixed wait is slower than driving around, and a shuttle link carries cars only. The measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "CP-BELTWAY-FLOW",
@@ -264,7 +4766,10 @@
     "CP-HARBOR-TUNNEL-BORES",
     "CP-I95-FLOW",
     "CP-I97-FLOW",
-    "SS-CURTIS-BAY"
+    "HW-FORT-MCHENRY-ESCORT",
+    "HW-HARBOR-TUNNEL-ESCORT",
+    "SS-CURTIS-BAY",
+    "TL-SHUTTLE-TRADEPOINT-HAWKINS"
    ]
   },
   {
@@ -296,6 +4801,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -303,7 +4890,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -340,6 +4930,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -348,6 +5020,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -361,6 +5036,8 @@
      }
     }
    },
+   "status": "pruned",
+   "pruneReason": "Round 2 measured exactly zero population-wide effect for this link on every lens (regional access, cross-harbor access, EMS): the modeled crossing plus the fixed wait is slower than driving around, and a shuttle link carries cars only. The measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "CP-BELTWAY-FLOW",
@@ -368,7 +5045,10 @@
     "CP-HARBOR-TUNNEL-BORES",
     "CP-I95-FLOW",
     "CP-I97-FLOW",
-    "SS-CURTIS-BAY"
+    "HW-FORT-MCHENRY-ESCORT",
+    "HW-HARBOR-TUNNEL-ESCORT",
+    "SS-CURTIS-BAY",
+    "TL-SHUTTLE-TRADEPOINT-HAWKINS"
    ]
   },
   {
@@ -400,6 +5080,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -407,7 +5169,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -444,6 +5209,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -452,6 +5299,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -465,6 +5315,8 @@
      }
     }
    },
+   "status": "pruned",
+   "pruneReason": "Round 2 measured exactly zero population-wide effect for this link on every lens (regional access, cross-harbor access, EMS): the modeled crossing plus the fixed wait is slower than driving around, and a shuttle link carries cars only. The measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "CP-BELTWAY-FLOW",
@@ -472,7 +5324,10 @@
     "CP-HARBOR-TUNNEL-BORES",
     "CP-I95-FLOW",
     "CP-I97-FLOW",
-    "SS-CURTIS-BAY"
+    "HW-FORT-MCHENRY-ESCORT",
+    "HW-HARBOR-TUNNEL-ESCORT",
+    "SS-CURTIS-BAY",
+    "TL-SHUTTLE-TRADEPOINT-HAWKINS"
    ]
   },
   {
@@ -504,6 +5359,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -511,7 +5448,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -548,6 +5488,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -556,6 +5578,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -569,6 +5594,8 @@
      }
     }
    },
+   "status": "pruned",
+   "pruneReason": "Same-shore negative control with zero effect by construction. Dropped because a documented negative control already exists in the freight trip set (same-shore control pairs in trips.yaml). Its measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "CP-BELTWAY-FLOW",
@@ -576,965 +5603,11 @@
     "CP-HARBOR-TUNNEL-BORES",
     "CP-I95-FLOW",
     "CP-I97-FLOW",
-    "SS-CURTIS-BAY"
+    "HW-FORT-MCHENRY-ESCORT",
+    "HW-HARBOR-TUNNEL-ESCORT",
+    "SS-CURTIS-BAY",
+    "TL-SHUTTLE-TRADEPOINT-HAWKINS"
    ]
-  },
-  {
-   "id": "TL-CONNECTOR-BROENING-TRADEPOINT",
-   "type": "temp_link",
-   "kind": "temporary_link",
-   "costTier": "$$$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.004,
-      "p50S": 907.533,
-      "p90S": 1270.256,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252966.962,
-      "popMeanLossPct": -0.013,
-      "lowWageMeanLossPct": -0.012,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -0.12,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.12,
-     "xharborJobsGain": 38.9,
-     "accessTimeSavedS": 0.004,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 92.6,
-     "popXharborSaved60s": 50.0,
-     "hexesXharborSaved60s": 5,
-     "terminalPairTimeS": {
-      "without": 597.8,
-      "with": 197.0
-     }
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.94,
-      "p50S": 908.201,
-      "p90S": 1280.792,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249649.89,
-      "popMeanLossPct": 1.459,
-      "lowWageMeanLossPct": 1.398,
-      "popLossGt10pct": 19705.469,
-      "popLossGt25pct": 11622.728,
-      "lowWageLossGt10pct": 1370.605,
-      "popMeanAddedS": 13.218,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.411,
-     "xharborJobsGain": 154.1,
-     "accessTimeSavedS": 0.006,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.0302
-    },
-    "helps": [
-     "xharbor"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 102.8,
-     "popXharborSaved60s": 50.0,
-     "hexesXharborSaved60s": 5,
-     "terminalPairTimeS": {
-      "without": 597.8,
-      "with": 197.0
-     }
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": true,
-   "dominatedBy": [
-    "CP-BELTWAY-FLOW",
-    "CP-HARBOR-TUNNEL-APPROACHES",
-    "CP-HARBOR-TUNNEL-BORES",
-    "CP-I95-FLOW",
-    "CP-I97-FLOW"
-   ]
-  },
-  {
-   "id": "TL-CONNECTOR-DUNDALK-TRADEPOINT",
-   "type": "temp_link",
-   "kind": "temporary_link",
-   "costTier": "$$$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.0,
-      "p50S": 907.533,
-      "p90S": 1270.256,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252928.091,
-      "popMeanLossPct": 0.0,
-      "lowWageMeanLossPct": 0.0,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -0.002,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.002,
-     "xharborJobsGain": 0.0,
-     "accessTimeSavedS": 0.0,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 0.9,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0,
-     "terminalPairTimeS": {
-      "without": 736.2,
-      "with": 215.5
-     }
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.944,
-      "p50S": 908.201,
-      "p90S": 1280.792,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249534.261,
-      "popMeanLossPct": 1.487,
-      "lowWageMeanLossPct": 1.427,
-      "popLossGt10pct": 19705.469,
-      "popLossGt25pct": 11622.728,
-      "lowWageLossGt10pct": 1370.605,
-      "popMeanAddedS": 13.501,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.128,
-     "xharborJobsGain": 38.4,
-     "accessTimeSavedS": 0.002,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.0094
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 71.6,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 1,
-     "terminalPairTimeS": {
-      "without": 736.2,
-      "with": 215.5
-     }
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": false,
-   "dominatedBy": [
-    "CP-BELTWAY-FLOW",
-    "CP-HARBOR-TUNNEL-APPROACHES",
-    "CP-HARBOR-TUNNEL-BORES",
-    "CP-I95-FLOW",
-    "CP-I97-FLOW",
-    "TL-CONNECTOR-BROENING-TRADEPOINT"
-   ]
-  },
-  {
-   "id": "CP-BELTWAY-FLOW",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -3.201,
-      "p50S": 904.928,
-      "p90S": 1263.854,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 253572.863,
-      "popMeanLossPct": -0.316,
-      "lowWageMeanLossPct": -0.309,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -5.92,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 5.92,
-     "xharborJobsGain": 644.8,
-     "accessTimeSavedS": 3.201,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [
-     "xharbor",
-     "access"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 31.2,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 0.268,
-      "p50S": 905.102,
-      "p90S": 1275.726,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249824.075,
-      "popMeanLossPct": 1.336,
-      "lowWageMeanLossPct": 1.278,
-      "popLossGt10pct": 18944.534,
-      "popLossGt25pct": 10708.935,
-      "lowWageLossGt10pct": 1312.841,
-      "popMeanAddedS": 9.307,
-      "popAddedGt60s": 32673.356
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 4.322,
-     "xharborJobsGain": 328.3,
-     "accessTimeSavedS": 2.678,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.3171
-    },
-    "helps": [
-     "xharbor",
-     "access"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 22.8,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": true,
-   "dominatedBy": [
-    "CP-I95-FLOW"
-   ]
-  },
-  {
-   "id": "CP-HARBOR-TUNNEL-BORES",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.525,
-      "p50S": 906.613,
-      "p90S": 1269.675,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 253029.201,
-      "popMeanLossPct": -0.065,
-      "lowWageMeanLossPct": -0.07,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -0.873,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.873,
-     "xharborJobsGain": 101.1,
-     "accessTimeSavedS": 0.525,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [
-     "xharbor"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 4.8,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.353,
-      "p50S": 907.168,
-      "p90S": 1280.162,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249652.943,
-      "popMeanLossPct": 1.407,
-      "lowWageMeanLossPct": 1.344,
-      "popLossGt10pct": 18676.051,
-      "popLossGt25pct": 11429.818,
-      "lowWageLossGt10pct": 1301.542,
-      "popMeanAddedS": 12.516,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 1.113,
-     "xharborJobsGain": 157.1,
-     "accessTimeSavedS": 0.593,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.0817
-    },
-    "helps": [
-     "xharbor"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 4.8,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": true,
-   "dominatedBy": [
-    "CP-I97-FLOW"
-   ]
-  },
-  {
-   "id": "CP-HARBOR-TUNNEL-APPROACHES",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -2.332,
-      "p50S": 904.081,
-      "p90S": 1268.231,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 253445.707,
-      "popMeanLossPct": -0.352,
-      "lowWageMeanLossPct": -0.372,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -3.799,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 3.799,
-     "xharborJobsGain": 517.6,
-     "accessTimeSavedS": 2.332,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [
-     "xharbor",
-     "access"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 24.2,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 0.411,
-      "p50S": 904.081,
-      "p90S": 1277.537,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 250183.353,
-      "popMeanLossPct": 1.072,
-      "lowWageMeanLossPct": 0.995,
-      "popLossGt10pct": 17408.237,
-      "popLossGt25pct": 11174.805,
-      "lowWageLossGt10pct": 1216.75,
-      "popMeanAddedS": 9.171,
-      "popAddedGt60s": 31072.839
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 4.458,
-     "xharborJobsGain": 687.5,
-     "accessTimeSavedS": 2.535,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.3271
-    },
-    "helps": [
-     "xharbor",
-     "access"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 24.3,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": true,
-   "dominatedBy": []
-  },
-  {
-   "id": "CP-FORT-MCHENRY-TUNNEL-BORES",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.237,
-      "p50S": 907.454,
-      "p90S": 1270.196,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252985.871,
-      "popMeanLossPct": -0.045,
-      "lowWageMeanLossPct": -0.048,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -0.258,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.258,
-     "xharborJobsGain": 57.8,
-     "accessTimeSavedS": 0.237,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 2.9,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.682,
-      "p50S": 908.079,
-      "p90S": 1280.132,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249565.863,
-      "popMeanLossPct": 1.446,
-      "lowWageMeanLossPct": 1.384,
-      "popLossGt10pct": 19504.813,
-      "popLossGt25pct": 11594.161,
-      "lowWageLossGt10pct": 1357.86,
-      "popMeanAddedS": 13.318,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.311,
-     "xharborJobsGain": 70.0,
-     "accessTimeSavedS": 0.264,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.0228
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 2.9,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": false,
-   "dominatedBy": [
-    "CP-HARBOR-TUNNEL-BORES",
-    "CP-I97-FLOW"
-   ]
-  },
-  {
-   "id": "CP-I95-FLOW",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -3.122,
-      "p50S": 904.249,
-      "p90S": 1269.395,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 253509.916,
-      "popMeanLossPct": -0.398,
-      "lowWageMeanLossPct": -0.415,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -5.141,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 5.141,
-     "xharborJobsGain": 581.8,
-     "accessTimeSavedS": 3.122,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [
-     "xharbor",
-     "access"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 28.5,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.298,
-      "p50S": 904.249,
-      "p90S": 1277.522,
-      "popAddedGt60s": 14683.8
-     },
-     "xharbor": {
-      "popMeanJobs": 250125.529,
-      "popMeanLossPct": 1.071,
-      "lowWageMeanLossPct": 0.995,
-      "popLossGt10pct": 18090.416,
-      "popLossGt25pct": 11477.005,
-      "lowWageLossGt10pct": 1265.334,
-      "popMeanAddedS": 8.247,
-      "popAddedGt60s": 32260.91
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 5.382,
-     "xharborJobsGain": 629.7,
-     "accessTimeSavedS": 3.244,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.3949
-    },
-    "helps": [
-     "xharbor",
-     "access"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 28.4,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": true,
-   "dominatedBy": []
-  },
-  {
-   "id": "CP-BROENING-SIGNALS",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.374,
-      "p50S": 907.039,
-      "p90S": 1269.999,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252970.57,
-      "popMeanLossPct": -0.036,
-      "lowWageMeanLossPct": -0.035,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -0.445,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.266,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.445,
-     "xharborJobsGain": 42.5,
-     "accessTimeSavedS": 0.374,
-     "emsP90SavedS": 0.257,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 15.2,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.728,
-      "p50S": 908.079,
-      "p90S": 1280.367,
-      "popAddedGt60s": 14547.1
-     },
-     "xharbor": {
-      "popMeanJobs": 249522.137,
-      "popMeanLossPct": 1.485,
-      "lowWageMeanLossPct": 1.426,
-      "popLossGt10pct": 19171.584,
-      "popLossGt25pct": 11622.728,
-      "lowWageLossGt10pct": 1337.931,
-      "popMeanAddedS": 13.432,
-      "popAddedGt60s": 32260.91
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.266,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.197,
-     "xharborJobsGain": 26.3,
-     "accessTimeSavedS": 0.218,
-     "emsP90SavedS": 0.257,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.0145
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 33.2,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": false,
-   "dominatedBy": []
-  },
-  {
-   "id": "CP-HANOVER-SIGNALS",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.585,
-      "p50S": 907.05,
-      "p90S": 1270.196,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252947.892,
-      "popMeanLossPct": -0.016,
-      "lowWageMeanLossPct": -0.015,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -0.926,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.783,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.926,
-     "xharborJobsGain": 19.8,
-     "accessTimeSavedS": 0.585,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 16.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.361,
-      "p50S": 907.848,
-      "p90S": 1280.367,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249515.649,
-      "popMeanLossPct": 1.481,
-      "lowWageMeanLossPct": 1.423,
-      "popLossGt10pct": 19490.921,
-      "popLossGt25pct": 11481.237,
-      "lowWageLossGt10pct": 1354.273,
-      "popMeanAddedS": 12.7,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.783,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.929,
-     "xharborJobsGain": 19.8,
-     "accessTimeSavedS": 0.585,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.0682
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 16.1,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": false,
-   "dominatedBy": [
-    "CP-HARBOR-TUNNEL-BORES",
-    "CP-I97-FLOW"
-   ]
-  },
-  {
-   "id": "CP-I97-FLOW",
-   "type": "signal_priority",
-   "kind": "corridor_priority",
-   "costTier": "$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": -0.747,
-      "p50S": 906.004,
-      "p90S": 1269.291,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 253090.459,
-      "popMeanLossPct": -0.105,
-      "lowWageMeanLossPct": -0.104,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": -1.564,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 1.564,
-     "xharborJobsGain": 162.4,
-     "accessTimeSavedS": 0.747,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [
-     "xharbor"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 12.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.198,
-      "p50S": 906.313,
-      "p90S": 1278.477,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249663.068,
-      "popMeanLossPct": 1.393,
-      "lowWageMeanLossPct": 1.335,
-      "popLossGt10pct": 18703.525,
-      "popLossGt25pct": 10636.995,
-      "lowWageLossGt10pct": 1298.986,
-      "popMeanAddedS": 12.059,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.523,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 1.57,
-     "xharborJobsGain": 167.3,
-     "accessTimeSavedS": 0.748,
-     "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.1152
-    },
-    "helps": [
-     "xharbor"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 12.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": true,
-   "dominatedBy": []
   },
   {
    "id": "SS-HAWKINS-POINT",
@@ -1565,6 +5638,88 @@
       "pctWithin": 96.2258,
       "zvhWithin": 99.5293,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -1572,7 +5727,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.257,
-     "emsPctWithinGain": 0.0063
+     "emsPctWithinGain": 0.0063,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -1605,6 +5763,88 @@
       "pctWithin": 96.2258,
       "zvhWithin": 99.5293,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -1613,6 +5853,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.257,
      "emsPctWithinGain": 0.0063,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -1622,97 +5865,8 @@
      "hexesXharborSaved60s": 0
     }
    },
-   "measurableEffectInKeybridgeRemoved": false,
-   "dominatedBy": [
-    "SS-CURTIS-BAY"
-   ]
-  },
-  {
-   "id": "SS-TRADEPOINT",
-   "type": "prepos_site",
-   "kind": "staging_site",
-   "costTier": "$$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 0.0,
-      "p50S": 907.533,
-      "p90S": 1270.256,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252928.091,
-      "popMeanLossPct": 0.0,
-      "lowWageMeanLossPct": 0.0,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": 0.0,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.246,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.0,
-     "xharborJobsGain": 0.0,
-     "accessTimeSavedS": 0.0,
-     "emsP90SavedS": 0.277,
-     "emsPctWithinGain": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 0.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.946,
-      "p50S": 908.201,
-      "p90S": 1280.792,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249495.815,
-      "popMeanLossPct": 1.497,
-      "lowWageMeanLossPct": 1.438,
-      "popLossGt10pct": 19705.469,
-      "popLossGt25pct": 11622.728,
-      "lowWageLossGt10pct": 1370.605,
-      "popMeanAddedS": 13.629,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.801,
-      "p90S": 367.246,
-      "pctWithin": 96.2195,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.0,
-     "xharborJobsGain": 0.0,
-     "accessTimeSavedS": 0.0,
-     "emsP90SavedS": 0.277,
-     "emsPctWithinGain": 0.0,
-     "xharborShareOfBridgeLossRecovered": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 0.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
+   "status": "pruned",
+   "pruneReason": "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "SS-CURTIS-BAY"
@@ -1747,6 +5901,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -1754,7 +5990,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -1787,6 +6026,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -1795,6 +6116,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.0,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -1804,194 +6128,14 @@
      "hexesXharborSaved60s": 0
     }
    },
+   "status": "pruned",
+   "pruneReason": "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "CP-HARBOR-TUNNEL-BORES",
     "CP-I97-FLOW",
     "SS-CURTIS-BAY"
    ]
-  },
-  {
-   "id": "SS-BROENING-SOUTH",
-   "type": "prepos_site",
-   "kind": "staging_site",
-   "costTier": "$$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 0.0,
-      "p50S": 907.533,
-      "p90S": 1270.256,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252928.091,
-      "popMeanLossPct": 0.0,
-      "lowWageMeanLossPct": 0.0,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": 0.0,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.689,
-      "p90S": 366.84,
-      "pctWithin": 96.2196,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.0,
-     "xharborJobsGain": 0.0,
-     "accessTimeSavedS": 0.0,
-     "emsP90SavedS": 0.683,
-     "emsPctWithinGain": 0.0001
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 0.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.946,
-      "p50S": 908.201,
-      "p90S": 1280.792,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249495.815,
-      "popMeanLossPct": 1.497,
-      "lowWageMeanLossPct": 1.438,
-      "popLossGt10pct": 19705.469,
-      "popLossGt25pct": 11622.728,
-      "lowWageLossGt10pct": 1370.605,
-      "popMeanAddedS": 13.629,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.689,
-      "p90S": 366.84,
-      "pctWithin": 96.2196,
-      "zvhWithin": 99.529,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.0,
-     "xharborJobsGain": 0.0,
-     "accessTimeSavedS": 0.0,
-     "emsP90SavedS": 0.683,
-     "emsPctWithinGain": 0.0001,
-     "xharborShareOfBridgeLossRecovered": 0.0
-    },
-    "helps": [],
-    "local": {
-     "maxHexXharborTimeSavedS": 0.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": false,
-   "dominatedBy": []
-  },
-  {
-   "id": "SS-CURTIS-BAY",
-   "type": "prepos_site",
-   "kind": "staging_site",
-   "costTier": "$",
-   "inBaseline": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 0.0,
-      "p50S": 907.533,
-      "p90S": 1270.256,
-      "popAddedGt60s": 0.0
-     },
-     "xharbor": {
-      "popMeanJobs": 252928.091,
-      "popMeanLossPct": 0.0,
-      "lowWageMeanLossPct": 0.0,
-      "popLossGt10pct": 0.0,
-      "popLossGt25pct": 0.0,
-      "lowWageLossGt10pct": 0.0,
-      "popMeanAddedS": 0.0,
-      "popAddedGt60s": 0.0
-     },
-     "ems": {
-      "p50S": 201.713,
-      "p90S": 367.132,
-      "pctWithin": 96.2327,
-      "zvhWithin": 99.5315,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.0,
-     "xharborJobsGain": 0.0,
-     "accessTimeSavedS": 0.0,
-     "emsP90SavedS": 0.391,
-     "emsPctWithinGain": 0.0132
-    },
-    "helps": [
-     "ems"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 0.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "inKeybridgeRemoved": {
-    "metrics": {
-     "access": {
-      "popMeanAddedS": 2.946,
-      "p50S": 908.201,
-      "p90S": 1280.792,
-      "popAddedGt60s": 15202.6
-     },
-     "xharbor": {
-      "popMeanJobs": 249495.815,
-      "popMeanLossPct": 1.497,
-      "lowWageMeanLossPct": 1.438,
-      "popLossGt10pct": 19705.469,
-      "popLossGt25pct": 11622.728,
-      "lowWageLossGt10pct": 1370.605,
-      "popMeanAddedS": 13.629,
-      "popAddedGt60s": 32679.021
-     },
-     "ems": {
-      "p50S": 201.713,
-      "p90S": 367.132,
-      "pctWithin": 96.2327,
-      "zvhWithin": 99.5315,
-      "isolatedBgCount": 31
-     }
-    },
-    "benefits": {
-     "xharborTimeSavedS": 0.0,
-     "xharborJobsGain": 0.0,
-     "accessTimeSavedS": 0.0,
-     "emsP90SavedS": 0.391,
-     "emsPctWithinGain": 0.0132,
-     "xharborShareOfBridgeLossRecovered": 0.0
-    },
-    "helps": [
-     "ems"
-    ],
-    "local": {
-     "maxHexXharborTimeSavedS": 0.0,
-     "popXharborSaved60s": 0.0,
-     "hexesXharborSaved60s": 0
-    }
-   },
-   "measurableEffectInKeybridgeRemoved": true,
-   "dominatedBy": []
   },
   {
    "id": "SS-FAIRFIELD",
@@ -2022,6 +6166,88 @@
       "pctWithin": 96.2203,
       "zvhWithin": 99.5292,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2029,7 +6255,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.187,
-     "emsPctWithinGain": 0.0008
+     "emsPctWithinGain": 0.0008,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -2062,6 +6291,88 @@
       "pctWithin": 96.2203,
       "zvhWithin": 99.5292,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2070,6 +6381,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.187,
      "emsPctWithinGain": 0.0008,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -2079,6 +6393,8 @@
      "hexesXharborSaved60s": 0
     }
    },
+   "status": "pruned",
+   "pruneReason": "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "SS-CURTIS-BAY"
@@ -2113,6 +6429,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2120,7 +6518,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.257,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -2153,6 +6554,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2161,6 +6644,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.257,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -2170,6 +6656,8 @@
      "hexesXharborSaved60s": 0
     }
    },
+   "status": "pruned",
+   "pruneReason": "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "SS-CURTIS-BAY"
@@ -2204,6 +6692,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2211,7 +6781,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.187,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -2244,6 +6817,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2252,6 +6907,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.187,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -2261,6 +6919,8 @@
      "hexesXharborSaved60s": 0
     }
    },
+   "status": "pruned",
+   "pruneReason": "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "SS-CURTIS-BAY"
@@ -2295,6 +6955,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2302,7 +7044,10 @@
      "xharborJobsGain": 0.0,
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.257,
-     "emsPctWithinGain": 0.0
+     "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0
     },
     "helps": [],
     "local": {
@@ -2335,6 +7080,88 @@
       "pctWithin": 96.2195,
       "zvhWithin": 99.529,
       "isolatedBgCount": 31
+     },
+     "freight": {
+      "car": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "hazmat_truck": {
+       "crossHarborMeanSavedS": 0.0,
+       "maxSavedS": 0.0,
+       "maxSavedTrip": null,
+       "tripsSaved60s": 0,
+       "savedS": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
      }
     },
     "benefits": {
@@ -2343,6 +7170,9 @@
      "accessTimeSavedS": 0.0,
      "emsP90SavedS": 0.257,
      "emsPctWithinGain": 0.0,
+     "freightCarMeanSavedS": 0.0,
+     "freightHazmatMeanSavedS": 0.0,
+     "freightMaxSavedS": 0.0,
      "xharborShareOfBridgeLossRecovered": 0.0
     },
     "helps": [],
@@ -2352,6 +7182,8 @@
      "hexesXharborSaved60s": 0
     }
    },
+   "status": "pruned",
+   "pruneReason": "Staging sites only move the EMS lens, which the Key Bridge does not change. Only the three best staging sites by EMS p90 gain (rule fixed before pruning: rank by p90 saved in the baseline context) are offered; this one ranked lower. Its measured effect stays in candidate_effects.json under `pruned`.",
    "measurableEffectInKeybridgeRemoved": false,
    "dominatedBy": [
     "SS-CURTIS-BAY"

@@ -14,10 +14,10 @@ uv run --python 3.12 pytest -q
 
 - First run downloads (Overpass attic queries, Census Reporter, TIGER, LODES, Maryland iMAP) into `data/raw/`
   (gitignored). Overpass is slow and flaky: the first fetch took ~2.5 minutes with a few automatic retries.
-  Once `data/raw/` is populated, a full run needs no network and takes about 5 minutes (candidate effects and the
+  Once `data/raw/` is populated, a full run needs no network and takes about 6 to 20 minutes depending on load (candidate effects and the
   golden reference use up to 8 worker processes).
 - Individual stages: `uv run --python 3.12 python -m worldseed_pipeline.<module>` for `fetch_osm`,
-  `fetch_census`, `build_graph`, `build_facilities`, `build_hexes`, `build_destinations`, `build_candidates`,
+  `fetch_census`, `fetch_rules`, `build_graph`, `build_facilities`, `build_hexes`, `build_destinations`, `build_candidates`,
   `build_gazetteer`, `assumptions`, `golden`, `candidate_effects`, `analysis_access`, `snapshot_license`, `manifest`
   (this is the run order; `build_candidates` needs the graph, whose candidate edges come from `candidates.yaml`).
 - Optional: `CENSUS_API_KEY=<key>` switches ACS to the official `api.census.gov` (untested in this build).
@@ -40,7 +40,8 @@ uv run --python 3.12 pytest -q
 | `golden.py`, `worlds.py`, `xharbor.py`, `golden_util.py` | networkx (regional, EMS) and scipy (xharbor) reference fields and metrics for 6 worlds -> `golden.json` |
 | `build_candidates.py`, `candidates.yaml` | hypothetical scenario catalog; temp-link edges are appended by `build_graph`; writes `candidates.json` |
 | `build_gazetteer.py`, `gazetteer_match.py` | name/alias index and reference matcher -> `gazetteer.json` |
-| `candidate_effects.py` | effect of each candidate alone, baseline and bridge-removed -> `candidate_effects.json` |
+| `candidate_effects.py` | effect of each candidate alone (all lenses incl. freight), baseline and bridge-removed; kept and pruned -> `candidate_effects.json` |
+| `trips.py`, `trips.yaml`, `fetch_rules.py` | freight/hazmat trip pairs (car vs hazmat_truck) -> `golden.json` key `trips`; MDTA rule check |
 | `analysis_access.py` | informational effect-size sensitivity -> `access_sensitivity.json` |
 | `assumptions.py`, `snapshot_license.py`, `manifest.py` | assumptions.json, LICENSE.md, sha256 manifest |
 
@@ -95,3 +96,27 @@ runtime disables them in the baseline. `hexes.bin` uses the same packing (`hexes
 - Candidate effect semantics for the simulator: `enable_edges` sets the listed edges enabled; `corridor_speed`
   divides the time of every edge of that corridor by `factor`; `add_source` adds a source at `facilityLike.node`
   with delay `delayS` (in addition to the call-processing delay, so 0 means "behaves like a station").
+
+## Round 3 additions (all additive to file formats)
+
+- `golden.json` key `trips` (new, after `xharbor`; earlier keys byte-identical). Schema:
+  `{definition, classes: {car: {removesFlag: null}, hazmat_truck: {removesFlag: "HAZMAT_PROHIBITED"}}, worlds: [4 ids],
+  tolerance: {timeS: 0.5}, anchors: [{id, name, shore, node, osmNode, lat, lng}],
+  trips: [{id: "TP>HP", origin, destination, kind: "cross_harbor" | "same_shore_control", originNode, destinationNode,
+  results: {car | hazmat_truck: {<world id>: {timeS, minutes, unreachable, addedS, ratio}}}}]}`.
+  `timeS` is free-flow node-to-node shortest drive time (null and `unreachable: true` if no route); `addedS` and
+  `ratio` are against the same class's baseline. A simulator must match `timeS` within 0.5 s.
+- Vehicle class mask for point-to-point routing: `car` uses every enabled edge; `hazmat_truck` skips edges with flag
+  `HAZMAT_PROHIBITED` (4) unless a hazmat window lists them. Candidate shuttle edges now carry flags
+  `CANDIDATE | HAZMAT_PROHIBITED` (20); road connectors carry `CANDIDATE` (16).
+- Catalog: 16 kept entries (was 24). Edge indices of candidate links changed (6 candidate edges after the 81,437 real
+  edges, edgeCount 81,443). New candidate type `hazmat_window` with effect
+  `{op: "allow_class_on", edges, vehicleClass: "hazmat", timePenaltyS, penaltyEdges}`: the hazmat class may use `edges`;
+  each edge in `penaltyEdges` (the bore edges) adds `timePenaltyS`.
+- `candidate_effects.json`: `candidates` (kept) and `pruned` (with `pruneReason`, measured effects), `pruneRules`,
+  `tripIds`, `reference[ctx].tripMinutes`; every entry's contexts gain `metrics.freight` (per class: crossHarborMeanSavedS,
+  maxSavedS, maxSavedTrip, tripsSaved60s, savedS aligned with `tripIds`) and benefits `freightCarMeanSavedS`,
+  `freightHazmatMeanSavedS`, `freightMaxSavedS`; `helps` may include `freight`.
+- Residents: `hexes.bin` `pop` is residents per hex (populated = `pop > 0`; job-only = `pop == 0 && jobs > 0`).
+- `assumptions.json`: `A-HAZMAT-TUNNELS` is now `sourced` (MDTA URL, accessed 2026-09-26); new `A-TRIPS-*`,
+  `A-SHUTTLE-NO-HAZMAT`, `A-HAZMAT-ESCORT-PENALTY`.

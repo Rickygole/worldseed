@@ -65,6 +65,12 @@ are the published ACS estimates (with sampling error) rounded to integers.
 
 WorldSeed is not endorsed by the U.S. Census Bureau.
 
+## Rule sources
+
+The hazmat tunnel prohibition modeled in the `hazmat_truck` class is taken from: Maryland Transportation Authority,
+"Transporting Hazardous Materials Across Our Toll Facilities", https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits,
+accessed 2026-09-26. It is cited as the source of a rule; no text from the page is redistributed here.
+
 ## Scenario catalog
 
 `candidates.json` and `candidate_effects.json` are WorldSeed's own hypothetical scenario options and the modeled
