@@ -75,6 +75,10 @@ export default function LensControl() {
             </span>
           ))}
         </div>
+        <span className="flex shrink-0 items-center gap-2 pb-4 text-xs text-muted">
+          <span className="inline-block size-3 shrink-0 rounded-sm border border-muted/60" style={{ background: "rgb(139 152 169 / 0.25)" }} aria-hidden />
+          Faded: no residents
+        </span>
         {ui.hatchLegend && (
           <span className="flex min-w-0 items-center gap-2 pb-4 text-xs text-muted">
             <span className="hatch-critical inline-block size-3 shrink-0 rounded-sm" aria-hidden />

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import DeckGL from "@deck.gl/react";
 import { FlyToInterpolator, type Layer, type MapViewState, type PickingInfo } from "@deck.gl/core";
-import { PathLayer, TextLayer } from "@deck.gl/layers";
+import { PathLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { Map } from "react-map-gl/maplibre";
 import { cellToBoundary } from "h3-js";
@@ -14,11 +14,15 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useApp, simInfo } from "@/lib/store";
 import { MAP_STYLE } from "@/lib/mapStyle";
-import { BASE_VIEW, BRIDGE, focusView, toLocalKm } from "@/lib/geo";
-import { clamp, easeOutCubic, fmtMin, fmtPct1 } from "@/lib/format";
+import { BASE_VIEW, BRIDGE, distKm, focusView, toLocalKm } from "@/lib/geo";
+import { easeOutCubic, fmtMin, fmtPct1 } from "@/lib/format";
+import { TerrainAnimator } from "@/lib/ui/terrainAnimator";
 import { encode, MAGENTA, type LensId } from "@/lib/ui/lenses";
 import { loadAux } from "@/lib/ui/snapshotAux";
 import { useSnapshotFile } from "@/lib/ui/useSnapshotFile";
+import { useSearch } from "@/lib/ui/search";
+import { loadLinkGeometry, optionGeo, type OptionGeo } from "@/lib/ui/candidateGeo";
+import CompareSlider from "./CompareSlider";
 
 // Worker files are copied to /public/maplibre by scripts/copy-maplibre-worker.mjs.
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
@@ -114,12 +118,64 @@ type ViewState = MapViewState & {
   transitionInterpolator?: FlyToInterpolator;
 };
 
-interface Frame {
-  elev: Float32Array;
-  rgb: Float32Array;
-  /** Hatch drawn for hexes whose target is hatched once they have risen most of the way. */
-  hatch: Uint8Array;
-  id: number;
+/** Where a hex's residents are zero (ports, industrial land): drawn faded so a tall empty tower reads as such. */
+const JOB_ONLY_ALPHA = 0.32;
+
+/** Terrain layer for an encoded field (used by the main map and the compare overlay). */
+function terrainLayer(id: string, hexData: HexDatum[], elev: Float32Array, rgb: Float32Array, cells: { edgeFade: number; residents?: number }[], tick: number, extra: Partial<{ pickable: boolean; selected: Set<number> | null }> = {}) {
+  return new H3HexagonLayer<HexDatum>({
+    id,
+    data: hexData,
+    getHexagon: (h) => h.id,
+    extruded: true,
+    coverage: 0.9,
+    pickable: extra.pickable ?? false,
+    getElevation: (h) => elev[h.i],
+    getFillColor: (h) => {
+      const k = h.i * 3;
+      const raised = elev[h.i] > 4;
+      const c = cells[h.i];
+      const jobOnly = c.residents === 0;
+      let r = rgb[k];
+      let g = rgb[k + 1];
+      let b = rgb[k + 2];
+      if (extra.selected?.has(h.i)) {
+        // Selected block group: lift toward the text color so it reads without relying on hue.
+        r += (230 - r) * 0.35;
+        g += (237 - g) * 0.35;
+        b += (243 - b) * 0.35;
+      }
+      if (jobOnly) {
+        // Desaturate toward the muted gray and fade: nobody lives here.
+        r += (139 - r) * 0.45;
+        g += (152 - g) * 0.45;
+        b += (169 - b) * 0.45;
+      }
+      return [r, g, b, (raised ? 230 : 120) * c.edgeFade * (jobOnly ? JOB_ONLY_ALPHA : 1)];
+    },
+    updateTriggers: { getElevation: tick, getFillColor: [tick, extra.selected] },
+    material: { ambient: 0.55, diffuse: 0.65, shininess: 24, specularColor: [70, 80, 100] },
+    autoHighlight: extra.pickable ?? false,
+    highlightColor: [230, 237, 243, 70],
+  });
+}
+
+/**
+ * The "draws itself" effect: segments are revealed in order of distance from `from` (the option's centre), so
+ * a corridor of many short pieces grows outward as one line instead of flickering everywhere at once.
+ */
+function drawPrefix(paths: [number, number][][], t: number, z: number, from: [number, number]): Path3[] {
+  const lift = (p: [number, number][]) => p.map(([x, y]) => [x, y, z] as [number, number, number]);
+  if (t >= 1) return paths.map(lift);
+  if (t <= 0) return [];
+  const d = (p: [number, number][]) => Math.min(...p.map(([x, y]) => (x - from[0]) ** 2 + (y - from[1]) ** 2));
+  const order = [...paths].sort((a, b) => d(a) - d(b));
+  const k = t * order.length;
+  const whole = Math.floor(k);
+  const out = order.slice(0, whole).map(lift);
+  const next = order[whole];
+  if (next && k > whole) out.push(lift(next.slice(0, Math.max(2, Math.ceil(next.length * (k - whole))))));
+  return out;
 }
 
 export default function MapStage() {
@@ -139,6 +195,7 @@ export default function MapStage() {
   const inspection = useApp((s) => s.inspection);
   const selectHex = useApp((s) => s.selectHex);
   const status = useApp((s) => s.status);
+  const freightSel = useApp((s) => s.freightSel);
   const reduced = !!useReducedMotion();
   const { data: aux } = useSnapshotFile(loadAux, status === "ready");
 
@@ -170,46 +227,35 @@ export default function MapStage() {
   }, [view, viewRevision, encLens, emsThresholdMin]);
 
   // ---------- animated terrain ----------
-  const [frame, setFrame] = useState<Frame | null>(null);
-  const shown = useRef<{ elev: Float32Array; rgb: Float32Array } | null>(null);
-  const frameId = useRef(0);
+  // The per-frame work mutates typed arrays in refs and bumps one counter: no array copies per frame.
+  const [tick, setTick] = useState(0);
+  const [hatchTick, setHatchTick] = useState(0);
+  // Animation buffers and loop live outside React (lib/ui/terrainAnimator); render reads them keyed by `tick`.
+  const buffers = useMemo(() => (world ? new TerrainAnimator(world.cells.length) : null), [world]);
+  const staggerFrom = useApp((s) => s.staggerFrom);
 
   const hexData = useMemo<HexDatum[]>(() => (world ? world.cells.map((c, i) => ({ i, id: c.id })) : []), [world]);
   const chords = useMemo(() => (world ? world.cells.map((c) => hatchChords(c.id)) : []), [world]);
 
   useEffect(() => {
-    if (!world || !target) return;
-    const n = world.cells.length;
-    if (!shown.current || shown.current.elev.length !== n) {
-      // First paint rises from a flat plain in the target colors.
-      shown.current = { elev: new Float32Array(n), rgb: Float32Array.from(target.rgb) };
-    }
-    const fromE = Float32Array.from(shown.current.elev);
-    const fromC = Float32Array.from(shown.current.rgb);
+    if (!world || !target || !buffers) return;
     const cells = world.cells;
-    const total = reduced ? 400 : ANIM_MS;
-    const stagger = reduced ? 0 : STAGGER_FRAC;
-    const t0 = performance.now();
-    let raf = 0;
-    const step = (now: number) => {
-      const tt = (now - t0) / total;
-      const e = shown.current!.elev;
-      const c = shown.current!.rgb;
-      const hatch = new Uint8Array(n);
-      for (let i = 0; i < n; i++) {
-        const delay = (cells[i].bridgeKm / world.maxBridgeKm) * stagger;
-        const local = clamp((tt - delay) / (1 - stagger), 0, 1);
-        const p = reduced ? local : easeOutCubic(local);
-        e[i] = fromE[i] + (target.elev[i] - fromE[i]) * p;
-        for (let k = 0; k < 3; k++) c[i * 3 + k] = fromC[i * 3 + k] + (target.rgb[i * 3 + k] - fromC[i * 3 + k]) * p;
-        hatch[i] = target.hatch[i] && p > 0.6 ? 1 : 0;
-      }
-      setFrame({ elev: Float32Array.from(e), rgb: Float32Array.from(c), hatch, id: ++frameId.current });
-      if (tt < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [world, target, reduced]);
+    // Ripple origin: an applied option's location, else the bridge.
+    const dist = new Float32Array(cells.length);
+    for (let i = 0; i < cells.length; i++) {
+      dist[i] = staggerFrom ? distKm(cells[i].lat, cells[i].lng, staggerFrom.lat, staggerFrom.lng) : cells[i].bridgeKm;
+    }
+    buffers.start(
+      target,
+      dist,
+      { ms: reduced ? 400 : ANIM_MS, stagger: reduced ? 0 : STAGGER_FRAC, linear: reduced },
+      () => setTick((v) => v + 1),
+      () => setHatchTick((v) => v + 1),
+    );
+    return () => buffers.stop();
+    // staggerFrom is read at the start of each change on purpose
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world, target, reduced, buffers]);
 
   // ---------- camera ----------
   const viewState = useMemo<ViewState>(() => ({ ...camera, padding }), [camera, padding]);
@@ -239,6 +285,32 @@ export default function MapStage() {
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision]);
+
+  // A selected freight trip: frame both anchors and the detour (the hazmat route can run around the western Beltway).
+  const tripKey = freightSel ? `${freightSel.tripId}|${Object.keys(freightSel.routes).length}` : "";
+  useEffect(() => {
+    if (!freightSel) return;
+    const pts = [freightSel.ends.o, freightSel.ends.d, ...Object.values(freightSel.routes).flatMap((p) => p ?? [])];
+    const lngs = pts.map((p) => p[0]);
+    const lats = pts.map((p) => p[1]);
+    const span = Math.max(Math.max(...lngs) - Math.min(...lngs), (Math.max(...lats) - Math.min(...lats)) * 1.3);
+    const zoom = Math.max(9.4, Math.min(12, 10.9 - Math.log2(Math.max(span, 0.05) / 0.12)));
+    pauseUntil.current = performance.now() + 4000;
+    const raf = requestAnimationFrame(() =>
+      setViewState((v) => ({
+      ...v,
+      longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+      latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
+      zoom,
+      pitch: 40,
+      bearing: 0,
+      transitionDuration: reduced ? 0 : 1200,
+      transitionInterpolator: reduced ? undefined : new FlyToInterpolator({ speed: 1.6 }),
+      })),
+    );
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripKey]);
 
   // Slow orbit (presentation mode, or toggled). Off under reduced motion.
   useEffect(() => {
@@ -273,46 +345,94 @@ export default function MapStage() {
 
   const bridgeDashes = useMemo(() => dashes(BRIDGE.path, 0.12, 0.09, 30), []);
 
-  const layers = useMemo(() => {
-    if (!world || !frame) return [];
-    const { elev, rgb, hatch: hatchOn, id: tick } = frame;
-
-    const hatch: { path: Path3 }[] = [];
+  // Hatch geometry only changes when the terrain settles, not every frame.
+  const hatchData = useMemo(() => {
+    const S = buffers;
+    if (!world || !S) return [];
+    const out: { path: Path3 }[] = [];
     for (let i = 0; i < world.cells.length; i++) {
-      if (!hatchOn[i]) continue;
-      const z = elev[i] + 6;
-      for (const [a, b] of chords[i]) hatch.push({ path: [[a[0], a[1], z], [b[0], b[1], z]] });
+      if (!S.hatch[i]) continue;
+      const z = S.elev[i] + 6;
+      for (const [a, b] of chords[i]) out.push({ path: [[a[0], a[1], z], [b[0], b[1], z]] });
     }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world, chords, hatchTick, buffers]);
+
+  // ---------- options on the map: applied (steady, the latest draws itself), preview ghost ----------
+  const catalog = useSearch((s) => s.catalog);
+  const preview = useSearch((s) => s.preview);
+  const compare = useSearch((s) => s.compare);
+  const appliedFx = useApp((s) => s.appliedFx);
+  const [links, setLinks] = useState<Map<string, [number, number][][]> | null>(null);
+  const appliedIds = useMemo(() => (scenario.mutations ?? []).flatMap((r) => (r.m.kind === "apply_candidate" ? [r.m.candidateId] : [])), [scenario]);
+  useEffect(() => {
+    if (appliedIds.length === 0 && !preview && !compare) return;
+    let live = true;
+    loadLinkGeometry().then((m) => live && setLinks(m), () => {});
+    return () => {
+      live = false;
+    };
+  }, [appliedIds.length, preview, compare]);
+  const appliedGeo = useMemo<OptionGeo[]>(
+    () => (catalog && links ? appliedIds.map((id) => optionGeo(catalog, links, id)).filter((g): g is OptionGeo => g !== null) : []),
+    [catalog, links, appliedIds],
+  );
+  const appliedLabel = useMemo(() => {
+    if (appliedGeo.length === 0) return null;
+    const fx = focus.longitude;
+    const fy = focus.latitude;
+    let best: [number, number] = appliedGeo[0].point;
+    let bd = Infinity;
+    for (const g of appliedGeo) {
+      const pts = g.kind === "site" ? [g.point] : g.paths.flat();
+      for (const p of pts) {
+        const d = (p[0] - fx) ** 2 + (p[1] - fy) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = p;
+        }
+      }
+    }
+    return { at: best, text: appliedGeo.length === 1 ? `OPTION ${appliedGeo[0].candidateId}` : `${appliedGeo.length} OPTIONS APPLIED (HOVER FOR NAMES)` };
+  }, [appliedGeo, focus]);
+  const [drawAnim, setDrawAnim] = useState(1);
+  useEffect(() => {
+    if (!appliedFx || reduced) return;
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / 1100);
+      setDrawAnim(easeOutCubic(t));
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [appliedFx, reduced]);
+  const drawT = reduced ? 1 : drawAnim;
+
+  const previewEnc = useMemo(() => {
+    const out = preview?.status === "ready" ? preview.out : null;
+    if (!out) return null;
+    const xd = out.detail?.xharbor;
+    return encode(out.detail?.lens ?? encLens, out.minutes, { lossFrac: xd?.lossFrac, isOrigin: xd?.isOrigin, emsThresholdMin });
+  }, [preview, encLens, emsThresholdMin]);
+
+  const compareEnc = useMemo(() => {
+    const out = compare?.status === "ready" ? compare.out : null;
+    if (!out) return null;
+    const xd = out.detail?.xharbor;
+    return encode(out.detail?.lens ?? encLens, out.minutes, { lossFrac: xd?.lossFrac, isOrigin: xd?.isOrigin, emsThresholdMin });
+  }, [compare, encLens, emsThresholdMin]);
+
+  const layers = useMemo(() => {
+    const S = buffers;
+    if (!world || !S) return [];
+    const { elev } = S;
+    const hatch = hatchData;
 
     const out: Layer[] = [
-      new H3HexagonLayer<HexDatum>({
-        id: "terrain",
-        data: hexData,
-        getHexagon: (h) => h.id,
-        extruded: true,
-        coverage: 0.9,
-        pickable: true,
-        getElevation: (h) => elev[h.i],
-        getFillColor: (h) => {
-          const k = h.i * 3;
-          const raised = elev[h.i] > 4;
-          const fade = world.cells[h.i].edgeFade;
-          let r = rgb[k];
-          let g = rgb[k + 1];
-          let b = rgb[k + 2];
-          if (selectedBgHexes?.has(h.i)) {
-            // Selected block group: lift toward the text color so it reads without relying on hue.
-            r += (230 - r) * 0.35;
-            g += (237 - g) * 0.35;
-            b += (243 - b) * 0.35;
-          }
-          return [r, g, b, (raised ? 230 : 120) * fade];
-        },
-        updateTriggers: { getElevation: tick, getFillColor: [tick, selectedBgHexes] },
-        material: { ambient: 0.55, diffuse: 0.65, shininess: 24, specularColor: [70, 80, 100] },
-        autoHighlight: true,
-        highlightColor: [230, 237, 243, 70],
-      }),
+      terrainLayer("terrain", hexData, S.elev, S.rgb, world.cells, tick, { pickable: true, selected: selectedBgHexes }),
       new PathLayer<{ path: Path3 }>({
         id: "severe-hatch",
         data: hatch,
@@ -323,6 +443,172 @@ export default function MapStage() {
         pickable: false,
       }),
     ];
+
+    // Preview: the option's terrain as a translucent violet wireframe over the current terrain.
+    if (previewEnc) {
+      const pe = previewEnc.elev;
+      const ghost = hexData.filter((h) => pe[h.i] > 2 || elev[h.i] > 2);
+      out.push(
+        new H3HexagonLayer<HexDatum>({
+          id: "preview-ghost",
+          data: ghost,
+          getHexagon: (h) => h.id,
+          extruded: true,
+          filled: false,
+          wireframe: true,
+          coverage: 0.9,
+          getElevation: (h) => pe[h.i],
+          getLineColor: [167, 139, 250, 200],
+          lineWidthMinPixels: 1,
+          pickable: false,
+        }),
+      );
+    }
+
+    // Applied options: drawn on the map for as long as they are in the world; the latest draws itself.
+    for (const g of appliedGeo) {
+      const latest = appliedFx?.candidateIds.includes(g.candidateId) ?? false;
+      const t = latest ? drawT : 1;
+      if (g.kind === "site") {
+        out.push(
+          new ScatterplotLayer<{ p: [number, number]; candidateId: string }>({
+            id: `applied-site-${g.candidateId}`,
+            data: [{ p: g.point, candidateId: g.candidateId }],
+            pickable: true,
+            getPosition: (d) => [d.p[0], d.p[1], 30],
+            getRadius: 260,
+            stroked: true,
+            filled: true,
+            getFillColor: [45, 212, 191, 70 * t],
+            getLineColor: [45, 212, 191, 255 * t],
+            lineWidthMinPixels: 2,
+            updateTriggers: { getFillColor: t, getLineColor: t },
+            parameters: ON_TOP,
+          }),
+        );
+      } else {
+        out.push(
+          new PathLayer<{ path: Path3 }>({
+            id: `applied-casing-${g.candidateId}`,
+            data: drawPrefix(g.paths, t, 30, g.point).map((path) => ({ path })),
+            getPath: (d) => d.path,
+            getColor: [10, 14, 20, 220],
+            getWidth: 7,
+            widthUnits: "pixels",
+            capRounded: true,
+            jointRounded: true,
+            parameters: ON_TOP,
+          }),
+          new PathLayer<{ path: Path3; candidateId: string }>({
+            id: `applied-path-${g.candidateId}`,
+            data: drawPrefix(g.paths, t, 30, g.point).map((path) => ({ path, candidateId: g.candidateId })),
+            pickable: true,
+            getPath: (d) => d.path,
+            getColor: [45, 212, 191, 255],
+            getWidth: 3.5,
+            widthUnits: "pixels",
+            capRounded: true,
+            jointRounded: true,
+            parameters: ON_TOP,
+          }),
+        );
+      }
+    }
+
+    // One label for all applied options, on the applied geometry nearest the view's focus (so it sits in the
+    // visible map, not under a panel). Each option's name is on hover.
+    if (appliedLabel && drawT >= 1) {
+      out.push(
+        new TextLayer<{ text: string; position: [number, number, number] }>({
+          id: "applied-label",
+          data: [{ text: appliedLabel.text, position: [appliedLabel.at[0], appliedLabel.at[1], 40] }],
+          getText: (o) => o.text,
+          getPosition: (o) => o.position,
+          getSize: 11,
+          getColor: [45, 212, 191, 255],
+          getPixelOffset: [0, -16],
+          background: true,
+          backgroundPadding: [6, 3],
+          getBackgroundColor: [17, 23, 34, 235],
+          fontFamily,
+          fontWeight: 600,
+          characterSet: "auto",
+          sizeUnits: "pixels",
+          parameters: ON_TOP,
+        }),
+      );
+    }
+
+    // Freight trip from the freight panel: the car route (bright) and the hazmat truck route (amber) when the
+    // simulator returned them; otherwise a dashed straight line between the anchors, labeled schematic.
+    if (freightSel) {
+      const z = (p: [number, number][]) => p.map(([x, y]) => [x, y, 28] as [number, number, number]);
+      const style: Record<string, [number, number, number, number]> = { car: [230, 237, 243, 255], hazmat_truck: [245, 165, 36, 255] };
+      const any = Object.keys(freightSel.routes).length > 0;
+      for (const [cls, path] of Object.entries(freightSel.routes)) {
+        if (!path || path.length < 2) continue;
+        out.push(
+          new PathLayer<{ path: Path3 }>({
+            id: `trip-casing-${cls}`,
+            data: [{ path: z(path) }],
+            getPath: (d) => d.path,
+            getColor: [10, 14, 20, 220],
+            getWidth: cls === "hazmat_truck" ? 8 : 6,
+            widthUnits: "pixels",
+            capRounded: true,
+            jointRounded: true,
+            parameters: ON_TOP,
+          }),
+          new PathLayer<{ path: Path3 }>({
+            id: `trip-${cls}`,
+            data: [{ path: z(path) }],
+            getPath: (d) => d.path,
+            getColor: style[cls] ?? [167, 139, 250, 255],
+            getWidth: cls === "hazmat_truck" ? 4.5 : 2.5,
+            widthUnits: "pixels",
+            capRounded: true,
+            jointRounded: true,
+            parameters: ON_TOP,
+          }),
+        );
+      }
+      if (!any) {
+        out.push(
+          new PathLayer<{ path: Path3 }>({
+            id: "trip-schematic",
+            data: dashes([freightSel.ends.o, freightSel.ends.d], 0.25, 0.18, 28).map((path) => ({ path })),
+            getPath: (d) => d.path,
+            getColor: [230, 237, 243, 220],
+            getWidth: 2,
+            widthUnits: "pixels",
+            parameters: ON_TOP,
+          }),
+        );
+      }
+      out.push(
+        new TextLayer<{ text: string; position: [number, number, number] }>({
+          id: "trip-ends",
+          getTextAnchor: "middle",
+          data: [
+            { text: freightSel.ends.oName.split(" (")[0].toUpperCase(), position: [freightSel.ends.o[0], freightSel.ends.o[1], 40] },
+            { text: `${freightSel.ends.dName.split(" (")[0].toUpperCase()}${any ? "" : " (SCHEMATIC LINE)"}`, position: [freightSel.ends.d[0], freightSel.ends.d[1], 40] },
+          ],
+          getText: (o) => o.text,
+          getPosition: (o) => o.position,
+          getSize: 11,
+          getColor: [230, 237, 243, 255],
+          getPixelOffset: [0, -34],
+          background: true,
+          backgroundPadding: [6, 3],
+          getBackgroundColor: [17, 23, 34, 235],
+          fontFamily,
+          fontWeight: 500,
+          characterSet: "auto",
+          sizeUnits: "pixels",
+          parameters: ON_TOP,
+        }),
+      );
+    }
 
     // Route overlay for the inspected hexagon: baseline dim, current bright.
     const routes = inspection?.status === "ready" ? inspection.routes : undefined;
@@ -443,9 +729,22 @@ export default function MapStage() {
       }),
     );
     return out;
-  }, [world, hexData, chords, frame, fontFamily, inspection, selectedHex, selectedBgHexes, removed, bridgeDashes]);
+  }, [freightSel, appliedLabel, world, buffers, hexData, tick, hatchData, fontFamily, inspection, selectedHex, selectedBgHexes, removed, bridgeDashes, previewEnc, appliedGeo, appliedFx, drawT]);
+
+  const compareLayers = useMemo(() => {
+    if (!world || !compareEnc) return [];
+    return [terrainLayer("compare-terrain", hexData, compareEnc.elev, compareEnc.rgb, world.cells, 1)];
+  }, [world, hexData, compareEnc]);
 
   const getTooltip = ({ object }: PickingInfo) => {
+    const opt = object as { candidateId?: string } | null;
+    if (opt?.candidateId) {
+      const c = catalog?.byId.get(opt.candidateId);
+      const title = c ? c.title.replace(/^Hypothetical scenario option:\s*/i, "") : opt.candidateId;
+      const el = document.createElement("div");
+      el.textContent = `${title} (${opt.candidateId}, applied; hypothetical)`;
+      return { html: el.innerHTML, style: { background: "rgba(17,23,34,0.96)", color: "#E6EDF3", border: "1px solid #243044", borderRadius: "8px", padding: "8px 12px", fontSize: "12px" } };
+    }
     const h = object as HexDatum | null;
     if (!h || !view) return null;
     const m = view.minutes[h.i];
@@ -460,8 +759,9 @@ export default function MapStage() {
       const loss = encLens === "xharbor" && xd ? `<div>loses ${fmtPct1(100 * xd.lossFrac[h.i])}% of cross-harbor jobs within 30 min</div>` : "";
       body = `<div style="font-size:16px">${added >= 0 ? "+" : ""}${fmtMin(added)} min</div><div style="opacity:.75">${encLens === "xharbor" ? "added to cross-harbor trips" : "added to regional job access"}</div>${loss}`;
     }
+    const jobOnly = world?.cells[h.i]?.residents === 0 ? `<div style="opacity:.75">No residents here (jobs only)</div>` : "";
     return {
-      html: `${body}<div style="opacity:.6;margin-top:4px">Click for details</div>`,
+      html: `${body}${jobOnly}<div style="opacity:.6;margin-top:4px">Click for details</div>`,
       style: {
         background: "rgba(17,23,34,0.96)",
         color: "#E6EDF3",
@@ -480,6 +780,8 @@ export default function MapStage() {
       className="ws-map absolute inset-0"
       data-testid="map-stage"
       data-left-open={!presentation && leftOpen ? "true" : "false"}
+      data-compare={compareEnc ? "true" : "false"}
+      style={{ ["--split" as string]: `${((compare?.split ?? 0.5) * 100).toFixed(2)}%` }}
     >
       <DeckGL
         viewState={viewState}
@@ -490,8 +792,9 @@ export default function MapStage() {
           if (!active) pauseUntil.current = performance.now() + 4000;
         }}
         onClick={(info) => {
-          const h = info.object as HexDatum | undefined;
-          void selectHex(h ? h.i : null);
+          const o = info.object as (HexDatum & { candidateId?: string }) | undefined;
+          if (o?.candidateId) return; // an applied option: its name is on hover
+          void selectHex(o && typeof o.i === "number" ? o.i : null);
         }}
         controller={{ dragRotate: true, touchRotate: true, inertia: false }}
         layers={layers}
@@ -501,6 +804,45 @@ export default function MapStage() {
       >
         <Map mapStyle={MAP_STYLE} attributionControl={{ compact: false }} reuseMaps />
       </DeckGL>
+
+      {/* Compare: the option's world on the right of the slider, same camera, clipped; the main terrain on the left. */}
+      {compareEnc && (
+        <DeckGL
+          id="compare-overlay"
+          viewState={viewState}
+          controller={false}
+          layers={compareLayers}
+          style={{ position: "absolute", inset: "0", pointerEvents: "none", clipPath: `inset(0 0 0 ${((compare?.split ?? 0.5) * 100).toFixed(2)}%)` }}
+        />
+      )}
+      {compare && <CompareSlider />}
+      {freightSel && Object.keys(freightSel.routes).length > 0 && (
+        <div className="pointer-events-none absolute left-[600px] top-[152px]">
+          <p className="panel flex items-center gap-3 px-3 py-1 text-xs" role="status">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-0.5 w-5 rounded bg-text" aria-hidden /> car route
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-1 w-5 rounded bg-warn" aria-hidden /> hazmat truck route
+            </span>
+          </p>
+        </div>
+      )}
+      {preview && (
+        <div className="pointer-events-none absolute left-1/2 top-[152px] -translate-x-1/2">
+          <p className="panel px-3 py-1 text-xs" role="status">
+            {preview.status === "loading" ? (
+              `Computing ${preview.bundleId}...`
+            ) : preview.status === "error" ? (
+              `Preview failed: ${preview.error}`
+            ) : (
+              <>
+                <span style={{ color: "var(--color-future)" }}>Violet outline</span>: terrain with {preview.bundleId} (preview, not applied)
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Map toolbar: bottom-center of the map area, above the footer. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center">

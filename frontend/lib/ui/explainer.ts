@@ -5,8 +5,10 @@
  */
 import { fmtCount, fmtDurText, fmtMin, fmtPct1 } from "../format";
 import type { Scenario, SimOutput } from "../sim/types";
+import type { TripsResult } from "../sim/trips";
 import { blockGroupAt, placesFor, type AuxIndex } from "./snapshotAux";
 import { ribbonValues } from "./ribbon";
+import { CONGESTED_MEDIAN_ADDED_S, fmtAbout, LOWER_BOUND_SENTENCE, MEAN_ADDED_RANGE_S, PEOPLE_GT10_RANGE } from "./methodology";
 
 /** A number slot: rendered in the mono face, optionally toned. */
 export interface Num {
@@ -16,9 +18,13 @@ export interface Num {
 export type Seg = string | Num;
 
 export interface Para {
-  id: "regional" | "xharbor" | "where" | "equity" | "ems" | "baseline" | "next";
+  id: "regional" | "xharbor" | "where" | "equity" | "ems" | "baseline" | "next" | "bound" | "firm" | "freight";
+  /** Link shown after the paragraph (a documented source, never a result). */
+  link?: { href: string; text: string };
   heading: string;
   segs: Seg[];
+  /** Short form shown when the section is folded (defaults to its first number). */
+  summary?: string;
 }
 
 const num = (n: string, tone?: Num["tone"]): Num => ({ n, tone });
@@ -36,9 +42,11 @@ export interface ExplainInput {
   aux: AuxIndex | null;
   /** Model parameters (seconds / minutes) from the snapshot. */
   params: { emsThresholdS: number; call_to_wheels_delay_min: number } | null;
+  /** Freight and hazmat trips in the current world (runTrips); null when the snapshot has none. */
+  trips?: TripsResult | null;
 }
 
-export function explain({ baseline, current, scenario, aux, params }: ExplainInput): Para[] {
+export function explain({ baseline, current, scenario, aux, params, trips }: ExplainInput): Para[] {
   const b = ribbonValues(baseline);
   const c = ribbonValues(current);
   const xd = current.detail?.xharbor;
@@ -88,11 +96,11 @@ export function explain({ baseline, current, scenario, aux, params }: ExplainInp
     id: "regional",
     heading: "Across the region",
     segs: [
-      `${subject} adds `,
-      num(fmtDurText(dReg)),
+      dReg < -0.5 ? `${subject} saves ` : `${subject} adds `,
+      num(fmtDurText(Math.abs(dReg)), dReg < -0.5 ? "good" : undefined),
       onlyBridge
-        ? " on average to a resident's drive to the region's main job centers. Most trips in the region do not use the bridge."
-        : " on average to a resident's drive to the region's main job centers.",
+        ? " on average to a resident's drive to the region's main job centers, at free-flow speeds. Most trips in the region do not use the bridge."
+        : " on average to a resident's drive to the region's main job centers, at free-flow speeds.",
     ],
   });
 
@@ -101,11 +109,46 @@ export function explain({ baseline, current, scenario, aux, params }: ExplainInp
     id: "xharbor",
     heading: "Across the harbor",
     segs: [
-      num(fmtCount(c.v.xhPeople), c.v.xhPeople > b.v.xhPeople ? "bad" : undefined),
-      " residents lose more than 10% of the jobs on the other shore they could reach within 30 minutes; ",
-      num(fmtCount(c.x.xhPeopleGt25), c.x.xhPeopleGt25 > b.x.xhPeopleGt25 ? "bad" : undefined),
+      "About ",
+      num(fmtAbout(c.v.xhPeople), c.v.xhPeople > b.v.xhPeople ? "bad" : undefined),
+      " residents lose more than 10% of the jobs on the other shore they could reach within 30 minutes; about ",
+      num(fmtAbout(c.x.xhPeopleGt25), c.x.xhPeopleGt25 > b.x.xhPeopleGt25 ? "bad" : undefined),
       " lose more than 25%.",
     ],
+  });
+
+  // 2a. Freight and hazmat trips: point-to-point, the largest effect in minutes.
+  const car = trips?.summary.car;
+  const hz = trips?.summary.hazmat_truck;
+  if (car && hz) {
+    const mechanism = onlyBridge && hz.crossHarborMeanAddedMinutes > car.crossHarborMeanAddedMinutes + 0.5;
+    out.push({
+      id: "freight",
+      heading: "Freight and hazmat trips",
+      summary: `hazmat +${fmtMin(hz.crossHarborMeanAddedMinutes)} min`,
+      segs: [
+        `Across ${hz.crossHarborTrips} cross-harbor trips between real road anchors, a car adds `,
+        num(`${fmtMin(car.crossHarborMeanAddedMinutes)} min`, car.crossHarborMeanAddedMinutes > 0.5 ? "bad" : undefined),
+        " on average and a truck carrying tunnel-prohibited hazardous materials adds ",
+        num(`${fmtMin(hz.crossHarborMeanAddedMinutes)} min`, hz.crossHarborMeanAddedMinutes > 0.5 ? "bad" : undefined),
+        ` (${hz.crossHarborOver5Min} of ${hz.crossHarborTrips} hazmat trips add more than 5 min, free-flow). `,
+        mechanism ? "Hazmat vehicles are prohibited in both Baltimore tunnels, so with the bridge closed they must use the western Beltway arc." : "",
+      ],
+      link: mechanism ? { href: "https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits", text: "MDTA rule (accessed 26 September 2026)" } : undefined,
+    });
+  }
+
+  // 2b. How firm those counts are (documented sensitivity study; shown with its source).
+  out.push({
+    id: "firm",
+    heading: "How firm these numbers are",
+    summary: "counts vary; times stable",
+    segs: onlyBridge
+      ? [
+          `The counts depend on speed and time-budget assumptions: about ${fmtAbout(PEOPLE_GT10_RANGE.lo)} to ${fmtAbout(PEOPLE_GT10_RANGE.hi)} residents across the variants tested. The time-based measures are stable: the average added cross-harbor time stays between about ${Math.round(MEAN_ADDED_RANGE_S.lo)} and ${Math.round(MEAN_ADDED_RANGE_S.hi)} s. The typical resident is unaffected at free-flow, but not if the tunnels congest after the closure (median added time then about ${Math.round(CONGESTED_MEDIAN_ADDED_S.lo)} to ${Math.round(CONGESTED_MEDIAN_ADDED_S.hi)} s).`,
+        ]
+      : ["The counts depend on speed and time-budget assumptions; the time-based measures are the steadier guide."],
+    link: { href: "https://github.com/Rickygole/worldseed/blob/main/docs/METHODOLOGY.md", text: "Methodology" },
   });
 
   // 3. Where: the worst block groups, named by the OSM places their hexes fall in.
@@ -128,9 +171,11 @@ export function explain({ baseline, current, scenario, aux, params }: ExplainInp
         `The ${worst.length === 1 ? "hardest-hit block group" : `${worst.length} hardest-hit block groups`}${where ? ` lie ${where}` : ""}. `,
         worst.length === 1 ? "It loses " : "They lose ",
         num(lo === hi ? `${Math.round(hi)}%` : `${Math.round(lo)}-${Math.round(hi)}%`, "bad"),
-        " of those jobs. The worst-off 1% of residents add at least ",
+        " of those jobs. Where people live, the hardest-hit hexagon adds ",
+        num(`${fmtMin(c.x.xhAddedMaxPopS / 60)} min`, "bad"),
+        " to its average cross-harbor trip; the worst-off 1% of residents add at least ",
         num(`${fmtMin(c.x.xhAddedP99S / 60)} min`, "bad"),
-        " to their average cross-harbor trip.",
+        ".",
       ],
     });
   }
@@ -142,6 +187,7 @@ export function explain({ baseline, current, scenario, aux, params }: ExplainInp
   out.push({
     id: "ems",
     heading: "First response",
+    summary: emsSame ? "unchanged" : `${fmtMin(b.v.ems / 60)} -> ${fmtMin(c.v.ems / 60)} min`,
     segs: emsSame
       ? [
           "Unchanged. The simulated p90 stays at ",
@@ -178,6 +224,15 @@ export function explain({ baseline, current, scenario, aux, params }: ExplainInp
       num(`${fmtPct1(all)}%`),
       ` of all residents.${verdict}`,
     ],
+  });
+
+  // 6. What free-flow cannot see.
+  out.push({
+    id: "bound",
+    heading: "Free-flow is a lower bound",
+    summary: "see why",
+    segs: [LOWER_BOUND_SENTENCE],
+    link: { href: "https://github.com/Rickygole/worldseed/blob/main/docs/METHODOLOGY.md", text: "Methodology (sources)" },
   });
 
   return out;

@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Minus, ScanLine } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, ScanLine, ShieldCheck } from "lucide-react";
 import { useApp, simInfo } from "@/lib/store";
 import { fmtCount, fmtDur, fmtMin, fmtPct1, fmtSignedDur } from "@/lib/format";
-import { RIBBON_KEYS, RIBBON_LENS, ribbonValues, type RibbonExtras, type RibbonKey, type RibbonValues } from "@/lib/ui/ribbon";
+import { fmtAbout, PEOPLE_GT10_RANGE } from "@/lib/ui/methodology";
+import { equityWording, RIBBON_KEYS, RIBBON_LENS, ribbonValues, type RibbonExtras, type RibbonKey, type RibbonValues } from "@/lib/ui/ribbon";
 import RollingNumber from "./RollingNumber";
 import Sparkline from "./Sparkline";
 
@@ -23,8 +24,9 @@ interface Def {
   hatch?: boolean;
 }
 
-const people = (v: number) => ({ value: fmtCount(v), unit: "" });
-const signedCount = (d: number) => `${d > 0 ? "+" : d < 0 ? "-" : ""}${fmtCount(Math.abs(d))}`;
+/** Counts from a cliff-edge measure (jobs within a fixed budget): two significant figures, read "about". */
+const people = (v: number) => ({ value: fmtAbout(v), unit: "" });
+const signedCount = (d: number) => `${d > 0 ? "+" : d < 0 ? "-" : ""}${fmtAbout(Math.abs(d))}`;
 const dur = (s: number) => {
   const d = fmtDur(s);
   return { value: d.value, unit: d.unit };
@@ -32,18 +34,9 @@ const dur = (s: number) => {
 
 const DEFS: Def[] = [
   {
-    key: "xhTime",
-    group: "Cross-harbor",
-    label: "Avg trip to jobs across the harbor",
-    show: (s) => ({ value: fmtMin(s / 60), unit: "min" }),
-    delta: fmtSignedDur,
-    flat: 0.5,
-    sub: (_v, x) => (x.xhAddedP99S < 3 ? "no added time for the worst-off 1% of residents" : `worst-off 1% of residents: +${fmtMin(x.xhAddedP99S / 60)} min or more`),
-  },
-  {
     key: "xhPeople",
     group: "Cross-harbor",
-    label: "Residents losing >10% of those jobs",
+    label: "Residents losing >10% of cross-harbor jobs",
     show: people,
     delta: signedCount,
     flat: 0.5,
@@ -77,11 +70,31 @@ const DEFS: Def[] = [
     flat: 1,
     sub: (_v, x, _b, thr) => `${fmtPct1(x.emsPctWithin)}% of residents within ${thr !== null ? `${Math.round(thr)} min` : "threshold"}`,
   },
+  {
+    key: "xhTime",
+    group: "Cross-harbor",
+    label: "Avg trip to jobs across the harbor",
+    show: (s) => ({ value: fmtMin(s / 60), unit: "min" }),
+    delta: fmtSignedDur,
+    flat: 0.5,
+    sub: (_v, x) => (x.xhAddedMaxPopS < 3 ? "no added time where people live" : `worst populated place +${fmtMin(x.xhAddedMaxPopS / 60)} min`),
+  },
 ];
 
-/** Every ribbon number is "higher is worse": up = worse (magenta), down = better (teal), flat = muted. */
-function DeltaChip({ d, def }: { d: number; def: Def }) {
+/**
+ * Every ribbon number is "higher is worse": up = worse (magenta), down = better (teal), flat = muted.
+ * `neutral` keeps the arrow but drops the alarm color (a change that is not a gap, e.g. equity at the same rate);
+ * `held` marks a resilience finding: nothing moved although the world changed.
+ */
+function DeltaChip({ d, def, tone }: { d: number; def: Def; tone?: "neutral" | "held" }) {
   if (Math.abs(d) < def.flat) {
+    if (tone === "held") {
+      return (
+        <span className="chip num h-6 shrink-0 px-2 font-medium" style={{ color: "var(--color-ok)", borderColor: "rgb(45 212 191 / 0.5)", background: "rgb(45 212 191 / 0.10)" }} aria-label="Held: unchanged from baseline">
+          <ShieldCheck size={12} aria-hidden /> held
+        </span>
+      );
+    }
     return (
       <span className="chip num h-6 shrink-0 px-2 text-muted" aria-label="Unchanged from baseline">
         <Minus size={12} aria-hidden /> unchanged
@@ -90,18 +103,23 @@ function DeltaChip({ d, def }: { d: number; def: Def }) {
   }
   const worse = d > 0;
   const Arrow = worse ? ArrowUp : ArrowDown;
+  const neutral = tone === "neutral";
   return (
     <span
       className="chip num h-6 shrink-0 px-2 font-medium"
-      style={{
-        color: worse ? "var(--color-critical)" : "var(--color-ok)",
-        borderColor: worse ? "rgb(255 61 113 / 0.5)" : "rgb(45 212 191 / 0.5)",
-        background: worse ? "rgb(255 61 113 / 0.10)" : "rgb(45 212 191 / 0.10)",
-      }}
+      style={
+        neutral
+          ? { color: "var(--color-text)", borderColor: "var(--color-border)" }
+          : {
+              color: worse ? "var(--color-critical)" : "var(--color-ok)",
+              borderColor: worse ? "rgb(255 61 113 / 0.5)" : "rgb(45 212 191 / 0.5)",
+              background: worse ? "rgb(255 61 113 / 0.10)" : "rgb(45 212 191 / 0.10)",
+            }
+      }
     >
       <Arrow size={12} aria-hidden />
       {def.delta(d).replace(/^[+-]/, "")}
-      <span className="sr-only">{worse ? " worse" : " better"} than baseline</span>
+      <span className="sr-only">{worse ? " higher" : " lower"} than baseline</span>
     </span>
   );
 }
@@ -119,6 +137,25 @@ function Tile({ def, idx }: { def: Def; idx: number }) {
   const ready = !!(b && c);
   const info = simInfo();
   const thr = info ? info.params.emsThresholdS / 60 : null;
+  const changed = useApp((s) => s.scenario.removedLinks.length > 0 || (s.scenario.mutations?.length ?? 0) > 0);
+  // Tile-specific wording and tone, all from computed values.
+  const eq = ready && def.key === "xhLowWage" && c!.v.xhLowWage > 0.5 ? equityWording(c!.x.lowWageSharePct, c!.x.peopleSharePct) : null;
+  const held = def.key === "ems" && changed;
+  // The study's range covers the Key Bridge-removed world only; other worlds get the general caution.
+  const onlyBridge = useApp((s) => s.scenario.removedLinks.length === 1 && s.scenario.removedLinks[0] === "key_bridge" && !(s.scenario.mutations?.length));
+  const sensitive = def.key === "xhPeople" && ready && changed;
+  const tone: "neutral" | "held" | undefined = held ? "held" : eq && eq.tone === "neutral" ? "neutral" : undefined;
+  const sub = !ready
+    ? "\u00a0"
+    : sensitive
+      ? onlyBridge
+        ? `Range ${fmtAbout(PEOPLE_GT10_RANGE.lo)}–${fmtAbout(PEOPLE_GT10_RANGE.hi)} (assumptions)`
+        : "Depends on assumptions"
+      : eq
+      ? eq.text.replace(" as all residents", " as everyone").replace(" than all residents", " than everyone")
+      : held && Math.abs(c!.v.ems - b!.v.ems) < def.flat
+        ? "Both shores have their own stations"
+        : def.sub(c!.v, c!.x, b!.v, thr);
 
   const bv = b?.v[def.key] ?? 0;
   const cv = c?.v[def.key] ?? 0;
@@ -141,7 +178,7 @@ function Tile({ def, idx }: { def: Def; idx: number }) {
       />
       <div className="flex items-center justify-between gap-2">
         <span className={`label truncate ${active ? "!text-text" : ""}`}>{def.group}</span>
-        {ready ? <DeltaChip d={cv - bv} def={def} /> : <span className="h-6" />}
+        {ready ? <DeltaChip d={cv - bv} def={def} tone={tone} /> : <span className="h-6" />}
       </div>
       <div className={`truncate text-xs ${active ? "text-text" : "text-muted"}`}>
         {def.hatch && <ScanLine size={12} className="mr-1 inline align-[-2px]" aria-hidden />}
@@ -158,6 +195,7 @@ function Tile({ def, idx }: { def: Def; idx: number }) {
               <span className="text-muted" aria-hidden>
                 &rarr;
               </span>
+              {(def.key === "xhPeople" || def.key === "xhLowWage") && cv > 0.5 && <span className="text-xs text-muted">about</span>}
               <span className="text-2xl font-medium leading-none">
                 <RollingNumber value={cv} format={(v) => def.show(v).value} />
               </span>
@@ -169,9 +207,68 @@ function Tile({ def, idx }: { def: Def; idx: number }) {
             <span className="skeleton h-7 w-32" aria-hidden />
           )}
         </div>
-        {ready && history.length > 0 && <Sparkline values={history} width={48} height={16} />}
+        {ready && history.length > 0 && <span className="shrink-0 max-[1439px]:hidden"><Sparkline values={history} width={48} height={16} /></span>}
       </div>
-      <p className="truncate text-xs text-muted">{ready ? def.sub(c!.v, c!.x, b!.v, thr) : "\u00a0"}</p>
+      <p
+        className="truncate text-xs text-muted"
+        title={
+          held && ready
+            ? `First response held: both shores have their own fire and EMS stations and hospitals. ${def.sub(c!.v, c!.x, b!.v, thr)}.`
+            : sensitive
+              ? `This count depends on speed and time-budget assumptions${onlyBridge ? ` (range about ${fmtAbout(PEOPLE_GT10_RANGE.lo)} to ${fmtAbout(PEOPLE_GT10_RANGE.hi)}; see Methodology)` : " (see Methodology)"}. ${def.sub(c!.v, c!.x, b!.v, thr)}.`
+              : sub
+        }
+      >
+        {sub}
+      </p>
+    </button>
+  );
+}
+
+/** Freight: hazmat truck mean added minutes over the cross-harbor trips (runTrips), car beside it. Opens the freight panel. */
+function FreightTile() {
+  const trips = useApp((s) => s.trips);
+  const history = useApp((s) => s.tripsHistory);
+  const setFreightOpen = useApp((s) => s.setFreightOpen);
+  const hz = trips?.summary.hazmat_truck;
+  const car = trips?.summary.car;
+  const status = useApp((s) => s.status);
+  const d = hz?.crossHarborMeanAddedMinutes ?? 0;
+  const def: Def = { key: "xhTime", group: "Freight", label: "", show: (v) => ({ value: fmtMin(v), unit: "min" }), delta: (v) => `${v > 0 ? "+" : v < 0 ? "-" : ""}${fmtMin(Math.abs(v))} min`, flat: 0.05, sub: () => "" };
+  return (
+    <button
+      type="button"
+      onClick={() => setFreightOpen(true)}
+      aria-label={hz ? `Freight: hazmat trucks add ${fmtMin(d)} minutes on average across the harbor; cars ${fmtMin(car?.crossHarborMeanAddedMinutes ?? 0)}. Open freight and hazmat trips.` : "Freight and hazmat trips"}
+      className="group relative flex min-w-0 flex-col justify-center gap-1 border-l border-border px-4 text-left transition-colors duration-150 hover:bg-surface-2"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="label truncate">Freight</span>
+        {hz ? <DeltaChip d={d} def={def} /> : <span className="h-6" />}
+      </div>
+      <div className="truncate text-xs text-muted">Hazmat trucks, per cross-harbor trip</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-baseline gap-2">
+          {hz ? (
+            <>
+              <span className="num shrink-0 text-sm text-muted">+0.0</span>
+              <span className="text-muted" aria-hidden>
+                &rarr;
+              </span>
+              <span className="text-2xl font-medium leading-none">
+                <RollingNumber value={d} format={(v) => `+${fmtMin(v)}`} />
+              </span>
+              <span className="num text-xs text-muted">min</span>
+            </>
+          ) : status === "loading" || status === "idle" ? (
+            <span className="skeleton h-7 w-24" aria-hidden />
+          ) : (
+            <span className="num text-2xl text-muted">--</span>
+          )}
+        </div>
+        {hz && history.length > 0 && <span className="shrink-0 max-[1439px]:hidden"><Sparkline values={history} width={48} height={16} /></span>}
+      </div>
+      <p className="truncate text-xs text-muted">{hz && car ? `cars +${fmtMin(car.crossHarborMeanAddedMinutes)} · ${hz.crossHarborOver5Min}/${hz.crossHarborTrips} over 5 min` : "\u00a0"}</p>
     </button>
   );
 }
@@ -180,12 +277,13 @@ export default function MetricsRibbon() {
   return (
     <section
       aria-label="Headline numbers, baseline to current"
-      className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr_1fr_1fr] border-t border-border bg-surface"
+      className="grid shrink-0 grid-cols-[1.1fr_1fr_0.9fr_1fr_1fr_1fr] border-t border-border bg-surface"
       style={{ height: "var(--ws-ribbon)" }}
     >
       {RIBBON_KEYS.map((k, i) => (
         <Tile key={k} def={DEFS.find((d) => d.key === k)!} idx={i} />
       ))}
+      <FreightTile />
     </section>
   );
 }

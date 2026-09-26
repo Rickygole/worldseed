@@ -299,3 +299,25 @@ body {
     opacity: 0.5;
   }
 }
+
+/* Futures fan: a new branch draws itself outward from "now" (ease-out, 250 ms). */
+.fan-draw {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 0;
+  animation: ws-fan-draw 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ws-fan-draw {
+  from {
+    stroke-dashoffset: 600;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fan-draw {
+    animation: none;
+  }
+}
+
+/* Compare: the main terrain canvas shows only left of the split; the compare canvas only right of it. */
+.ws-map[data-compare="true"] #deckgl-overlay {
+  clip-path: inset(0 calc(100% - var(--split)) 0 0);
+}

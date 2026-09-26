@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ChevronDown, PanelLeftClose, RotateCcw, Undo2, Unlink } from "lucide-react";
+import { ChevronDown, Newspaper, PanelLeftClose, RotateCcw, Scale, Truck, Undo2, Unlink } from "lucide-react";
 import { useApp, isBridgeRemoved } from "@/lib/store";
 import { fmtDate } from "@/lib/format";
 import { loadManifest } from "@/lib/ui/snapshotAux";
@@ -60,6 +60,9 @@ function ScenarioControls() {
   const removeBridge = useApp((s) => s.removeBridge);
   const restoreBridge = useApp((s) => s.restoreBridge);
   const resetWorld = useApp((s) => s.resetWorld);
+  const setClosuresOpen = useApp((s) => s.setClosuresOpen);
+  const setEvidenceOpen = useApp((s) => s.setEvidenceOpen);
+  const setFreightOpen = useApp((s) => s.setFreightOpen);
   const { data: manifest } = useSnapshotFile(loadManifest, ready);
 
   return (
@@ -81,6 +84,20 @@ function ScenarioControls() {
           Remove Key Bridge link
         </button>
       )}
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <button className="btn h-8 justify-start px-2 text-xs" onClick={() => setFreightOpen(true)}>
+          <Truck size={14} aria-hidden />
+          Freight
+        </button>
+        <button className="btn h-8 justify-start px-2 text-xs" onClick={() => setClosuresOpen(true)}>
+          <Newspaper size={14} aria-hidden />
+          Closures
+        </button>
+        <button className="btn h-8 justify-start px-2 text-xs" onClick={() => setEvidenceOpen(true)}>
+          <Scale size={14} aria-hidden />
+          Reality
+        </button>
+      </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="text-xs text-muted">{busy ? "Recomputing on the road network..." : `I-695 over the Patapsco.${manifest?.osmDate ? ` Roads as of ${fmtDate(manifest.osmDate)}.` : ""}`}</p>
         <button className="btn h-8 shrink-0 px-2 text-xs" disabled={!ready || busy} onClick={() => void resetWorld()} title="Reset world (R)">

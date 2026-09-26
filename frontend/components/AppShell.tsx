@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
 import { useApp } from "@/lib/store";
+import { useSearch } from "@/lib/ui/search";
 import TopBar from "./TopBar";
 import DisclaimerBanner from "./DisclaimerBanner";
 import LeftPanel from "./LeftPanel";
@@ -18,6 +19,12 @@ import AboutDialog from "./AboutDialog";
 import LensControl from "./LensControl";
 import Inspector from "./Inspector";
 import LoadState from "./LoadState";
+import ClosuresDrawer from "./ClosuresDrawer";
+import EvidenceDrawer from "./EvidenceDrawer";
+import FreightPanel from "./FreightPanel";
+import ApplyConfirm from "./planner/ApplyConfirm";
+
+const Tour = dynamic(() => import("./Tour"), { ssr: false });
 
 // WebGL + window access: client only.
 const MapStage = dynamic(() => import("./MapStage"), {
@@ -41,7 +48,7 @@ function useHotkeys() {
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
-      if (s.introOpen || s.commandOpen || s.aboutOpen || s.assumptionsOpen) return;
+      if (s.introOpen || s.commandOpen || s.aboutOpen || s.assumptionsOpen || s.closuresOpen || s.evidenceOpen) return;
       const k = e.key.toLowerCase();
       if (k === "p") s.togglePresentation();
       else if (k === "r") void s.resetWorld();
@@ -61,9 +68,15 @@ export default function AppShell() {
   const inspecting = useApp((s) => s.selectedHex !== null);
   const reduced = !!useReducedMotion();
 
+  const bootSearch = useSearch((s) => s.boot);
+  const ready = useApp((s) => s.status === "ready");
   useEffect(() => {
     void init();
   }, [init]);
+  // The planner's catalog and health check load after the world, so they never compete with the snapshot.
+  useEffect(() => {
+    if (ready) void bootSearch();
+  }, [ready, bootSearch]);
   useHotkeys();
 
   // Reduced motion: crossfade only. Otherwise slide + fade. Entrances ease out, exits ease in and are quicker.
@@ -77,6 +90,7 @@ export default function AppShell() {
     <div className="flex h-screen min-h-[768px] min-w-[1366px] flex-col bg-bg">
       <TopBar />
       <DisclaimerBanner />
+      {!presentation && <Tour />}
 
       <main className="relative min-h-0 flex-1 overflow-hidden">
         <MapStage />
@@ -149,6 +163,10 @@ export default function AppShell() {
       </p>
 
       <AssumptionsDrawer />
+      <ClosuresDrawer />
+      <EvidenceDrawer />
+      <FreightPanel />
+      <ApplyConfirm />
       <CommandBar />
       <AboutDialog />
       <IntroOverlay />

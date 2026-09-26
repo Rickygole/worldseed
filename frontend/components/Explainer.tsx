@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
+import { ChevronRight } from "lucide-react";
 import { useApp, simInfo } from "@/lib/store";
 import { explain, type Seg } from "@/lib/ui/explainer";
 import { loadAux } from "@/lib/ui/snapshotAux";
@@ -26,22 +27,41 @@ function Segs({ segs }: { segs: Seg[] }) {
   );
 }
 
+/** The story's core stays open; supporting sections fold to a one-line summary (their key figure). */
+const OPEN_TALL = new Set(["baseline", "ems", "next", "regional", "xharbor", "freight", "where"]);
+const OPEN_SHORT = new Set(["baseline", "next", "regional", "xharbor", "freight"]);
+
+/** Tall screens open more sections than short ones. */
+function useTall(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const q = window.matchMedia("(min-height: 860px)");
+      q.addEventListener("change", cb);
+      return () => q.removeEventListener("change", cb);
+    },
+    () => window.matchMedia("(min-height: 860px)").matches,
+    () => true,
+  );
+}
+
 /** "What this shows": computed sentences from fixed templates. Every number is a slot. */
 export default function Explainer() {
   const baseline = useApp((s) => s.baseline);
   const current = useApp((s) => s.current);
   const scenario = useApp((s) => s.scenario);
   const status = useApp((s) => s.status);
+  const trips = useApp((s) => s.trips);
   const simKind = useApp((s) => s.simKind);
   const { data: aux } = useSnapshotFile(loadAux, status === "ready");
 
   const paras = useMemo(() => {
     if (!baseline || !current) return null;
     const info = simInfo();
-    return explain({ baseline, current, scenario, aux, params: info ? info.params : null });
-  }, [baseline, current, scenario, aux]);
+    return explain({ baseline, current, scenario, aux, params: info ? info.params : null, trips });
+  }, [baseline, current, scenario, aux, trips]);
 
   const runner = current?.detail?.runnerText;
+  const tall = useTall();
   const approx = current?.detail?.approximation;
 
   return (
@@ -63,14 +83,29 @@ export default function Explainer() {
         <p className="text-sm text-muted">Demo data: the simulation snapshot is not available, so there is nothing real to explain.</p>
       ) : (
         <div className="space-y-2">
-          {paras.map((p) => (
-            <div key={p.id}>
-              <h3 className="text-xs font-medium text-muted">{p.heading}</h3>
-              <p className="text-sm leading-5 text-text/90">
-                <Segs segs={p.segs} />
-              </p>
-            </div>
-          ))}
+          {paras.map((p, i) => {
+            const first = p.segs.find((x): x is Exclude<Seg, string> => typeof x !== "string");
+            return (
+              <details key={`${p.id}-${tall ? "t" : "s"}`} open={(tall ? OPEN_TALL : OPEN_SHORT).has(p.id) || i === 0} className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted hover:text-text [&::-webkit-details-marker]:hidden">
+                  <ChevronRight size={12} className="transition-transform duration-150 group-open:rotate-90" aria-hidden />
+                  <h3 className="inline">{p.heading}</h3>
+                  {(p.summary ?? first?.n) && <span className="num ml-auto font-normal group-open:hidden">{p.summary ?? first?.n}</span>}
+                </summary>
+                <p className="pl-4 text-sm leading-5 text-text/90">
+                  <Segs segs={p.segs} />
+                  {p.link && (
+                    <>
+                      {" "}
+                      <a className="text-xs text-muted underline decoration-border underline-offset-2 hover:text-text" href={p.link.href} target="_blank" rel="noreferrer">
+                        {p.link.text}
+                      </a>
+                    </>
+                  )}
+                </p>
+              </details>
+            );
+          })}
           {runner && (
             <p className="num border-t border-border pt-2 text-xs text-muted">
               <span title={approx ? `Cross-harbor lens: ${approx}` : undefined}>{runner}.</span>

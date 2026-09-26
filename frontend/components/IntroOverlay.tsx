@@ -14,15 +14,10 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { lead: "March 26, 2024.", headline: "The Francis Scott Key Bridge fell into the Patapsco River." },
   {
-    body: "It carried I-695 across the mouth of Baltimore's harbor. WorldSeed asks a planning question: when a link like that is gone, who is affected, and by how much?",
-  },
-  {
-    body: "It models the region's roads as they were on March 1, 2024 (OpenStreetMap), with Census population and jobs data. Remove the bridge, and every number is recomputed on that network, in your browser.",
-  },
-  {
-    body: "The answer is uneven. Across the whole region the change is small; for some neighborhoods it is not. WorldSeed shows both, side by side, with every assumption open to inspection.",
+    lead: "March 26, 2024.",
+    headline: "The Francis Scott Key Bridge fell into the Patapsco River.",
+    body: "WorldSeed rebuilds the region's roads as they were on March 1, 2024, removes the bridge, and shows who is affected and by how much, computed in your browser.",
   },
   { headline: "In memory of the six construction workers who died.", body: "Planning simulation, not dispatch." },
 ];
@@ -98,9 +93,12 @@ function IntroContent({ onClose }: { onClose: () => void }) {
                   transition={{ duration: 0.45 }}
                 >
                   {step === 0 && (
-                    <p className="text-4xl font-medium leading-[1.15]" data-testid="intro-line">
-                      <span className="num text-muted">{s.lead}</span> {s.headline}
-                    </p>
+                    <>
+                      <p className="text-4xl font-medium leading-[1.15]" data-testid="intro-line">
+                        <span className="num text-muted">{s.lead}</span> {s.headline}
+                      </p>
+                      {s.body && <p className="mt-6 max-w-[620px] text-xl leading-8 text-text/80">{s.body}</p>}
+                    </>
                   )}
                   {step !== 0 && s.headline && <p className="text-4xl font-medium leading-[1.15]">{s.headline}</p>}
                   {step !== 0 && s.body && (

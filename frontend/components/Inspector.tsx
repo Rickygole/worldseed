@@ -50,7 +50,11 @@ function Chain({ chain }: { chain: CausalChain }) {
   } else {
     chips.push({ text: "Fastest route unchanged" });
   }
-  chips.push({ text: `${fmtSignedDur(d)} ${chain.focus.kind === "destination" ? `to ${focusName}` : "response"}`, tone: d > 0.5 ? "bad" : d < -0.5 ? "good" : undefined });
+  const cluster = chain.focus.kind === "destination" ? chain.focus.cluster : undefined;
+  chips.push({
+    text: `${fmtSignedDur(d)} ${chain.focus.kind === "destination" ? (cluster ? `to the ${focusName}` : `to ${focusName}`) : "response"}`,
+    tone: d > 0.5 ? "bad" : d < -0.5 ? "good" : undefined,
+  });
 
   return (
     <div>
@@ -74,7 +78,13 @@ function Chain({ chain }: { chain: CausalChain }) {
         ))}
       </ol>
       <p className="mt-2 text-xs leading-4 text-muted">
-        {chain.focus.kind === "destination" ? (
+        {chain.focus.kind === "destination" && cluster ? (
+          <>
+            Route on the map: to the <span className="text-text">{focusName}</span> (<span className="num">{fmtCount(cluster.jobs)}</span> jobs in{" "}
+            <span className="num">{cluster.hexes}</span> hexagons),{" "}
+            {d > 0 ? "the group of jobs across the harbor whose trip grew the most from here." : "the largest group of jobs across the harbor (no trip got longer)."}
+          </>
+        ) : chain.focus.kind === "destination" ? (
           <>
             Route on the map: to <span className="text-text">{focusName}</span>,{" "}
             {d > 0 ? "the regional job center whose trip grew the most here." : "the job center that weighs most here (no trip got longer)."}
@@ -86,7 +96,7 @@ function Chain({ chain }: { chain: CausalChain }) {
         )}
       </p>
       <p className="mt-2 text-xs leading-4 text-muted">
-        {chain.focus.kind === "destination" ? "All regional job centers, job-weighted: " : ""}
+        {chain.lens === "xharbor" ? "All jobs across the harbor, job-weighted: " : chain.focus.kind === "destination" ? "All regional job centers, job-weighted: " : ""}
         <span className="text-text">{fill(chain.template, chain.slots)}</span>
       </p>
       {chain.routeChanged && (
@@ -108,7 +118,6 @@ export default function Inspector() {
   const selectHex = useApp((s) => s.selectHex);
   const inspection = useApp((s) => s.inspection);
   const current = useApp((s) => s.current);
-  const baseline = useApp((s) => s.baseline);
   const view = useApp((s) => s.view);
   const viewBaseline = useApp((s) => s.viewBaseline);
   const status = useApp((s) => s.status);
@@ -135,7 +144,6 @@ export default function Inspector() {
 
   const h = selectedHex;
   const xd = current?.detail?.xharbor;
-  const xb = baseline?.detail?.xharbor;
   const emsView = view?.detail?.lens === "ems" ? view : null;
   const emsBase = viewBaseline?.detail?.lens === "ems" ? viewBaseline : null;
   const shoreName = (s: number) => (s === 0 ? "north/east shore" : s === 1 ? "south/west shore" : "harbor divider (ambiguous shore)");
@@ -186,18 +194,24 @@ export default function Inspector() {
 
             <section aria-label="This hexagon" className="mb-4">
               <h3 className="label mb-1">This hexagon</h3>
-              {xd && xb ? (
+              {xd ? (
                 xd.isOrigin[h] === 0 ? (
                   <p className="text-sm text-muted">On the harbor divider, so the cross-harbor lens does not score it.</p>
                 ) : (
                   <dl>
                     <Row
                       label="Cross-harbor jobs within 30 min"
-                      before={fmtCount(xb.jobsWithin[h])}
+                      before={fmtCount(xd.baselineJobsWithin[h])}
                       after={fmtCount(xd.jobsWithin[h])}
                       note={xd.lossFrac[h] > 0.0005 ? `${fmtPct1(100 * xd.lossFrac[h])}% lost` : "no loss"}
                     />
-                    <Row label="Added to avg cross-harbor trip" after={`${xd.addedMin[h] >= 0 ? "+" : ""}${fmtMin(xd.addedMin[h])}`} unit="min" />
+                    <Row
+                      label="Avg trip to jobs across the harbor"
+                      before={Number.isFinite(xd.meanBeforeMin[h]) ? fmtMin(xd.meanBeforeMin[h]) : undefined}
+                      after={Number.isFinite(xd.meanAfterMin[h]) ? fmtMin(xd.meanAfterMin[h]) : "--"}
+                      unit="min"
+                      note={`${xd.addedMin[h] >= 0 ? "+" : ""}${fmtMin(xd.addedMin[h])} min`}
+                    />
                     {emsView && emsBase && (
                       <Row label="Simulated first response" before={fmtMin(emsBase.minutes[h])} after={fmtMin(emsView.minutes[h])} unit="min" />
                     )}
@@ -206,14 +220,14 @@ export default function Inspector() {
               ) : (
                 <div className="skeleton h-12 w-full" aria-hidden />
               )}
-              {aux &&
-                (aux.hexes.pop[h] < 0.5 ? (
+              {xd &&
+                (xd.residents[h] < 0.5 ? (
                   <p className="mt-1 text-xs text-muted">
                     No residents live in this hexagon (Census ACS estimates); it is in the study area for its jobs. The values above are trip times from this location.
                   </p>
                 ) : (
                   <p className="mt-1 text-xs text-muted">
-                    About <span className="num">{fmtCount(aux.hexes.pop[h])}</span> residents, derived from Census ACS estimates by area share. Jobs from LEHD LODES.
+                    About <span className="num">{fmtCount(xd.residents[h])}</span> residents, derived from Census ACS estimates by area share. Jobs from LEHD LODES.
                   </p>
                 ))}
             </section>

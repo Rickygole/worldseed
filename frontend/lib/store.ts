@@ -11,8 +11,10 @@ import {
   type RealSimulator,
 } from "./sim";
 import type { SnapshotInfo } from "./sim/engine";
+import type { TripsResult } from "./sim/trips";
 import { RIBBON_KEYS, ribbonValues, type RibbonKey } from "./ui/ribbon";
 import { loadNodeCoords } from "./ui/snapshotAux";
+import { assertMutationRecordAllowed } from "./agent/closures";
 
 export interface LogEvent {
   id: number;
@@ -72,7 +74,7 @@ const mkEvent = (tag: LogEvent["tag"], text: string): LogEvent => ({
 
 const BASELINE: Scenario = { removedLinks: [] };
 
-const scenarioKey = (s: Scenario): string =>
+export const scenarioKey = (s: Scenario): string =>
   JSON.stringify([[...s.removedLinks].sort(), (s.mutations ?? []).map((r) => r.m)]);
 
 const emptyHistory = (): Record<RibbonKey, number[]> =>
@@ -125,6 +127,17 @@ interface AppState {
   events: LogEvent[];
   selectedHex: number | null;
   inspection: Inspection | null;
+  /** Where the next terrain change ripples out from (the bridge by default; an applied option's location). */
+  staggerFrom: { lat: number; lng: number } | null;
+  /** Freight and hazmat trips (runTrips) in the current world; null on the mock or before load. */
+  trips: TripsResult | null;
+  /** Session history of the hazmat mean added minutes (cross-harbor trips), for the ribbon sparkline. */
+  tripsHistory: number[];
+  /** A trip highlighted on the map from the freight drawer, with its routes per class when the simulator returns them. */
+  freightSel: { tripId: string; routes: Partial<Record<string, [number, number][]>>; ends: { o: [number, number]; d: [number, number]; oName: string; dName: string } } | null;
+  selectTrip: (tripId: string | null) => Promise<void>;
+  /** The last applied option, for the map's "draw itself" animation. */
+  appliedFx: { id: number; candidateIds: string[] } | null;
 
   // ---- UI ----
   leftOpen: boolean;
@@ -135,6 +148,9 @@ interface AppState {
   assumptionsOpen: boolean;
   commandOpen: boolean;
   aboutOpen: boolean;
+  closuresOpen: boolean;
+  evidenceOpen: boolean;
+  freightOpen: boolean;
   logOpen: boolean;
   goal: string;
   budget: BudgetTier;
@@ -143,7 +159,12 @@ interface AppState {
   init: () => Promise<void>;
   retry: () => Promise<void>;
   /** Run a scenario on every lens and make it current. The hook the planner uses to apply a bundle. */
-  applyScenario: (scenario: Scenario, opts?: { resetHistory?: boolean }) => Promise<SimOutput | undefined>;
+  applyScenario: (
+    scenario: Scenario,
+    opts?: { resetHistory?: boolean; strict?: boolean; staggerFrom?: { lat: number; lng: number }; fx?: { candidateIds: string[] } },
+  ) => Promise<SimOutput | undefined>;
+  /** A scenario's result for one lens without changing the world (preview, compare). Cached. */
+  peek: (scenario: Scenario, lens: LensId, signal?: AbortSignal) => Promise<SimOutput>;
   removeBridge: () => Promise<void>;
   restoreBridge: () => Promise<void>;
   resetWorld: () => Promise<void>;
@@ -158,6 +179,9 @@ interface AppState {
   setAssumptionsOpen: (v: boolean) => void;
   setCommandOpen: (v: boolean) => void;
   setAboutOpen: (v: boolean) => void;
+  setClosuresOpen: (v: boolean) => void;
+  setEvidenceOpen: (v: boolean) => void;
+  setFreightOpen: (v: boolean) => void;
   setLogOpen: (v: boolean) => void;
   setGoal: (v: string) => void;
   setBudget: (v: BudgetTier) => void;
@@ -178,6 +202,18 @@ export const useApp = create<AppState>((set, get) => {
     }
     return p;
   }
+
+  /** Freight trips for a scenario: a few tens of milliseconds; null when the snapshot has no trips. */
+  async function tripsFor(scenario: Scenario): Promise<TripsResult | null> {
+    const sb = simulator.snapshotBacked;
+    if (!sb) return null;
+    try {
+      return await sb.runTrips(scenario);
+    } catch {
+      return null;
+    }
+  }
+  const hazmatMean = (t: TripsResult | null): number | null => t?.summary.hazmat_truck?.crossHarborMeanAddedMinutes ?? null;
 
   let applySeq = 0;
   let lensSeq = 0;
@@ -208,6 +244,11 @@ export const useApp = create<AppState>((set, get) => {
     events: [],
     selectedHex: null,
     inspection: null,
+    staggerFrom: null,
+    appliedFx: null,
+    trips: null,
+    tripsHistory: [],
+    freightSel: null,
 
     leftOpen: true,
     rightOpen: true,
@@ -217,6 +258,9 @@ export const useApp = create<AppState>((set, get) => {
     assumptionsOpen: false,
     commandOpen: false,
     aboutOpen: false,
+    closuresOpen: false,
+    evidenceOpen: false,
+    freightOpen: false,
     logOpen: false,
     goal: "",
     budget: "med",
@@ -227,7 +271,7 @@ export const useApp = create<AppState>((set, get) => {
       try {
         const world = await simulator.loadWorld();
         set({ world, loadStage: "baseline", simKind: simulator.meta.kind, runnerLabel: simulator.meta.runnerLabel });
-        const out = await compute(BASELINE, "xharbor");
+        const [out, trips] = await Promise.all([compute(BASELINE, "xharbor"), tripsFor(BASELINE)]);
         const info = simInfo();
         const events = [
           mkEvent("SYS", `World loaded: ${world.regionName}, ${world.cells.length.toLocaleString("en-US")} hexagons (H3 res 9)`),
@@ -245,6 +289,8 @@ export const useApp = create<AppState>((set, get) => {
           viewBaseline: out,
           scenario: BASELINE,
           history: pushHistory(emptyHistory(), out),
+          trips,
+          tripsHistory: hazmatMean(trips) === null ? [] : [hazmatMean(trips) as number],
           revision: 1,
           viewRevision: s.viewRevision + 1,
           events: [...s.events, ...events],
@@ -266,17 +312,33 @@ export const useApp = create<AppState>((set, get) => {
     async applyScenario(scenario, opts = {}) {
       const s0 = get();
       if (s0.status !== "ready" || !s0.world) return;
+      // The gate for every record entering a world: a news-sourced closure must come from a redeemed confirmation.
+      try {
+        for (const r of scenario.mutations ?? []) assertMutationRecordAllowed(r);
+      } catch (e) {
+        get().log("SYS", `Refused a world change: ${e instanceof Error ? e.message : String(e)}`);
+        if (opts.strict) throw e;
+        return;
+      }
       const seq = ++applySeq;
       set({ busy: true });
       try {
         const lens = get().lens;
-        const [cur, view] = await Promise.all([compute(scenario, "xharbor"), compute(scenario, lens)]);
-        if (seq !== applySeq) return cur;
+        const [cur, view, trips] = await Promise.all([compute(scenario, "xharbor"), compute(scenario, lens), tripsFor(scenario)]);
+        if (seq !== applySeq) {
+          if (opts.strict) throw new Error("A newer world change replaced this one.");
+          return cur;
+        }
         set((s) => ({
+          staggerFrom: opts.staggerFrom ?? null,
+          appliedFx: opts.fx ? { id: (s.appliedFx?.id ?? 0) + 1, candidateIds: opts.fx.candidateIds } : null,
           scenario,
           current: cur,
           view: s.lens === lens ? view : s.view,
           history: pushHistory(opts.resetHistory ? emptyHistory() : s.history, cur),
+          trips,
+          tripsHistory: hazmatMean(trips) === null ? s.tripsHistory : [...(opts.resetHistory ? [] : s.tripsHistory), hazmatMean(trips) as number].slice(-24),
+          freightSel: null,
           revision: s.revision + 1,
           viewRevision: s.viewRevision + 1,
           busy: false,
@@ -288,14 +350,20 @@ export const useApp = create<AppState>((set, get) => {
       } catch (e) {
         if (seq === applySeq) set({ busy: false });
         get().log("SYS", `Simulation failed: ${e instanceof Error ? e.message : String(e)}`);
+        if (opts.strict) throw e;
       }
+    },
+
+    peek(scenario, lens, signal) {
+      if (signal?.aborted) return Promise.reject(Object.assign(new Error("cancelled"), { name: "AbortError" }));
+      return compute(scenario, lens);
     },
 
     async removeBridge() {
       const s = get();
       if (s.status !== "ready" || s.scenario.removedLinks.includes("key_bridge")) return;
       s.log("USER", "Remove link: Francis Scott Key Bridge (I-695)");
-      const out = await get().applyScenario({ removedLinks: ["key_bridge"] });
+      const out = await get().applyScenario({ removedLinks: ["key_bridge"], mutations: s.scenario.mutations });
       if (!out) return;
       logRun(out);
       const b = ribbonValues(get().baseline);
@@ -313,7 +381,7 @@ export const useApp = create<AppState>((set, get) => {
       const s = get();
       if (s.status !== "ready" || s.scenario.removedLinks.length === 0) return;
       s.log("USER", "Restore link: Francis Scott Key Bridge (I-695)");
-      const out = await get().applyScenario(BASELINE);
+      const out = await get().applyScenario({ removedLinks: [], mutations: s.scenario.mutations });
       if (out) {
         logRun(out);
         get().log("SIM", "Baseline restored.");
@@ -349,7 +417,8 @@ export const useApp = create<AppState>((set, get) => {
         set({ selectedHex: null, inspection: null });
         return;
       }
-      const chainLens: LensId = get().lens === "ems" ? "ems" : "access";
+      // The route explanation follows the lens on screen: cross-harbor clusters, regional job centers, or stations.
+      const chainLens: LensId = get().lens;
       set({ selectedHex: hex, inspection: { hex, chainLens, status: "loading" } });
       const sb = simulator.snapshotBacked;
       if (!sb) {
@@ -375,6 +444,29 @@ export const useApp = create<AppState>((set, get) => {
       }
     },
 
+    async selectTrip(tripId) {
+      if (!tripId) {
+        set({ freightSel: null });
+        return;
+      }
+      const sb = simulator.snapshotBacked;
+      const t = get().trips?.trips.find((x) => x.id === tripId);
+      if (!sb || !t) return;
+      const ends = { o: [t.origin.lng, t.origin.lat] as [number, number], d: [t.destination.lng, t.destination.lat] as [number, number], oName: t.names.origin, dName: t.names.destination };
+      set({ freightSel: { tripId, routes: {}, ends } });
+      try {
+        const [res, coords] = await Promise.all([sb.runTrips(get().scenario, { tripIds: [tripId], includeRoutes: true }), loadNodeCoords()]);
+        const r = res.trips[0];
+        const routes: Partial<Record<string, [number, number][]>> = {};
+        for (const [cls, v] of Object.entries(r?.classes ?? {})) {
+          if (v.route) routes[cls] = v.route.nodes.map((n) => [coords.lon[n], coords.lat[n]] as [number, number]);
+        }
+        if (get().freightSel?.tripId === tripId) set({ freightSel: { tripId, routes, ends } });
+      } catch {
+        /* the straight schematic line stays */
+      }
+    },
+
     log(tag, text) {
       if (!text) return;
       set((s) => ({ events: [...s.events, mkEvent(tag, text)].slice(-200) }));
@@ -389,6 +481,9 @@ export const useApp = create<AppState>((set, get) => {
     setAssumptionsOpen: (v) => set({ assumptionsOpen: v }),
     setCommandOpen: (v) => set({ commandOpen: v }),
     setAboutOpen: (v) => set({ aboutOpen: v }),
+    setClosuresOpen: (v) => set({ closuresOpen: v }),
+    setEvidenceOpen: (v) => set({ evidenceOpen: v }),
+    setFreightOpen: (v) => set(v ? { freightOpen: true } : { freightOpen: false, freightSel: null }),
     setLogOpen: (v) => set({ logOpen: v }),
     setGoal: (v) => set({ goal: v }),
     setBudget: (v) => set({ budget: v }),

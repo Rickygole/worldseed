@@ -23,47 +23,53 @@ see `scripts/`.
 
 ## Try it
 
-1. Skip (or step through) the intro.
-2. Click **Remove Key Bridge link** in the Scenario panel. Every lens is recomputed on the road network in
-   your browser; the terrain rises over the Sparrows Point / Edgemere peninsula, the camera flies to where
-   the change is, the ribbon numbers roll, and "What this shows" explains the result in plain sentences.
-3. Switch the lens (Cross-harbor access / Regional access / First response (EMS)) above the map, or click a
-   ribbon tile. The ribbon always shows all three lenses side by side.
-4. Click any hexagon for its block group, Census figures and the route that changed (dim = before,
-   bright = now).
-5. **Assumptions** (top bar) lists every model parameter from the snapshot, the data vintages and what is
-   simplified.
+1. Skip the intro (two slides).
+2. **Remove Key Bridge link** (Scenario panel). Every lens is recomputed on the road network in your browser; the terrain
+   rises over the Sparrows Point / Edgemere peninsula, the camera flies there, the ribbon rolls, and "What this shows"
+   explains the result. Job-only hexagons (no residents) are drawn faded.
+3. Switch the lens (Cross-harbor access / Regional access / First response (EMS)) or click a ribbon tile. The ribbon
+   always shows all three lenses; first response is marked "held" when it does not move.
+4. Click a hexagon: block group, Census figures, absolute cross-harbor minutes before and after, and the route that
+   changed (dim = before, bright = now).
+5. **Find a better future** (Planner panel). Confirm the goal first; nothing runs before you confirm. With the AI planner
+   unavailable (no keys), the same button runs the **Deterministic search (no AI)**. Watch the futures fan grow, the
+   stress-test beats, and the progress grid (real completed futures). Then Preview (violet wireframe), Compare (swipe
+   slider), and Apply (confirm first; the option draws itself and the terrain changes outward from it).
+6. **Exhaustive check** (Finalists): scores every bundle of one to three eligible options with one free-flow run each and
+   says where the top pick ranks.
+7. **Closure notices** and **Reality check** (Scenario panel): Tavily-backed, labeled unverified; closures need an explicit
+   confirmation and a server-redeemed token before they enter the world.
+8. `?tour=keybridge` runs a five-step guided tour; every step is a real action on the live simulator.
 
-Keys: `P` presentation mode (hides panels, slow orbit), `R` reset, `Cmd/Ctrl-K` command bar, `Esc` closes
-overlays and the inspector. Arrow keys move within the lens control.
+Keys: `P` presentation mode (hides panels, slow orbit), `R` reset, `Cmd/Ctrl-K` command bar (commands, "close harbor
+tunnel", "reset", and plain-language goals when the AI planner is available), `Esc` closes overlays and the inspector.
 
 ## What is real vs placeholder
 
 | Piece | Status |
 | --- | --- |
-| Terrain, ribbon, explainer, inspector numbers | Real: computed by `lib/sim` (snapshot-backed, in Web Workers) |
-| Block-group figures (population, zero-vehicle households, low-wage workers) | Real: `blockgroups.json` (ACS 5-year via Census Reporter, LODES) |
-| Assumptions drawer | Real: `assumptions.json` and `manifest.json` as shipped |
-| Cross-harbor lens in the UI | Fast variant (job-weighted anchors, labeled in the drawer); the exact all-pairs version is the test oracle |
-| Mission, decision log, futures, finalists (Planner panel) | Placeholders: honest empty states until the AI planner is wired |
+| Terrain, ribbon, explainer, inspector | Real: `lib/sim` in Web Workers |
+| Search (futures, fan, grid, finalists, stress tests, exhaustive check) | Real: scored by the simulator's worker pool (`lib/ui/agentBridge.ts`) |
+| AI planner, parser, critic | Live only when `/api/health` reports the planner available; otherwise the deterministic search runs, labeled "no AI" |
+| Closure notices, Reality check | Live only when the server has a Tavily key and confirm secret; otherwise "Live feed unavailable" |
+| Sensitivity ranges and the reported-detour comparison | Documented results from `docs/METHODOLOGY.md` (not computed in the browser), shown only for the Key Bridge-removed world and linked |
+| Recorded AI run | None exists; nothing claims one |
 | Demo mock (`lib/sim/mock.ts`) | Dev fallback only, when `/snapshot/graph.meta.json` is absent; the footer then shows "Demo data" |
 
 ## How the UI reads the simulator
 
-The UI talks to the `Simulator` from `createSimulator()` (`lib/sim/index.ts`). State lives in
-`lib/store.ts` (Zustand):
-
-- `baseline` / `current`: cross-harbor runs of the baseline and the current scenario. Every run computes all
-  three lenses, so the ribbon (`lib/ui/ribbon.ts`) and the explainer (`lib/ui/explainer.ts`) read
-  `detail.lenses` and never depend on the active lens.
-- `view` / `viewBaseline`: the active lens for the current scenario and the baseline (terrain, inspector).
-- `applyScenario(scenario)`: runs a scenario (removed links plus `mutations`) on every lens and makes it
-  current. This is the hook the planner uses to apply a bundle.
-- `selectHex(i)`: opens the inspector and asks the simulator's `explain()` for the causal chain.
-- Results are memoized per (scenario, lens), so switching lenses back and forth is instant.
-
-`lib/ui/lenses.ts` maps a lens field to height, color and hatch. The cross-harbor and regional lenses share
-one added-minutes scale, so the regional effect looks exactly as small as it is.
+- `lib/store.ts` (Zustand): the world, `baseline` / `current` (cross-harbor runs; every run computes all three lenses),
+  `view` / `viewBaseline` (the active lens), `applyScenario(scenario, {strict, staggerFrom, fx})` (every record passes the
+  closures gate), `peek(scenario, lens)` (cached single-lens result for preview and compare), `selectHex`.
+- `lib/ui/search.ts`: the planner machine (`lib/agent/machine.ts`), health polling, the per-option futures the charts draw,
+  preview / compare / apply, and the exhaustive check.
+- `lib/ui/agentBridge.ts`: the evaluator. Options are scored in the world on screen with paired stress futures (same seed
+  and draws for every option, the pre-collapse network and doing nothing); stress rounds close the named links (and change
+  time of day) in every world compared. P(goal) = share of futures within the target of the pre-collapse network in the
+  same future. The planner's baseline row is doing nothing. The equity field sent to the planner is the one-sided
+  disadvantage `max(0, gap)` because the planner contract requires non-negative times.
+- `lib/ui/lenses.ts` maps a lens field to height, color and hatch (one shared scale for the two added-time lenses).
+- Tests for the pure pieces: `test/ui/`.
 
 ## Design tokens
 

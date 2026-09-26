@@ -1,0 +1,74 @@
+/**
+ * Terrain animation buffers and loop, outside React. The map reads `elev` / `rgb` / `hatch` when it builds
+ * its layers (keyed by a tick counter); the loop writes into them in place, so a frame allocates nothing.
+ *
+ * Each change eases every hex from where it is to its target, staggered by distance from a ripple origin
+ * (ease-out). Hatching is withheld while the terrain moves and appears when it settles.
+ */
+import { clamp, easeOutCubic } from "../format";
+import type { Encoded } from "./lenses";
+
+export class TerrainAnimator {
+  readonly elev: Float32Array;
+  readonly rgb: Float32Array;
+  readonly hatch: Uint8Array;
+  private primed = false;
+  private raf = 0;
+
+  constructor(readonly n: number) {
+    this.elev = new Float32Array(n);
+    this.rgb = new Float32Array(n * 3);
+    this.hatch = new Uint8Array(n);
+  }
+
+  /**
+   * Animate to `target`. `dist` is each hex's distance from the ripple origin. `onFrame` runs after each
+   * frame's write, `onSettle` once at the end.
+   */
+  start(target: Encoded, dist: Float32Array, opts: { ms: number; stagger: number; linear: boolean }, onFrame: () => void, onSettle: () => void): void {
+    this.stop();
+    const n = this.n;
+    if (!this.primed) {
+      // First paint rises from a flat plain in the target colors.
+      this.rgb.set(target.rgb);
+      this.primed = true;
+    }
+    const fromE = Float32Array.from(this.elev);
+    const fromC = Float32Array.from(this.rgb);
+    let maxD = 0;
+    for (let i = 0; i < n; i++) if (dist[i] > maxD) maxD = dist[i];
+    this.hatch.fill(0);
+    const { ms, stagger, linear } = opts;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const tt = (now - t0) / ms;
+      const e = this.elev;
+      const c = this.rgb;
+      for (let i = 0; i < n; i++) {
+        const delay = maxD > 0 ? (dist[i] / maxD) * stagger : 0;
+        const local = clamp((tt - delay) / (1 - stagger), 0, 1);
+        const p = linear ? local : easeOutCubic(local);
+        e[i] = fromE[i] + (target.elev[i] - fromE[i]) * p;
+        const k = i * 3;
+        c[k] = fromC[k] + (target.rgb[k] - fromC[k]) * p;
+        c[k + 1] = fromC[k + 1] + (target.rgb[k + 1] - fromC[k + 1]) * p;
+        c[k + 2] = fromC[k + 2] + (target.rgb[k + 2] - fromC[k + 2]) * p;
+      }
+      if (tt < 1) {
+        onFrame();
+        this.raf = requestAnimationFrame(step);
+      } else {
+        this.raf = 0;
+        this.hatch.set(target.hatch);
+        onFrame();
+        onSettle();
+      }
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+
+  stop(): void {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+  }
+}

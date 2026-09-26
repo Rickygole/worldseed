@@ -8,7 +8,15 @@ import type { SimOutput } from "../sim/types";
 
 export type RibbonKey = "xhTime" | "xhPeople" | "xhLowWage" | "regional" | "ems";
 
-export const RIBBON_KEYS: RibbonKey[] = ["xhTime", "xhPeople", "xhLowWage", "regional", "ems"];
+/** People affected first; the average trip (a small number over a million residents) last. */
+export const RIBBON_KEYS: RibbonKey[] = ["xhPeople", "xhLowWage", "regional", "ems", "xhTime"];
+
+/** Equity wording from the computed shares (percent of low-wage workers vs percent of all residents losing >10%). */
+export function equityWording(lowWagePct: number, allPct: number): { text: string; tone: "bad" | "neutral" } {
+  const gap = lowWagePct - allPct;
+  if (Math.abs(gap) < 0.25) return { text: "About the same rate as all residents", tone: "neutral" };
+  return gap > 0 ? { text: "Hit more often than all residents", tone: "bad" } : { text: "Hit less often than all residents", tone: "neutral" };
+}
 
 export interface RibbonValues {
   /** Population mean of the job-weighted mean time to all opposite-shore jobs, seconds. */
@@ -26,6 +34,8 @@ export interface RibbonValues {
 export interface RibbonExtras {
   xhAddedP99S: number;
   xhAddedMaxS: number;
+  /** Worst added time among hexes where people live (the unweighted max includes empty industrial land). */
+  xhAddedMaxPopS: number;
   xhPeopleGt25: number;
   popCovered: number;
   lowWageCovered: number;
@@ -59,6 +69,7 @@ export function ribbonValues(out: SimOutput | null): { v: RibbonValues; x: Ribbo
     x: {
       xhAddedP99S: xh.addedP99S,
       xhAddedMaxS: xh.addedMaxS,
+      xhAddedMaxPopS: xh.addedMaxPopulatedS ?? xh.addedP99S,
       xhPeopleGt25: xh.popLossGt25pct,
       popCovered: xh.popCovered,
       lowWageCovered: xh.lowWageCovered,

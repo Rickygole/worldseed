@@ -8,6 +8,7 @@ import { loadAssumptions, loadManifest, type ManifestSource } from "@/lib/ui/sna
 import { useSnapshotFile } from "@/lib/ui/useSnapshotFile";
 import { useDialog } from "@/lib/ui/useDialog";
 import type { AssumptionRecord } from "@/lib/sim";
+import { LOWER_BOUND_SENTENCE, METHODOLOGY_URL, REPORTED_DETOUR, ROUTER_SENTENCE } from "@/lib/ui/methodology";
 
 /** Plain-language list of what the model leaves out. Definitions only; no results. */
 const SIMPLIFIED: { title: string; body: string }[] = [
@@ -29,7 +30,7 @@ const SIMPLIFIED: { title: string; body: string }[] = [
   },
   {
     title: "Hazardous materials",
-    body: "The harbor tunnels are flagged as closed to hazardous materials (an assumption, not re-verified against current rules). The car trips shown here do not use that flag.",
+    body: "Vehicles carrying listed hazardous materials are prohibited in both harbor tunnels (Maryland Transportation Authority, cited in the parameters below). Only the freight trips' hazmat_truck class uses that rule; hazmat_truck means a vehicle carrying such material, not every truck. The cross-harbor, regional and EMS lenses are car trips.",
   },
   {
     title: "Census figures",
@@ -175,6 +176,27 @@ function DrawerInner({ onClose }: { onClose: () => void }) {
                 </ul>
               </>
             )}
+          </section>
+
+          <section aria-labelledby="validation-h">
+            <h3 id="validation-h" className="label mb-2">
+              Validation and limits
+            </h3>
+            <ul className="space-y-3 text-sm text-muted">
+              <li>
+                {LOWER_BOUND_SENTENCE} Source: {REPORTED_DETOUR.source}.
+              </li>
+              <li>{ROUTER_SENTENCE}</li>
+              <li>
+                Head-counts such as residents losing more than 10% of cross-harbor jobs depend on speed and time-budget assumptions; the time-based measures are
+                stable across the variants tested.
+              </li>
+            </ul>
+            <p className="mt-2 text-sm">
+              <a className="underline decoration-border underline-offset-2 hover:text-text" href={METHODOLOGY_URL} target="_blank" rel="noreferrer">
+                Methodology, sensitivity and validation
+              </a>
+            </p>
           </section>
 
           <section aria-labelledby="simplified-h">

@@ -18,20 +18,22 @@ export default function Footer() {
         <a className={linkCls} href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           &copy; OpenStreetMap contributors
         </a>{" "}
-        (ODbL) · U.S. Census Bureau ACS/TIGER/LEHD · AI: NVIDIA Nemotron via Nebius Token Factory (
+        (ODbL) · U.S. Census Bureau ACS/TIGER/LEHD · MD iMAP · AI: NVIDIA Nemotron via Nebius Token Factory (
         <a className={linkCls} href={TOKEN_FACTORY_TERMS} target="_blank" rel="noreferrer">
           Terms
         </a>
-        ) · Search: Tavily · AI-generated text may be inaccurate
+        ) · Search: Tavily
       </p>
       <div className="flex shrink-0 items-center gap-4">
+        {/* Kept outside the truncating credits so it is never clipped. */}
+        <span>AI-generated text may be inaccurate</span>
         {simKind === "mock" && (
           <span className="chip h-5 px-2" style={{ borderColor: "rgb(245 165 36 / 0.5)" }}>
             <span className="text-warn">Demo data</span>
           </span>
         )}
         <button className={linkCls} onClick={() => setAboutOpen(true)}>
-          About and intended use
+          Data sources and intended use
         </button>
       </div>
     </footer>

@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import { Command, Cpu, FileText, GitBranch, Info, Presentation, Sprout, Unlink } from "lucide-react";
 import { useApp, isBridgeRemoved } from "@/lib/store";
+import { useSearch } from "@/lib/ui/search";
+import { shortModel } from "@/lib/ui/agentBridge";
 
-function ConnectionDot() {
+/** Real system state from /api/health: whether the AI planner is available, and why not. */
+function SystemState() {
+  const h = useSearch((s) => s.health);
   const [online, setOnline] = useState(true);
   useEffect(() => {
     const sync = () => setOnline(navigator.onLine);
@@ -16,10 +20,30 @@ function ConnectionDot() {
       window.removeEventListener("offline", sync);
     };
   }, []);
+  let dot = "var(--color-muted)";
+  let text = "Checking AI planner";
+  let title = "Asking /api/health whether the AI planner is available.";
+  if (!online) {
+    dot = "var(--color-warn)";
+    text = "Offline";
+    title = "Offline: map tiles and the AI planner are unreachable. Results already computed still work.";
+  } else if (h.status === "available") {
+    dot = "var(--color-ok)";
+    text = `AI planner: ${shortModel(h.info.roles.planner)}`;
+    title = `AI planner available. Roles: ${Object.entries(h.info.roles).map(([k, v]) => `${k} ${shortModel(v)}`).join(", ")}.`;
+  } else if (h.status === "unavailable") {
+    dot = "var(--color-warn)";
+    text = "AI planner unavailable";
+    title = `${h.info.degradedReason === "budget_exhausted" ? "Daily AI budget reached." : h.info.providerConfigured ? "The model provider is not reachable." : "No model provider is configured for this deployment."} Deterministic search (no AI) is available.`;
+  } else if (h.status === "unreachable") {
+    dot = "var(--color-warn)";
+    text = "AI planner unavailable";
+    title = "The health check did not answer. Deterministic search (no AI) is available.";
+  }
   return (
-    <span className="chip" title={online ? "Network connected (map tiles: OpenFreeMap)" : "Offline: map tiles unavailable; results already loaded still work"}>
-      <span className="inline-block size-2 rounded-full" style={{ background: online ? "var(--color-ok)" : "var(--color-warn)" }} aria-hidden />
-      <span className="text-muted">{online ? "Online" : "Offline"}</span>
+    <span className="chip" title={title} role="status">
+      <span className="inline-block size-2 rounded-full" style={{ background: dot }} aria-hidden />
+      <span className="text-muted">{text}</span>
     </span>
   );
 }
@@ -40,8 +64,8 @@ export default function TopBar() {
           <Sprout size={18} className="text-ok" aria-hidden />
           <h1 className="text-base font-bold tracking-[0.18em]">WORLDSEED</h1>
         </div>
-        <span className="h-5 w-px bg-border max-[1439px]:hidden" aria-hidden />
-        <span className="truncate text-sm text-muted max-[1439px]:hidden">Key Bridge Region</span>
+        <span className="h-5 w-px bg-border max-[1535px]:hidden" aria-hidden />
+        <span className="truncate text-sm text-muted max-[1535px]:hidden">Key Bridge Region</span>
         <span className="chip" title="Current scenario">
           {removed ? <Unlink size={12} className="text-critical" aria-hidden /> : <GitBranch size={12} aria-hidden />}
           <span className="text-muted">Scenario</span>
@@ -59,7 +83,7 @@ export default function TopBar() {
           <span className="text-muted">Runner</span>
           <span>{runnerLabel}</span>
         </span>
-        <ConnectionDot />
+        <SystemState />
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <button className="btn h-8 px-3" onClick={() => setAssumptionsOpen(true)}>
           <FileText size={14} aria-hidden />
