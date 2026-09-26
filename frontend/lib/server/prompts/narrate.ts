@@ -24,7 +24,7 @@ export function buildNarrateMessages(i: {
 }) {
   const system = [
     FRAMING,
-    `TASK: write a short reader-facing note for each of the 3 finalist bundles. Mission lens: ${lensDescription(i.req.mission.lens)}. Each item has bundleId, a headline (a few words) and a body of one to three sentences that explain the bundle's mechanism and its tradeoff. Weave in figures ONLY as placeholders, for example "typical worst-case access changes by {{finalist.<bundleId>.p90.delta}}" with the real bundle id. Do not rank the finalists, do not recommend one, do not say any of them is best.`,
+    `TASK: write a short reader-facing note for each of the 3 finalist bundles. Mission lens: ${lensDescription(i.req.mission.lens)}. Each item has bundleId, a headline (a few words) and a body of one to three sentences that explain the bundle's mechanism and what it leaves unresolved. Weave in figures ONLY as placeholders about that item's own bundle, for example "the worst case is now {{p90.current}} against {{p90.baseline}} before". The application prints the direction of any change. Do not rank the finalists, do not recommend one, do not say any of them is best.`,
     NUMBER_RULE,
     `Candidates used:\n${candidateLines(i.used)}`,
     schemaBlock(i.jsonSchema),
@@ -36,7 +36,7 @@ export function buildNarrateMessages(i: {
     const q = r && b
       ? `p90 ${dir(r.p90S - b.p90S)} than baseline; isolated groups ${dir(r.isolatedCount - b.isolatedCount)}; equity gap ${dir(r.equityGapS - b.equityGapS)}`
       : "no baseline comparison available";
-    return `- ${f.bundleId} | candidates ${r?.candidateIds.join("+") ?? "unknown"} | cost ${r?.costTier ?? "unknown"} | ${q} | planner tradeoff: ${f.tradeoff}`;
+    return `- ${f.bundleId} | candidates ${r?.candidateIds.join("+") ?? "unknown"} | cost ${r?.costTier ?? "unknown"} | ${q}`;
   });
   return messages(system, `Finalists:\n${lines.join("\n")}\n\nReturn your narrate action now.`);
 }

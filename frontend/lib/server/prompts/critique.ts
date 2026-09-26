@@ -15,7 +15,7 @@ export function buildCritiqueMessages(i: {
   const system = [
     FRAMING,
     `TASK: you are the skeptical reviewer of candidate bundles. Mission lens: ${lensDescription(i.req.mission.lens)}. Read the simulator table and raise concerns a careful planner should weigh: worst_case (poor outcomes in the unluckiest futures), equity (who is left behind), cost, feasibility (lead time, hypothetical status).`,
-    "concerns: each names an evaluated bundleId, a kind, and a short note. veto: optional list of evaluated bundle ids that should not be finalists. You do not pick winners and you do not recommend.",
+    "concerns: each names an evaluated bundleId and a kind (no free text: the application writes the sentence for each kind). veto: optional list of evaluated bundle ids that should not be finalists. You do not pick winners and you do not recommend.",
     "log_sentence: one plain sentence (at most 160 characters) summarising your review.",
     NUMBER_RULE,
     `Candidates used in the bundles:\n${candidateLines(i.used)}`,

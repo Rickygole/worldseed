@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildParseMessages } from "../../lib/server/prompts/parse";
@@ -22,16 +22,38 @@ const ownFiles = [
   ...walk(path.join(root, "lib/agent")),
   ...walk(path.join(root, "lib/server")),
   ...walk(path.join(root, "app/api")),
+  path.join(root, "next.config.ts"),
   path.join(root, "scripts/smoke-token-factory.mjs"),
 ];
+// Product wording: operational-emergency vocabulary is not how this planning tool is described.
+// Fragments are joined so the words do not appear as literals in this file.
+const PRODUCT_WORDS = new RegExp(
+  [["dis", "patch"].join(""), ["tri", "age"].join(""), ["real[- ]?", "time"].join(""), ["prioriti", "[sz]\\w*"].join(""), ["respon", "ders?\\b"].join(""), ["lives?\\s+", "saved"].join(""), ["save[sd]?\\s+(?:a\\s+)?", "li(?:fe|ves)"].join("")].join("|"),
+  "i",
+);
 
 describe("repo hygiene for the AI layer", () => {
   it("owns a non-trivial set of files", () => {
     expect(ownFiles.length).toBeGreaterThan(30);
   });
   it("never uses the forbidden operational wording in source, comments or identifiers", () => {
-    const words = new RegExp(["dis" + "patch", "tri" + "age", "real[- ]" + "time"].join("|"), "i");
-    for (const f of ownFiles) expect(readFileSync(f, "utf8"), f).not.toMatch(words);
+    for (const f of ownFiles) expect(readFileSync(f, "utf8"), f).not.toMatch(PRODUCT_WORDS);
+  });
+  it("finding 12: the same wording check over components/, lib/sim, lib/workers and the app shell (other owners' files)", () => {
+    // Files owned by the UI and simulator agents are scanned, never edited here. A hit is reported by
+    // this test; a file listed below is a KNOWN hit the owner has been told about. Remove the entry
+    // when the owner rewords it, so the check covers the file again.
+    const KNOWN_HITS = new Set(["components/IntroOverlay.tsx"]);
+    const others = [
+      ...walk(path.join(root, "components")),
+      ...walk(path.join(root, "lib/sim")),
+      ...walk(path.join(root, "lib/workers")),
+      path.join(root, "app/page.tsx"),
+      path.join(root, "app/layout.tsx"),
+      path.join(root, "lib/store.ts"),
+    ].filter((f) => existsSync(f));
+    const hits = others.filter((f) => PRODUCT_WORDS.test(readFileSync(f, "utf8"))).map((f) => path.relative(root, f));
+    expect(hits.filter((h) => !KNOWN_HITS.has(h))).toEqual([]);
   });
   it("never names an assistant vendor or attributes generation", () => {
     const bad = new RegExp(["cla" + "ude", "anthr" + "opic", "co-authored" + "-by"].join("|"), "i");
@@ -58,7 +80,7 @@ describe("prompts", () => {
     buildParseMessages(catalog, "reduce access time near Dundalk", schema),
     buildPlanMessages({ req: { missionId: "mission-0001", mission: MISSION, phase: "search", round: 1, bundles: [], evaluations: [], dropped: [] }, action: "propose", eligible: catalog.candidates.map(promptView), rows: [], excluded: new Set(), jsonSchema: schema }),
     buildCritiqueMessages({ req: { missionId: "mission-0001", mission: MISSION, round: 2, evaluations: rows, dropped: [] }, used: catalog.candidates.map(promptView), rows, baseline: BASELINE, jsonSchema: schema }),
-    buildNarrateMessages({ req: { missionId: "mission-0001", mission: MISSION, finalists: rows.map((r) => ({ bundleId: r.bundleId, tradeoff: "A tradeoff." })) as never, evaluations: rows }, used: [], rows, baseline: BASELINE, jsonSchema: schema }),
+    buildNarrateMessages({ req: { missionId: "mission-0001", mission: MISSION, finalists: rows.map((r) => ({ bundleId: r.bundleId })) as never, evaluations: rows }, used: [], rows, baseline: BASELINE, jsonSchema: schema }),
     buildExtractMessages([{ url: "https://x.test/1", title: "FAKE", content: "FAKE text" }], schema),
   ];
   it("frame every task as counterfactual planning with a human deciding", () => {
@@ -70,8 +92,7 @@ describe("prompts", () => {
     }
   });
   it("use none of the forbidden operational words", () => {
-    const words = new RegExp(["dis" + "patch", "tri" + "age", "real[- ]" + "time", "prioriti[sz]e responders"].join("|"), "i");
-    for (const msgs of all()) for (const m of msgs) expect(m.content).not.toMatch(words);
+    for (const msgs of all()) for (const m of msgs) expect(m.content).not.toMatch(PRODUCT_WORDS);
   });
   it("tell the model never to output numbers and to use placeholders", () => {
     for (const msgs of all().slice(0, 4)) expect(msgs[0].content).toContain("you never output a number");

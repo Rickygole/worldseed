@@ -12,9 +12,13 @@ import { bundleCostTier } from "../../lib/agent/catalog";
 import { handleCritique, handleNarrate, handleParse, handlePlan, type AgentDeps } from "../../lib/server/agentService";
 import { readConfig, type ServerConfig } from "../../lib/server/config";
 import { ModelResolver, buildRoleChains } from "../../lib/server/models";
-import { DailyBudget, MemoryCounters, MemoryRateLimiter, MissionStore } from "../../lib/server/ratelimit";
+import { MissionLedger } from "../../lib/server/missions";
+import { DailyBudget, StoreRateLimiter } from "../../lib/server/ratelimit";
+import type { Runtime } from "../../lib/server/runtime";
+import { MemoryStore } from "../../lib/server/store";
+import type { SearchClient } from "../../lib/server/tavily";
 import type { CompletionRequest, CompletionResult, LlmProvider } from "../../lib/server/tokenfactory";
-import { ProviderError } from "../../lib/server/tokenfactory";
+import { ProviderBackoff, ProviderError } from "../../lib/server/tokenfactory";
 
 /** Any accidental real network call fails the test. */
 export function blockNetwork(): void {
@@ -75,7 +79,13 @@ export function row(bundleId: string, candidateIds: string[], over: Partial<Eval
 
 /* ------------------------------ fake provider ------------------------------ */
 
-export type Scripted = string | ProviderError | Error | ((req: CompletionRequest) => string | Promise<string>);
+export interface ScriptedReply {
+  text: string;
+  finishReason?: string;
+  usage?: { inputTokens: number; outputTokens: number };
+  delayMs?: number;
+}
+export type Scripted = string | ScriptedReply | ProviderError | Error | ((req: CompletionRequest) => string | Promise<string>);
 
 export class FakeProvider implements LlmProvider {
   calls: CompletionRequest[] = [];
@@ -100,6 +110,10 @@ export class FakeProvider implements LlmProvider {
     const next = this.script.shift();
     if (next === undefined) throw new Error("FakeProvider: script exhausted");
     if (next instanceof Error) throw next;
+    if (typeof next === "object" && "text" in next) {
+      if (next.delayMs) await new Promise((r) => setTimeout(r, next.delayMs));
+      return { text: next.text, model: req.model, mode: req.mode, usage: next.usage ?? this.usage, finishReason: next.finishReason ?? "stop" };
+    }
     const text = typeof next === "function" ? await next(req) : next;
     return { text, model: req.model, mode: req.mode, usage: this.usage, finishReason: "stop" };
   }
@@ -112,22 +126,26 @@ export interface TestServer {
   provider: FakeProvider;
   clock: { t: number };
   config: ServerConfig;
+  store: MemoryStore;
   fetchImpl: typeof fetch;
 }
+
+const JSON_HEADERS = { "content-type": "application/json" };
 
 export function makeServer(script: Scripted[] = [], cfg: Partial<ServerConfig> = {}, provider?: FakeProvider): TestServer {
   const clock = { t: Date.UTC(2026, 8, 26, 12, 0, 0) };
   const now = () => clock.t;
   const config = { ...readConfig({ NEBIUS_API_KEY: "test-key-not-real" }), ...cfg };
   const p = provider ?? new FakeProvider(script);
-  const counters = new MemoryCounters(now);
+  const store = new MemoryStore(now);
   const deps: AgentDeps = {
     config,
     provider: p,
     resolver: new ModelResolver({ provider: p, chains: buildRoleChains({}), cacheMs: config.modelsCacheMs, now }),
-    limiter: new MemoryRateLimiter(now),
-    budget: new DailyBudget(counters, config.dailyBudgetUsd, now),
-    missions: new MissionStore(now),
+    limiter: new StoreRateLimiter(store),
+    budget: new DailyBudget(store, config.dailyBudgetUsd, now, config.budgetResetHourUtc),
+    missions: new MissionLedger(store),
+    backoff: new ProviderBackoff(now),
     loadCatalog: async () => fakeCatalog(),
     now,
   };
@@ -140,16 +158,21 @@ export function makeServer(script: Scripted[] = [], cfg: Partial<ServerConfig> =
   const fetchImpl = (async (url: string, init?: RequestInit) => {
     const h = handlers[url];
     if (!h) throw new Error(`unrouted ${url}`);
-    return h(new Request(`http://localhost${url}`, { method: "POST", body: init?.body as string, headers: { "x-forwarded-for": "203.0.113.7" } }), deps);
+    return h(new Request(`http://localhost${url}`, { method: "POST", body: init?.body as string, headers: { ...JSON_HEADERS, "x-forwarded-for": "203.0.113.7" } }), deps);
   }) as unknown as typeof fetch;
-  return { deps, provider: p, clock, config, fetchImpl };
+  return { deps, provider: p, clock, config, store, fetchImpl };
 }
 
-export function post(path: string, body: unknown, ip = "203.0.113.7"): Request {
+/** A Runtime around a test server: the same store, limiter and budget the agent routes use. */
+export function makeRuntime(server: TestServer, search: SearchClient | null = null): Runtime {
+  return { agent: server.deps, store: server.store, search, closures: { inflight: null } };
+}
+
+export function post(path: string, body: unknown, ip = "203.0.113.7", headers: Record<string, string> = {}): Request {
   return new Request(`http://localhost${path}`, {
     method: "POST",
     body: typeof body === "string" ? body : JSON.stringify(body),
-    headers: { "x-forwarded-for": ip },
+    headers: { ...JSON_HEADERS, "x-forwarded-for": ip, ...headers },
   });
 }
 
@@ -174,21 +197,23 @@ export const doneOf = (events: { event: string; data: any }[]) => events.find((e
 
 /* ------------------------------ scripted replies ---------------------------- */
 
-export const proposeReply = (bundles: { id: string; candidateIds: string[] }[], over: Record<string, unknown> = {}) =>
-  JSON.stringify({ action: "propose", log_sentence: "Trying signal and link mixes across types.", bundles, hypothesis: "Retiming and a connector should ease the detour.", ...over });
-export const refineReply = (add: { id: string; candidateIds: string[] }[], keep: string[] = [], drop: string[] = []) =>
-  JSON.stringify({ action: "refine", log_sentence: "Extending the strongest bundle.", keep, drop, add });
+/** Model-form replies: bundles carry candidate IDs only (a stray `id` in the input is dropped). */
+const noIds = (bundles: { id?: string; candidateIds: string[] }[]) => bundles.map((b) => ({ candidateIds: b.candidateIds }));
+export const proposeReply = (bundles: { id?: string; candidateIds: string[] }[], over: Record<string, unknown> = {}) =>
+  JSON.stringify({ action: "propose", log_sentence: "Trying signal and link mixes across types.", bundles: noIds(bundles), hypothesis: "Retiming and a connector target the detour.", ...over });
+export const refineReply = (add: { id?: string; candidateIds: string[] }[], keep: string[] = [], drop: string[] = []) =>
+  JSON.stringify({ action: "refine", log_sentence: "Extending the strongest bundle.", keep, drop, add: noIds(add) });
 export const finalizeReply = (ids: string[], over: Record<string, unknown> = {}) =>
   JSON.stringify({
-    action: "finalize", log_sentence: "These three cover different tradeoffs.",
-    finalists: ids.map((bundleId) => ({ bundleId, tradeoff: "Cheaper but leaves the isolated groups unresolved." })), ...over,
+    action: "finalize", log_sentence: "These finalists cover different tradeoffs.",
+    finalists: ids.map((bundleId) => ({ bundleId, tradeoff: "Leaves the isolated groups unresolved." })), ...over,
   });
 export const critiqueReply = (over: Record<string, unknown> = {}) =>
-  JSON.stringify({ action: "critique", log_sentence: "Worst cases deserve a second look.", concerns: [{ bundleId: "B1", kind: "worst_case", note: "Thin margin in the unluckiest futures." }], veto: [], ...over });
+  JSON.stringify({ action: "critique", log_sentence: "Worst cases deserve a second look.", concerns: [{ bundleId: "B1", kind: "worst_case" }], veto: [], ...over });
 export const narrateReply = (ids: string[]) =>
   JSON.stringify({
     action: "narrate",
-    items: ids.map((bundleId) => ({ bundleId, headline: "A lighter option", body: `Typical worst-case access changes by {{finalist.${bundleId}.p90.delta}} against the baseline.` })),
+    items: ids.map((bundleId) => ({ bundleId, headline: "A signal option", body: `The worst case is {{p90.current}} against a baseline of {{p90.baseline}}.` })),
   });
 export const parseReply = (over: Record<string, unknown> = {}) =>
   JSON.stringify({

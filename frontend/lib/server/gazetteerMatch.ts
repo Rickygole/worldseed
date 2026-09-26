@@ -30,6 +30,26 @@ export function normalizeName(input: string): string {
 
 const tokens = (s: string): string[] => (s ? s.split(" ") : []);
 
+/** Words that may surround a road's own name without changing which road is meant. */
+const DESCRIPTORS = new Set([
+  "bridge", "tunnel", "highway", "north", "south", "east", "west", "northbound", "southbound", "eastbound", "westbound",
+  "ramp", "ramps", "corridor", "thruway", "expressway", "freeway", "road", "street", "avenue", "boulevard", "parkway", "lanes", "lane", "exit",
+]);
+
+/**
+ * Street names that exist in almost every American town. An article about "Main Street" is not
+ * evidence about any particular road in the model area, so these are never matched automatically.
+ */
+const COMMON_STREET = new RegExp(
+  "^(?:(?:north|south|east|west) )?(?:" +
+    "main|church|park|elm|oak|maple|center|centre|high|water|mill|union|spring|school|market|state|broadway|" +
+    "\\d+(?:st|nd|rd|th)?|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth" +
+    ")(?: (?:street|avenue|road|drive|lane|boulevard|way|court|place|highway))?$",
+);
+export function isCommonStreetName(normalized: string): boolean {
+  return COMMON_STREET.test(normalized);
+}
+
 function score(query: string, name: string): number {
   if (!query || !name) return 0;
   if (query === name) return 1;
@@ -38,8 +58,10 @@ function score(query: string, name: string): number {
   const inter = [...q].filter((x) => n.has(x)).length;
   if (inter === 0) return 0;
   const dice = (2 * inter) / (q.size + n.size);
-  // The entry's whole name appears inside the query (e.g. "beltway near i695" contains "i695").
-  const contained = inter === n.size && (n.size >= 2 || [...n].some((w) => /\d/.test(w)));
+  // The entry's whole name appears inside the query. Only short, purely descriptive extras are
+  // tolerated ("i695 bridge", "east i895 ramp"); "i95 in connecticut" is a different road.
+  const extras = [...q].filter((x) => !n.has(x));
+  const contained = inter === n.size && (n.size >= 2 || [...n].some((w) => /\d/.test(w))) && extras.length <= 2 && extras.every((x) => DESCRIPTORS.has(x));
   return Math.max(dice, contained ? 0.9 : 0);
 }
 
@@ -53,6 +75,10 @@ export const MATCH_THRESHOLD = 0.8;
 
 export function matchRoad(gazetteer: readonly GazetteerEntry[], road: string): RoadMatch {
   const q = normalizeName(road);
+  if (isCommonStreetName(q)) {
+    const same = gazetteer.filter((e) => ROAD_KINDS.has(e.kind) && [e.name, ...e.aliases].some((n) => normalizeName(n) === q));
+    return same.length > 0 ? { status: "ambiguous", entries: same } : { status: "none" };
+  }
   const scored: { entry: GazetteerEntry; score: number }[] = [];
   for (const entry of gazetteer) {
     if (!ROAD_KINDS.has(entry.kind)) continue;

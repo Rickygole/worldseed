@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  AttemptDenied,
   callRole,
   classifyError,
+  ProviderBackoff,
   createTokenFactoryProvider,
   extractJson,
   ProviderError,
@@ -95,17 +97,65 @@ describe("createTokenFactoryProvider", () => {
 
 describe("callRole fallback chain", () => {
   const deadlineAt = () => Date.now() + 30_000;
-  it("falls through to the next model on 404, 429, timeout and 5xx", async () => {
-    for (const kind of ["model_not_found", "rate_limited", "timeout", "upstream"] as const) {
+  it("falls through to the next model on 404, timeout and 5xx", async () => {
+    for (const kind of ["model_not_found", "timeout", "upstream"] as const) {
       const p = new FakeProvider([new ProviderError(kind, "x"), "{}"]);
       const r = await callRole(p, ["m1", "m2"], { ...base, deadlineAt: deadlineAt() });
       expect(r.model).toBe("m2");
       expect(r.skipped).toEqual([{ model: "m1", kind }]);
+      expect(r.attempts).toBe(2);
     }
   });
-  it("throws the last error when every model fails (429)", async () => {
-    const p = new FakeProvider([new ProviderError("rate_limited", "x", 429, 9), new ProviderError("rate_limited", "y", 429, 9)]);
-    await expect(callRole(p, ["m1", "m2"], { ...base, deadlineAt: deadlineAt() })).rejects.toMatchObject({ kind: "rate_limited" });
+  it("finding 10: a provider 429 stops the chain (no amplification onto the next model)", async () => {
+    const p = new FakeProvider([new ProviderError("rate_limited", "x", 429, 9), "{}"]);
+    await expect(callRole(p, ["m1", "m2"], { ...base, deadlineAt: deadlineAt() })).rejects.toMatchObject({ kind: "rate_limited", retryAfterS: 9, attempts: 1 });
+    expect(p.calls).toHaveLength(1);
+  });
+  it("finding 1: makes at most maxAttempts upstream calls in total, however long the chain", async () => {
+    const p = new FakeProvider(Array.from({ length: 10 }, () => new ProviderError("timeout", "slow")));
+    await expect(callRole(p, ["a", "b", "c", "d", "e"], { ...base, deadlineAt: deadlineAt() })).rejects.toMatchObject({ kind: "timeout", attempts: 3 });
+    expect(p.calls).toHaveLength(3); // default cap
+    const q = new FakeProvider(Array.from({ length: 10 }, () => new ProviderError("upstream", "x")));
+    await expect(callRole(q, ["a", "b", "c", "d"], { ...base, deadlineAt: deadlineAt() }, Date.now, { maxAttempts: 1 })).rejects.toMatchObject({ attempts: 1 });
+    expect(q.calls).toHaveLength(1);
+  });
+  it("finding 1: a schema-rejection retry counts as an attempt", async () => {
+    const p = new FakeProvider([new ProviderError("schema_unsupported", "response_format"), new ProviderError("timeout", "x"), "{}"]);
+    await expect(callRole(p, ["m1", "m2"], { ...base, deadlineAt: deadlineAt() }, Date.now, { maxAttempts: 2 })).rejects.toMatchObject({ attempts: 2 });
+    expect(p.calls).toHaveLength(2);
+  });
+  it("finding 1: every attempt goes through the gate, before and after, success or failure", async () => {
+    const events: string[] = [];
+    const gate = {
+      before: async (model: string) => { events.push(`before:${model}`); return { maxTokens: 77, handle: model }; },
+      after: async (h: unknown, o: { ok: boolean }) => { events.push(`after:${String(h)}:${o.ok ? "ok" : "fail"}`); },
+    };
+    const p = new FakeProvider([new ProviderError("timeout", "x"), "{}"]);
+    const r = await callRole(p, ["m1", "m2"], { ...base, deadlineAt: deadlineAt() }, Date.now, { gate });
+    expect(events).toEqual(["before:m1", "after:m1:fail", "before:m2", "after:m2:ok"]);
+    expect(p.calls.map((c) => c.maxTokens)).toEqual([77, 77]); // the gate decides max_tokens
+    expect(r.attempts).toBe(2);
+  });
+  it("finding 1: a denying gate stops before anything is sent", async () => {
+    const gate = { before: async () => { throw new AttemptDenied("daily_budget"); }, after: async () => {} };
+    const p = new FakeProvider(["{}"]);
+    await expect(callRole(p, ["m1"], { ...base, deadlineAt: deadlineAt() }, Date.now, { gate })).rejects.toMatchObject({ reason: "daily_budget", attempts: 0 });
+    expect(p.calls).toHaveLength(0);
+  });
+  it("finding 10: ProviderBackoff honors Retry-After, otherwise backs off exponentially, and resets on success", () => {
+    const clock = { t: 0 };
+    const b = new ProviderBackoff(() => clock.t);
+    expect(b.remainingS()).toBe(0);
+    expect(b.hit(7)).toBe(7);
+    expect(b.remainingS()).toBe(7);
+    clock.t = 8_000;
+    expect(b.remainingS()).toBe(0);
+    expect(b.hit()).toBe(4); // second strike, no Retry-After: 2 * 2^1
+    expect(b.hit()).toBe(8);
+    expect(b.hit(9999)).toBe(120); // capped
+    b.ok();
+    clock.t = 200_000;
+    expect(b.hit()).toBe(2);
   });
   it("auth errors are fatal and do not try other models", async () => {
     const p = new FakeProvider([new ProviderError("auth", "no"), "{}"]);

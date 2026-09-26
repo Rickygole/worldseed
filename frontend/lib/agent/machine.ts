@@ -2,11 +2,15 @@
  * Client state machine for a planning mission.
  *
  *   idle -> parsing -> confirmGoal -> planning(r) -> evaluating(r) -> critiquing -> finalizing
- *        -> finalists -> applied
+ *        -> finalists -> applying -> applied
  *
  * The browser orchestrates the loop: it asks the server for one validated action, runs the
  * simulator through the injected `evaluate` function, and posts the results back. The server is
- * stateless. Every model output is re-validated here as well (defense in depth).
+ * stateless. Every model output is re-validated here as well (defense in depth). Model prose is
+ * screened and numbers appear only through slots the application fills from simulator results.
+ *
+ * Every run owns a token. A run that was cancelled or replaced can no longer write state or log
+ * entries, so a slow evaluator or network call from an old mission cannot leak into the next one.
  *
  * Failure handling: before a mission is confirmed a failure returns to `idle` with `degraded` set
  * so the UI can say "AI planner unavailable. Explore manually." After confirmation the mission
@@ -17,6 +21,7 @@ import { bundleCostTier, type Catalog } from "./catalog";
 import type { EvaluateFn } from "./evaluate";
 import { greedyFinalists, greedyPlanRound } from "./greedy";
 import {
+  outputRejectedMessage,
   UI_MESSAGES,
   type AgentEvent,
   type FallbackNext,
@@ -27,7 +32,10 @@ import {
 } from "./protocol";
 import { makeSlotResolver, fillSlots } from "./slots";
 import {
+  BaselineRowSchema,
+  CONCERN_TEXT,
   ConfirmedMissionSchema,
+  EvaluationRowSchema,
   MAX_EVALUATED_BUNDLES,
   MAX_ROUNDS,
   type BaselineRow,
@@ -43,9 +51,9 @@ import {
   computeExcluded,
   describeViolations,
   validateCritiqueOutput,
+  validateMintedPlannerOutput,
   validateNarrationOutput,
   validateParseOutput,
-  validatePlannerOutput,
   type KnownBundle,
   type Violation,
 } from "./validator";
@@ -59,6 +67,7 @@ export type Phase =
   | "critiquing"
   | "finalizing"
   | "finalists"
+  | "applying"
   | "applied";
 
 export type Mode = "ai" | "deterministic";
@@ -113,7 +122,10 @@ export interface MachineState {
   appliedBundleId?: string;
   log: LogEntry[];
   budget: BudgetMeter;
-  /** Real totals reported by the evaluator. */
+  /**
+   * Bundles = accepted rows (after dropping unknown, duplicate, mismatched and malformed rows).
+   * Futures = the evaluator's report, scaled down if it claimed more bundles than were accepted.
+   */
   counts: { bundlesEvaluated: number; futuresEvaluated: number };
   progress?: { done: number; total: number };
   models: Record<string, string>;
@@ -132,6 +144,14 @@ export interface MachineDeps {
 
 class Cancelled extends Error {}
 
+/** One mission attempt. Only the current run may write state. */
+interface Run {
+  readonly id: number;
+  readonly controller: AbortController;
+  /** Evaluator rows that were refused during this run (unknown, duplicate, mismatched, malformed). */
+  rowsRefused: number;
+}
+
 const DEFAULT_LIMITS = { inputTokens: 60_000, outputTokens: 12_000 };
 
 function randomId(): string {
@@ -140,10 +160,13 @@ function randomId(): string {
   return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+type Fb = Extract<Outcome<unknown>, { status: "fallback" }>;
+
 export class AgentMachine {
   private state: MachineState;
   private listeners = new Set<() => void>();
-  private controller: AbortController | null = null;
+  private current: Run | null = null;
+  private runSeq = 0;
   private pendingRaw: unknown;
   private seq = 0;
 
@@ -193,29 +216,58 @@ export class AgentMachine {
     this.set({ log: [...this.state.log, entry] });
   }
 
+  /** Logs a fallback sentence unless the server just sent the identical one. */
+  private logFallbackOnce(sentence: string, extra: Partial<LogEntry> = {}): void {
+    const last = this.state.log[this.state.log.length - 1];
+    if (last?.kind === "fallback" && last.sentence === sentence) return;
+    this.log("fallback", sentence, extra);
+  }
+
   private phase(phase: Phase, round = this.state.round): void {
     this.set({ phase, round, progress: undefined });
   }
 
-  private assertLive(): AbortSignal {
-    const s = this.controller?.signal;
-    if (!s || s.aborted) throw new Cancelled();
-    return s;
+  /* ------------------------------ run tokens ----------------------------- */
+
+  private newRun(): Run {
+    this.current?.controller.abort();
+    const run: Run = { id: ++this.runSeq, controller: new AbortController(), rowsRefused: 0 };
+    this.current = run;
+    return run;
+  }
+
+  private isLive(run: Run): boolean {
+    return this.current === run && !run.controller.signal.aborted;
+  }
+
+  /** Throws Cancelled unless `run` is still the current, uncancelled run. Call after every await. */
+  private live(run: Run): AbortSignal {
+    if (!this.isLive(run)) throw new Cancelled();
+    return run.controller.signal;
   }
 
   /* ------------------------------ public flow ---------------------------- */
 
   reset(): void {
-    this.controller?.abort();
-    this.controller = null;
+    if (this.state.phase === "applying") {
+      this.log("state", "Applying is in progress and cannot be interrupted.");
+      return;
+    }
+    this.current?.controller.abort();
+    this.current = null;
     this.state = this.initial();
     for (const l of this.listeners) l();
   }
 
   cancel(): void {
     if (this.state.phase === "idle" || this.state.phase === "applied") return;
-    this.controller?.abort();
-    this.controller = null;
+    if (this.state.phase === "applying") {
+      // The host is already committing the bundle; saying "nothing was applied" would be false.
+      this.log("state", "Applying is in progress and cannot be cancelled.");
+      return;
+    }
+    this.current?.controller.abort();
+    this.current = null;
     const log = this.state.log;
     this.state = { ...this.initial(), log };
     this.log("state", "Mission cancelled. Nothing was applied.");
@@ -225,28 +277,22 @@ export class AgentMachine {
   async start(text: string): Promise<void> {
     if (this.state.phase !== "idle") throw new Error("A mission is already in progress.");
     const missionId = (this.deps.newMissionId ?? randomId)();
-    const controller = new AbortController();
-    this.controller = controller;
+    const run = this.newRun();
     this.set({ ...this.initial(), log: this.state.log, missionId, phase: "parsing" });
     try {
-      const outcome = await this.deps.api.parse({ missionId, text }, this.callOpts(controller.signal));
-      this.assertLive();
-      if (outcome.status !== "ok") return this.degradeToIdle(outcome);
+      const outcome = await this.deps.api.parse({ missionId, text }, this.callOpts(run));
+      this.live(run);
+      if (outcome.status !== "ok") return this.degradeToIdle(outcome, "parser");
       this.track("parser", outcome.model);
       const check = validateParseOutput(outcome.result, { catalog: this.deps.catalog });
       if (!check.ok) {
         this.logViolations(check.violations, outcome.model);
-        return this.degradeToIdle({
-          status: "fallback",
-          reason: "output_rejected",
-          message: UI_MESSAGES.outputRejected,
-          next: "deterministic_search",
-        });
+        return this.degradeToIdle({ status: "fallback", reason: "output_rejected", message: UI_MESSAGES.parserRejected, next: "deterministic_search" }, "parser");
       }
       this.log("decision", check.value.log_sentence, { model: outcome.model, raw: check.value });
       this.set({ parsed: check.value, phase: "confirmGoal" });
     } catch (e) {
-      this.swallowCancel(e);
+      this.swallowCancel(e, run);
     }
   }
 
@@ -254,66 +300,87 @@ export class AgentMachine {
   async confirmGoal(mission: ConfirmedMission): Promise<void> {
     if (this.state.phase !== "confirmGoal") throw new Error("There is no goal waiting for confirmation.");
     const parsed = ConfirmedMissionSchema.parse(mission);
+    const run = this.current;
+    if (!run || !this.isLive(run)) throw new Error("There is no goal waiting for confirmation.");
     this.log("state", "Goal confirmed by you. Planning starts.");
-    await this.run(parsed, "ai");
+    await this.run(run, parsed, "ai");
   }
 
   /** The "Deterministic search" button: no model calls at all. */
   async runDeterministic(mission: ConfirmedMission): Promise<void> {
     if (this.state.phase !== "idle") throw new Error("A mission is already in progress.");
     const parsed = ConfirmedMissionSchema.parse(mission);
-    this.controller = new AbortController();
+    const run = this.newRun();
     this.set({ ...this.initial(), log: this.state.log, missionId: (this.deps.newMissionId ?? randomId)() });
     this.log("state", `${UI_MESSAGES.deterministicLabel} started by you.`);
-    await this.run(parsed, "deterministic");
+    await this.run(run, parsed, "deterministic");
   }
 
-  /** finalists -> applied. The host commits the bundle as a world mutation via onApply. */
+  /**
+   * finalists -> applying -> applied. The host commits the bundle as a world mutation via onApply.
+   * The phase changes to "applying" synchronously, so a second call (or a cancel) while the host
+   * is committing is refused instead of applying twice or claiming that nothing was applied.
+   */
   async apply(bundleId: string): Promise<void> {
     if (this.state.phase !== "finalists") throw new Error("There are no finalists to apply.");
     const f = this.state.finalists.find((x) => x.bundleId === bundleId);
     if (!f) throw new Error("That bundle is not one of the finalists.");
-    await this.deps.onApply?.({ bundleId: f.bundleId, candidateIds: f.candidateIds });
+    this.set({ phase: "applying", progress: undefined });
+    try {
+      await this.deps.onApply?.({ bundleId: f.bundleId, candidateIds: f.candidateIds });
+    } catch (e) {
+      this.log("state", `Applying bundle ${f.bundleId} did not complete. Check the terrain before trying again.`, { errors: ["apply_failed"] });
+      this.set({ phase: "finalists" });
+      throw e;
+    }
     this.log("state", `Bundle ${f.bundleId} applied by you. The terrain will re-run.`);
     this.set({ phase: "applied", appliedBundleId: f.bundleId });
   }
 
   /* -------------------------------- the loop ----------------------------- */
 
-  private async run(mission: ConfirmedMission, mode: Mode): Promise<void> {
-    const controller = this.controller ?? (this.controller = new AbortController());
+  private async run(run: Run, mission: ConfirmedMission, mode: Mode): Promise<void> {
+    this.live(run);
     this.set({ mission, mode, bundles: [], dropped: [], rows: [], finalists: [], narration: {}, critique: undefined, degraded: undefined });
     try {
-      await this.searchRounds(mission);
-      await this.topUp(mission);
+      await this.searchRounds(run, mission);
+      await this.topUp(run, mission);
+      this.live(run);
       if (this.state.rows.length === 0) {
-        // Nothing was scored (for example the catalog has no eligible interventions). Say so.
-        const message = "No catalog intervention could be evaluated under these constraints.";
+        // Nothing was scored. Say why: the simulator's rows were refused, or the catalog offers nothing.
+        const refused = run.rowsRefused > 0;
+        const message = refused
+          ? "The simulator returned no usable rows for the requested bundles."
+          : "No catalog intervention could be evaluated under these constraints.";
         this.log("fallback", message);
-        this.set({ phase: "idle", round: 0, progress: undefined, degraded: { reason: "catalog_unavailable", message, next: "deterministic_search" } });
+        this.set({
+          phase: "idle",
+          round: 0,
+          progress: undefined,
+          degraded: { reason: refused ? "evaluation_failed" : "catalog_unavailable", message, next: "deterministic_search" },
+        });
         return;
       }
-      if (this.state.mode === "ai") await this.critique(mission);
-      await this.finalize(mission);
-      if (this.state.mode === "ai") await this.narrate(mission);
-      this.assertLive();
+      if (this.state.mode === "ai") await this.critique(run, mission);
+      await this.finalize(run, mission);
+      if (this.state.mode === "ai") await this.narrate(run, mission);
+      this.live(run);
       this.phase("finalists");
       this.log("state", `${this.state.finalists.length} finalist bundles ready. You decide what to apply.`);
     } catch (e) {
-      this.swallowCancel(e);
-    } finally {
-      if (this.controller === controller && (this.state.phase === "finalists" || this.state.phase === "idle")) this.controller = null;
+      this.swallowCancel(e, run);
     }
   }
 
-  private async searchRounds(mission: ConfirmedMission): Promise<void> {
+  private async searchRounds(run: Run, mission: ConfirmedMission): Promise<void> {
     for (let round = 1; round <= MAX_ROUNDS; round++) {
+      this.live(run);
       this.phase("planning", round);
       let fresh: BundleSpec[] = [];
       let converged = false;
 
       if (this.state.mode === "ai") {
-        const action = await this.askPlanner(mission, "search", round);
+        const action = await this.askPlanner(run, mission, "search", round);
         if (action?.action === "propose") fresh = action.bundles;
         else if (action?.action === "refine") {
           this.set({ dropped: [...new Set([...this.state.dropped, ...action.drop])] });
@@ -338,43 +405,77 @@ export class AgentMachine {
         this.log("info", converged ? "The planner added no new bundles, so search stops here." : "No new bundles to try, so search stops here.");
         break;
       }
-      await this.evaluateBundles(mission, round, fresh);
+      await this.evaluateBundles(run, mission, round, fresh);
     }
   }
 
-  private async evaluateBundles(mission: ConfirmedMission, round: number, fresh: BundleSpec[]): Promise<void> {
-    const signal = this.assertLive();
+  private async evaluateBundles(run: Run, mission: ConfirmedMission, round: number, fresh: BundleSpec[]): Promise<void> {
+    const signal = this.live(run);
     this.set({ bundles: [...this.state.bundles, ...fresh] });
     this.phase("evaluating", round);
     const batch = await this.deps.evaluate(fresh, {
       mission,
       round,
       signal,
-      onProgress: (done, total) => this.set({ progress: { done, total } }),
-    });
-    this.assertLive();
-    const wanted = new Map(fresh.map((b) => [b.id, b]));
-    const accepted = batch.rows.filter((r) => {
-      const b = wanted.get(r.bundleId);
-      return b !== undefined && b.candidateIds.join("|") === r.candidateIds.join("|");
-    });
-    this.set({
-      rows: [...this.state.rows, ...accepted],
-      baseline: batch.baseline ?? this.state.baseline,
-      counts: {
-        bundlesEvaluated: this.state.counts.bundlesEvaluated + batch.bundlesEvaluated,
-        futuresEvaluated: this.state.counts.futuresEvaluated + batch.futuresEvaluated,
+      onProgress: (done, total) => {
+        if (this.isLive(run)) this.set({ progress: { done, total } });
       },
     });
-    // These numbers are exactly what the evaluator reported, never what was requested.
+    this.live(run); // a stale evaluator result is dropped here, never written
+
+    // Accept a row only if it is for a bundle we asked about, has the candidates we sent, is the
+    // first row for that bundle, and is well-formed. Counts come from the accepted rows.
+    const wanted = new Map(fresh.map((b) => [b.id, b]));
+    const have = new Set(this.state.rows.map((r) => r.bundleId));
+    const accepted: EvaluationRow[] = [];
+    const refused = { unknown_bundle: 0, duplicate_row: 0, candidate_mismatch: 0, malformed_row: 0 };
+    for (const raw of batch.rows) {
+      const parsed = EvaluationRowSchema.safeParse(raw);
+      if (!parsed.success) {
+        refused.malformed_row++;
+        continue;
+      }
+      const r = parsed.data;
+      const b = wanted.get(r.bundleId);
+      if (!b) refused.unknown_bundle++;
+      else if (have.has(r.bundleId)) refused.duplicate_row++;
+      else if (b.candidateIds.join("|") !== r.candidateIds.join("|")) refused.candidate_mismatch++;
+      else {
+        have.add(r.bundleId);
+        accepted.push(r);
+      }
+    }
+    const refusedTotal = Object.values(refused).reduce((a, b) => a + b, 0);
+    run.rowsRefused += refusedTotal;
+
+    const reportedBundles = Number.isFinite(batch.bundlesEvaluated) ? Math.max(0, Math.floor(batch.bundlesEvaluated)) : 0;
+    const reportedFutures = Number.isFinite(batch.futuresEvaluated) ? Math.max(0, Math.floor(batch.futuresEvaluated)) : 0;
+    const futures =
+      accepted.length === 0 ? 0 : reportedBundles > accepted.length ? Math.floor((reportedFutures * accepted.length) / reportedBundles) : reportedFutures;
+    const baseline = batch.baseline ? BaselineRowSchema.safeParse(batch.baseline) : undefined;
+
+    this.set({
+      rows: [...this.state.rows, ...accepted],
+      baseline: baseline?.success ? baseline.data : this.state.baseline,
+      counts: {
+        bundlesEvaluated: this.state.counts.bundlesEvaluated + accepted.length,
+        futuresEvaluated: this.state.counts.futuresEvaluated + futures,
+      },
+    });
+    // These numbers come from rows the machine accepted, never from what was requested or self-reported.
     this.log(
       "evaluation",
-      `Round ${round}: the simulator scored ${batch.bundlesEvaluated} of ${fresh.length} requested bundles across ${batch.futuresEvaluated} simulated futures, computed locally in your browser.`,
+      `Round ${round}: the simulator scored ${accepted.length} of ${fresh.length} requested bundles across ${futures} simulated futures, computed locally in your browser.`,
     );
+    if (refusedTotal > 0) {
+      const codes = Object.entries(refused).filter(([, n]) => n > 0).map(([k, n]) => `${k}: ${n}`);
+      this.log("validator", `The simulator returned ${refusedTotal} rows that were not used (unknown bundle, duplicate, mismatched candidates or malformed).`, { errors: codes });
+    }
   }
 
   /** Finalize needs three evaluated bundles; add deterministic singles if the search found fewer. */
-  private async topUp(mission: ConfirmedMission): Promise<void> {
+  private async topUp(run: Run, mission: ConfirmedMission): Promise<void> {
+    this.live(run);
     const have = this.state.rows.length;
     if (have >= 3 || have >= MAX_EVALUATED_BUNDLES) return;
     const extra = greedyPlanRound({ catalog: this.deps.catalog, mission, round: 1, rows: this.state.rows, known: this.state.bundles }).slice(0, 3 - have);
@@ -383,12 +484,12 @@ export class AgentMachine {
       return;
     }
     this.log("fallback", "Fewer than three bundles were scored, so deterministic search (not AI) added some.");
-    await this.evaluateBundles(mission, Math.max(1, this.state.round), extra);
+    await this.evaluateBundles(run, mission, Math.max(1, this.state.round), extra);
   }
 
-  private async critique(mission: ConfirmedMission): Promise<void> {
+  private async critique(run: Run, mission: ConfirmedMission): Promise<void> {
     if (this.state.rows.length === 0) return;
-    const signal = this.assertLive();
+    this.live(run);
     this.phase("critiquing");
     const outcome = await this.deps.api.critique(
       {
@@ -399,37 +500,41 @@ export class AgentMachine {
         baseline: this.state.baseline,
         dropped: this.state.dropped,
       },
-      this.callOpts(signal),
+      this.callOpts(run),
     );
-    this.assertLive();
+    this.live(run);
     if (outcome.status !== "ok") {
-      this.log("fallback", `${outcome.message} Continuing without a critique.`);
+      // A rejected critique changes nothing about the search mode: only the critique is skipped.
+      this.logFallbackOnce(outcome.reason === "output_rejected" ? UI_MESSAGES.criticRejected : `${outcome.message} Continuing without a critique.`);
       return;
     }
     this.track("critic", outcome.model);
     const check = validateCritiqueOutput(outcome.result, { catalog: this.deps.catalog, known: this.knownBundles() });
     if (!check.ok) {
       this.logViolations(check.violations, outcome.model);
-      this.log("fallback", "Critic output rejected; continuing without a critique.");
+      this.logFallbackOnce(UI_MESSAGES.criticRejected);
       return;
     }
     this.log("decision", check.value.log_sentence, { model: outcome.model, raw: this.takeRaw(check.value) });
-    for (const c of check.value.concerns) this.log("decision", `${c.bundleId} (${c.kind}): ${c.note}`, { model: outcome.model });
+    // The sentence per concern kind is fixed text; the critic supplies only the bundle and the kind.
+    for (const c of check.value.concerns) this.log("decision", `${c.bundleId} (${c.kind}): ${CONCERN_TEXT[c.kind]}`, { model: outcome.model });
     this.set({ critique: check.value });
   }
 
-  private async finalize(mission: ConfirmedMission): Promise<void> {
+  private async finalize(run: Run, mission: ConfirmedMission): Promise<void> {
+    this.live(run);
     this.phase("finalizing");
     const ids = this.state.rows.map((r) => r.bundleId);
     const excluded = computeExcluded(ids, this.state.dropped, this.state.critique?.veto ?? []);
     let finalists: Finalist[] | null = null;
 
     if (this.state.mode === "ai" && ids.length >= 3) {
-      const action = await this.askPlanner(mission, "finalize", Math.max(1, Math.min(this.state.round, MAX_ROUNDS)), excluded);
+      const action = await this.askPlanner(run, mission, "finalize", Math.max(1, Math.min(this.state.round, MAX_ROUNDS)), excluded);
       if (action?.action === "finalize") {
         finalists = action.finalists.map((f) => this.toFinalist(f.bundleId, f.tradeoff));
       }
     }
+    this.live(run);
     if (!finalists) {
       finalists = greedyFinalists(this.state.rows, mission, excluded).map((f) => this.toFinalist(f.bundleId, f.tradeoff));
       this.log("decision", `Deterministic search (not AI) ranked ${finalists.length} finalists by the goal metric.`);
@@ -437,22 +542,23 @@ export class AgentMachine {
     this.set({ finalists });
   }
 
-  private async narrate(mission: ConfirmedMission): Promise<void> {
+  private async narrate(run: Run, mission: ConfirmedMission): Promise<void> {
     if (this.state.finalists.length !== 3) return;
-    const signal = this.assertLive();
+    this.live(run);
     const outcome = await this.deps.api.narrate(
       {
         missionId: this.state.missionId as string,
         mission,
-        finalists: this.state.finalists.map((f) => ({ bundleId: f.bundleId, tradeoff: f.tradeoff })),
+        // Only the ids go back to the server: the planner's tradeoff sentence is not re-sent into a prompt.
+        finalists: this.state.finalists.map((f) => ({ bundleId: f.bundleId })),
         evaluations: this.state.rows,
         baseline: this.state.baseline,
       },
-      this.callOpts(signal),
+      this.callOpts(run),
     );
-    this.assertLive();
+    this.live(run);
     if (outcome.status !== "ok") {
-      this.log("fallback", `${outcome.message} Finalists are shown without narration.`);
+      this.logFallbackOnce(outcome.reason === "output_rejected" ? UI_MESSAGES.narratorRejected : `${outcome.message} Finalists are shown without narration.`);
       return;
     }
     this.track("narrator", outcome.model);
@@ -462,25 +568,26 @@ export class AgentMachine {
     });
     if (!check.ok) {
       this.logViolations(check.violations, outcome.model);
-      this.log("fallback", "Narration rejected; finalists are shown without narration.");
+      this.logFallbackOnce(UI_MESSAGES.narratorRejected);
       return;
     }
     const narration: MachineState["narration"] = {};
     for (const it of check.value.items) narration[it.bundleId] = { headline: it.headline, body: it.body };
     this.set({ narration });
-    this.log("decision", "Narration written; numbers in it are filled in from the simulator.", { model: outcome.model });
+    this.log("decision", "Narration written. It is screened text; every number in it is filled in by the application from simulator results.", { model: outcome.model });
   }
 
   /* ------------------------------- planner ------------------------------- */
 
   /** Returns a validated action, or null after switching to the deterministic search. */
   private async askPlanner(
+    run: Run,
     mission: ConfirmedMission,
     phase: "search" | "finalize",
     round: number,
     excluded?: ReadonlySet<string>,
   ): Promise<PlannerAction | null> {
-    const signal = this.assertLive();
+    this.live(run);
     const req: PlanRequest = {
       missionId: this.state.missionId as string,
       mission,
@@ -492,14 +599,15 @@ export class AgentMachine {
       dropped: this.state.dropped,
       critique: this.state.critique ? { concerns: this.state.critique.concerns, veto: this.state.critique.veto ?? [] } : undefined,
     };
-    const outcome = await this.deps.api.plan(req, this.callOpts(signal));
-    this.assertLive();
+    const outcome = await this.deps.api.plan(req, this.callOpts(run));
+    this.live(run);
     if (outcome.status !== "ok") {
       this.switchToDeterministic(outcome);
       return null;
     }
     this.track("planner", outcome.model);
-    const check = validatePlannerOutput(outcome.result, {
+    // The server minted the bundle IDs; the client accepts only the IDs it would mint itself.
+    const check = validateMintedPlannerOutput(outcome.result, {
       catalog: this.deps.catalog,
       mission,
       phase,
@@ -512,7 +620,7 @@ export class AgentMachine {
       this.switchToDeterministic({
         status: "fallback",
         reason: "output_rejected",
-        message: UI_MESSAGES.outputRejected,
+        message: outputRejectedMessage("planner"),
         next: "deterministic_search",
       });
       return null;
@@ -521,23 +629,23 @@ export class AgentMachine {
     return check.value;
   }
 
-  private switchToDeterministic(outcome: Extract<Outcome<unknown>, { status: "fallback" }>): void {
+  /** Only called when the mode really does switch, so its wording may say so. */
+  private switchToDeterministic(outcome: Fb): void {
     const last = this.state.log[this.state.log.length - 1];
-    if (last?.kind === "fallback" && last.sentence === outcome.message) {
+    const sentence = outcome.reason === "output_rejected" ? outputRejectedMessage("planner") : outcome.message;
+    if (last?.kind === "fallback" && last.sentence === sentence) {
       // The server already logged this fallback; do not repeat it.
       this.log("state", "Deterministic search (not AI) continues the mission.");
     } else {
-      this.log("fallback", `${outcome.message} Deterministic search (not AI) continues the mission.`, {
-        errors: [outcome.reason],
-      });
+      this.log("fallback", `${sentence} Deterministic search (not AI) continues the mission.`, { errors: [outcome.reason] });
     }
-    this.set({ mode: "deterministic", degraded: { reason: outcome.reason, message: outcome.message, next: outcome.next } });
+    this.set({ mode: "deterministic", degraded: { reason: outcome.reason, message: sentence, next: outcome.next } });
   }
 
-  private degradeToIdle(outcome: Extract<Outcome<unknown>, { status: "fallback" }>): void {
-    const message = outcome.reason === "output_rejected" ? outcome.message : this.degradedMessage(outcome);
+  private degradeToIdle(outcome: Fb, role: "parser"): void {
+    const message = outcome.reason === "output_rejected" ? outputRejectedMessage(role) : this.degradedMessage(outcome);
     this.log("fallback", message, { errors: [outcome.reason] });
-    this.controller = null;
+    this.current = null;
     this.set({
       phase: "idle",
       round: 0,
@@ -546,7 +654,7 @@ export class AgentMachine {
     });
   }
 
-  private degradedMessage(o: Extract<Outcome<unknown>, { status: "fallback" }>): string {
+  private degradedMessage(o: Fb): string {
     if (o.reason === "budget_exhausted") return UI_MESSAGES.budgetExhausted;
     if (o.reason === "rate_limited") return o.message;
     return UI_MESSAGES.plannerUnavailable;
@@ -579,8 +687,13 @@ export class AgentMachine {
     this.log("validator", "The planning output was rejected by the validator.", { model, errors: describeViolations(vs) });
   }
 
-  private callOpts(signal: AbortSignal) {
-    return { signal, onEvent: (e: AgentEvent) => this.onServerEvent(e) };
+  private callOpts(run: Run) {
+    return {
+      signal: run.controller.signal,
+      onEvent: (e: AgentEvent) => {
+        if (this.isLive(run)) this.onServerEvent(e);
+      },
+    };
   }
 
   private onServerEvent(e: AgentEvent): void {
@@ -602,12 +715,12 @@ export class AgentMachine {
     }
   }
 
-  private swallowCancel(e: unknown): void {
+  /** A cancelled or replaced run ends silently. Anything else stops the mission with a fixed message. */
+  private swallowCancel(e: unknown, run: Run): void {
     if (e instanceof Cancelled || (e instanceof Error && e.name === "AbortError")) return;
-    this.log("state", "The mission stopped because of an unexpected error. Nothing was applied.", {
-      errors: [e instanceof Error ? e.message : "unknown error"],
-    });
-    this.controller = null;
+    if (!this.isLive(run)) return;
+    this.log("state", "The mission stopped because of an unexpected error. Nothing was applied.", { errors: ["internal_error"] });
+    this.current = null;
     this.set({ phase: "idle", round: 0, progress: undefined });
   }
 }

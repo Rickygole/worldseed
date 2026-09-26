@@ -3,9 +3,10 @@ import type { AgentApi } from "../../lib/agent/api";
 import { AgentMachine, type MachineState, type Phase } from "../../lib/agent/machine";
 import { ProviderError, resetDowngrades } from "../../lib/server/tokenfactory";
 import type { EvaluateFn } from "../../lib/agent/evaluate";
+import { UI_MESSAGES } from "../../lib/agent/protocol";
 import {
-  MISSION, apiFor, blockNetwork, critiqueReply, fakeCatalog, fakeEvaluator, finalizeReply, makeServer,
-  narrateReply, parseReply, proposeReply, refineReply, type Scripted,
+  BASELINE, MISSION, apiFor, blockNetwork, critiqueReply, fakeCatalog, fakeEvaluator, finalizeReply, makeServer,
+  narrateReply, parseReply, proposeReply, refineReply, row, type Scripted,
 } from "./fixtures";
 
 beforeEach(() => {
@@ -20,7 +21,7 @@ const happyScript = (): Scripted[] => [
   proposeReply(B1234),
   refineReply([b("B5", "SP-BROENING", "SP-EASTERN")], ["B1", "B2"], ["B4"]),
   refineReply([b("B6", "HZ-ESCORT", "IM-I895")], ["B5"], []),
-  critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity", note: "Helps the east side more than the west." }], veto: [] }),
+  critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [] }),
   finalizeReply(["B5", "B6", "B3"]),
   narrateReply(["B5", "B6", "B3"]),
 ];
@@ -148,7 +149,7 @@ describe("state machine: fallbacks", () => {
     expect(text.filter((x) => x === "Planner output rejected; deterministic search used.")).toHaveLength(1); // logged once, not duplicated
     expect(s.log.some((l) => l.kind === "validator" && l.errors?.some((e) => e.includes("digits")))).toBe(true);
     expect(s.finalists).toHaveLength(3);
-    expect(s.finalists.every((f) => f.bundleId.startsWith("S"))).toBe(true);
+    expect(s.finalists.every((f) => /^B(1[0-2]|[1-9])$/.test(f.bundleId))).toBe(true); // minted ids, same scheme as the AI path
     expect(server.provider.calls).toHaveLength(3); // parse + planner + ONE repair, then no more model calls
     expect(Object.keys(s.narration)).toHaveLength(0); // no AI narration in deterministic mode
   });
@@ -174,7 +175,7 @@ describe("state machine: fallbacks", () => {
   it("client-side validator rejects a tampered server response (defense in depth)", async () => {
     const api: AgentApi = {
       parse: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: JSON.parse(parseReply()) }),
-      plan: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: JSON.parse(proposeReply([b("B1", "NOT-IN-CATALOG")])) }),
+      plan: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: { action: "propose", log_sentence: "Trying.", hypothesis: "Retiming targets the detour.", bundles: [{ id: "B1", candidateIds: ["NOT-IN-CATALOG"] }] } }),
       critique: async () => { throw new Error("unexpected"); },
       narrate: async () => { throw new Error("unexpected"); },
     };
@@ -202,7 +203,7 @@ describe("state machine: fallbacks", () => {
   });
 
   it("tops up with deterministic singles when the planner scores fewer than three bundles", async () => {
-    const { m } = harness([parseReply(), proposeReply([b("B1", "SP-BROENING")]), refineReply([]), finalizeReply(["B1", "S2", "S3"]), narrateReply(["B1", "S2", "S3"])]);
+    const { m } = harness([parseReply(), proposeReply([b("B1", "SP-BROENING")]), refineReply([]), finalizeReply(["B1", "B2", "B3"]), narrateReply(["B1", "B2", "B3"])]);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const s = m.getState();
@@ -235,5 +236,251 @@ describe("state machine: deterministic search button", () => {
     expect(s.log[0].sentence).toContain("not AI");
     expect(s.finalists).toHaveLength(3);
     expect(s.counts.bundlesEvaluated).toBeLessThanOrEqual(12);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------ */
+/* integrity review: apply, stale runs, counts, labels                                         */
+/* ------------------------------------------------------------------------------------------ */
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+describe("P2: apply is atomic, and cancel is truthful while applying", () => {
+  const withApply = (onApply: () => Promise<unknown>) => {
+    const applied: string[] = [];
+    const server = makeServer(happyScript());
+    const m = new AgentMachine({
+      api: apiFor(server), evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-apply-1",
+      onApply: async (x) => { applied.push(x.bundleId); await onApply(); },
+    });
+    return { m, applied };
+  };
+  it("guard: apply() outside the finalists phase is refused", async () => {
+    const { m } = harness(happyScript());
+    await expect(m.apply("B5")).rejects.toThrow("no finalists");
+  });
+  it("sets the phase to 'applying' synchronously, so a second apply cannot call onApply again", async () => {
+    const { m, applied } = withApply(() => sleep(10));
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const first = m.apply("B5");
+    expect(m.getState().phase).toBe("applying"); // before any await
+    const second = m.apply("B6");
+    await expect(second).rejects.toThrow();
+    await first;
+    expect(applied).toEqual(["B5"]);
+    expect(m.getState()).toMatchObject({ phase: "applied", appliedBundleId: "B5" });
+    await expect(m.apply("B5")).rejects.toThrow(); // and not after it is applied either
+    expect(applied).toEqual(["B5"]);
+  });
+  it("cancel while applying is refused and never claims 'nothing was applied'", async () => {
+    const { m, applied } = withApply(() => sleep(10));
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const p = m.apply("B5");
+    m.cancel();
+    m.reset();
+    await p;
+    const text = sentences(m.getState());
+    expect(text.some((x) => x.includes("cannot be cancelled"))).toBe(true);
+    expect(text.filter((x) => x.includes("Nothing was applied"))).toEqual([]);
+    expect(applied).toEqual(["B5"]);
+    expect(m.getState().phase).toBe("applied");
+  });
+  it("a failed onApply returns to finalists with a truthful message and rethrows", async () => {
+    const server = makeServer(happyScript());
+    const m = new AgentMachine({
+      api: apiFor(server), evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-apply-2",
+      onApply: async () => { throw new Error("host failure"); },
+    });
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    await expect(m.apply("B5")).rejects.toThrow("host failure");
+    expect(m.getState().phase).toBe("finalists");
+    expect(sentences(m.getState()).at(-1)).toContain("did not complete");
+    expect(sentences(m.getState()).join(" ")).not.toContain("host failure");
+  });
+});
+
+describe("P2: a cancelled run cannot write into the next mission", () => {
+  it("drops the stale evaluator result, log lines and progress of a cancelled run", async () => {
+    const gates: (() => void)[] = [];
+    const base = fakeEvaluator();
+    const slow: EvaluateFn = async (bundles, ctx) => {
+      await new Promise<void>((r) => gates.push(r));
+      ctx.onProgress?.(1, 1); // a late progress tick from the old run
+      return base(bundles, ctx);
+    };
+    const ids = ["mission-aaaa-1", "mission-bbbb-2"];
+    const server = makeServer(happyScript());
+    const m = new AgentMachine({ api: apiFor(server), evaluate: slow, catalog: fakeCatalog(), newMissionId: () => ids.shift()! });
+    await m.start("cut access time");
+    const oldRun = m.confirmGoal(MISSION);
+    await sleep(20);
+    expect(m.getState().phase).toBe("evaluating");
+    m.cancel();
+    const newRun = m.runDeterministic({ ...MISSION, goal: { ...MISSION.goal, metric: "p50" } });
+    await sleep(5);
+    const oldGate = gates.shift()!; // the OLD mission's evaluation, still pending
+    const lengthBefore = m.getState().log.length;
+    oldGate(); // release it while the new mission is in flight
+    await sleep(30);
+    while (gates.length) { gates.shift()!(); await sleep(30); }
+    await Promise.allSettled([oldRun, newRun]);
+    const s = m.getState();
+    expect(s.missionId).toBe("mission-bbbb-2");
+    expect(s.mission?.goal.metric).toBe("p50");
+    expect(s.mode).toBe("deterministic");
+    expect(s.phase).toBe("finalists");
+    // only deterministic bundles (round-1 singles) from the new run, none of the old run's B1..B4
+    expect(s.bundles.every((x) => x.candidateIds.length >= 1)).toBe(true);
+    // nothing from the old run (4 requested bundles, planner decisions) was written after the cancel
+    expect(s.log.slice(lengthBefore).every((l) => !l.sentence.includes("of 4 requested") && l.kind !== "validator" && !l.model)).toBe(true);
+    expect(s.models).toEqual({});
+    expect(s.counts.bundlesEvaluated).toBe(s.rows.length);
+  });
+  it("guard: after cancel() a mission that was waiting on the network stays cancelled", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const server = makeServer([parseReply()]);
+    const api = apiFor(server);
+    const slowApi: AgentApi = { ...api, parse: async (req, opts) => { await gate; return api.parse(req, opts); } };
+    const m = new AgentMachine({ api: slowApi, evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-net-1" });
+    const started = m.start("cut access time");
+    m.cancel();
+    release();
+    await started;
+    expect(m.getState().phase).toBe("idle");
+    expect(m.getState().parsed).toBeUndefined();
+  });
+});
+
+describe("P3: counts come from accepted rows, and refused rows are reported with their own reason", () => {
+  const dupEvaluator: EvaluateFn = async (bundles) => {
+    const rows = bundles.flatMap((x) => [row(x.id, x.candidateIds, { p90S: 1000 }), row(x.id, x.candidateIds, { p90S: 100 })]);
+    return { rows, baseline: BASELINE, bundlesEvaluated: 999, futuresEvaluated: 123456 };
+  };
+  it("accepts only the first row per bundle and does not inflate the counts", async () => {
+    const { m } = harness(happyScript(), dupEvaluator);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const s = m.getState();
+    expect(new Set(s.rows.map((r) => r.bundleId)).size).toBe(s.rows.length);
+    expect(s.rows.find((r) => r.bundleId === "B1")?.p90S).toBe(1000); // first row wins
+    expect(s.counts.bundlesEvaluated).toBe(s.rows.length);
+    expect(s.counts.futuresEvaluated).toBeLessThan(123456);
+    expect(s.counts.futuresEvaluated).toBeLessThan(s.rows.length * 200); // scaled down, not the claimed 123456 per batch
+    expect(sentences(s).some((x) => x.includes("rows that were not used"))).toBe(true);
+    expect(s.log.find((l) => l.errors?.some((e) => e.startsWith("duplicate_row")))).toBeDefined();
+  });
+  it("refuses rows for unknown bundles, with candidates that differ, or that are malformed - each with its code", async () => {
+    let first = true;
+    const mixed: EvaluateFn = async (bundles, ctx) => {
+      if (!first) return fakeEvaluator()(bundles, ctx);
+      first = false;
+      return {
+        rows: [
+          row("B1", ["SP-BROENING"]),
+          row("B12", ["SP-EASTERN"]), // a valid id, but not requested
+          row(bundles[1].id, ["SP-HARBOR"]), // wrong candidates for that bundle
+          { ...row(bundles[2].id, bundles[2].candidateIds), p90S: Number.NaN }, // malformed
+        ],
+        baseline: BASELINE, bundlesEvaluated: 4, futuresEvaluated: 400,
+      };
+    };
+    const { m } = harness(happyScript(), mixed);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const codes = m.getState().log.flatMap((l) => l.errors ?? []).join(" ");
+    expect(codes).toContain("unknown_bundle: 1");
+    expect(codes).toContain("candidate_mismatch: 1");
+    expect(codes).toContain("malformed_row: 1");
+    expect(sentences(m.getState()).some((x) => x.startsWith("Round 1: the simulator scored 1 of 4 requested bundles"))).toBe(true);
+  });
+  it("when nothing is accepted it says so with its own reason, not 'no catalog intervention could be evaluated'", async () => {
+    const bad: EvaluateFn = async (bundles) => ({ rows: bundles.map((x) => row("B12", x.candidateIds)), baseline: BASELINE, bundlesEvaluated: bundles.length, futuresEvaluated: 100 });
+    const { m } = harness(happyScript(), bad);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const s = m.getState();
+    expect(s.phase).toBe("idle");
+    expect(s.degraded).toMatchObject({ reason: "evaluation_failed", message: "The simulator returned no usable rows for the requested bundles." });
+    expect(sentences(s).join(" ")).not.toContain("No catalog intervention");
+    expect(s.counts.bundlesEvaluated).toBe(0);
+    expect(s.counts.futuresEvaluated).toBe(0);
+  });
+  it("guard: a row already accepted in an earlier round cannot be replaced by a later duplicate", async () => {
+    let n = 0;
+    const later: EvaluateFn = async (bundles, ctx) => {
+      const base = await fakeEvaluator()(bundles, ctx);
+      if (n++ === 1) return { ...base, rows: [...base.rows, row("B1", ["SP-BROENING"], { p90S: 1 })] };
+      return base;
+    };
+    const { m } = harness(happyScript(), later);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    expect(m.getState().rows.filter((r) => r.bundleId === "B1")).toHaveLength(1);
+    expect(m.getState().rows.find((r) => r.bundleId === "B1")?.p90S).not.toBe(1);
+  });
+});
+
+describe("P5: fallback labels say what actually happened, per role", () => {
+  const bad = { log_sentence: "Cutting access time by 5 minutes." };
+  it("a rejected parse returns to idle with a parser-specific message and no deterministic-switch claim", async () => {
+    const { m } = harness([parseReply(bad), parseReply(bad)]);
+    await m.start("cut access time");
+    const s = m.getState();
+    expect(s.phase).toBe("idle");
+    expect(s.degraded).toMatchObject({ reason: "output_rejected", message: UI_MESSAGES.parserRejected });
+    expect(s.mode).toBe("ai");
+    expect(sentences(s).join(" ")).not.toContain("deterministic search used");
+  });
+  it("a rejected critic keeps the mission in AI mode and does not claim a deterministic switch", async () => {
+    const badCrit = critiqueReply({ log_sentence: "Worst case up 3 minutes." });
+    const script = happyScript();
+    script[4] = badCrit;
+    script.splice(5, 0, badCrit);
+    const { m } = harness(script);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    const s = m.getState();
+    expect(s.mode).toBe("ai");
+    expect(s.degraded).toBeUndefined();
+    expect(sentences(s)).toContain(UI_MESSAGES.criticRejected);
+    expect(sentences(s).filter((x) => x === UI_MESSAGES.criticRejected)).toHaveLength(1); // once, not twice
+    expect(sentences(s).join(" ")).not.toContain("deterministic search used");
+    expect(Object.keys(s.narration)).toHaveLength(3); // the rest of the AI path still ran
+  });
+  it("a rejected narration says finalists are shown without narration", async () => {
+    const script = happyScript();
+    const badNarr = narrateReply(["B5", "B6", "B3"]).replace("{{p90.current}}", "9 minutes");
+    script[6] = badNarr;
+    script.push(badNarr);
+    const { m } = harness(script);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    expect(sentences(m.getState())).toContain(UI_MESSAGES.narratorRejected);
+    expect(m.getState().narration).toEqual({});
+    expect(m.getState().mode).toBe("ai");
+  });
+  it("a rejected planner really does switch, and only then says so", async () => {
+    const digits = proposeReply(B1234, { log_sentence: "Saves 9 minutes" });
+    const { m } = harness([parseReply(), digits, digits]);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    expect(m.getState().mode).toBe("deterministic");
+    expect(sentences(m.getState())).toContain(UI_MESSAGES.outputRejected);
+  });
+  it("a finalize tradeoff that names a real catalog id with digits is accepted end to end (one shared allowlist)", async () => {
+    const script = happyScript();
+    script[5] = finalizeReply(["B5", "B6", "B3"], { finalists: ["B5", "B6", "B3"].map((bundleId) => ({ bundleId, tradeoff: "Leaves the IM-I895 corridor unresolved." })) });
+    const { m, server } = harness(script);
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    expect(m.getState().finalists[0].tradeoff).toContain("IM-I895");
+    expect(Object.keys(m.getState().narration)).toHaveLength(3); // the narrate route did not 400 on it
+    expect(server.provider.calls).toHaveLength(7);
+    const narratePrompt = server.provider.calls[6].messages.map((x) => x.content).join("\n");
+    expect(narratePrompt).not.toContain("Leaves the IM-I895 corridor"); // the tradeoff text is not re-sent into a prompt
   });
 });

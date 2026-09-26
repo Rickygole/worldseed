@@ -23,6 +23,21 @@ const DEFAULTS = {
 const apiKey = process.env.NEBIUS_API_KEY;
 const baseURL = process.env.NEBIUS_BASE_URL || "https://api.tokenfactory.nebius.com/v1/";
 const withStream = process.argv.includes("--stream");
+// The API key is sent to this URL, so it must be https on an allowed host (same rule as the server).
+{
+  let u;
+  try {
+    u = new URL(baseURL);
+  } catch {
+    console.error("NEBIUS_BASE_URL is not a valid URL.");
+    process.exit(2);
+  }
+  const hosts = ["nebius.com", ...(process.env.WS_ALLOWED_BASE_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean)];
+  if (u.protocol !== "https:" || u.username || u.password || !hosts.some((h) => u.hostname === h || u.hostname.endsWith(`.${h}`))) {
+    console.error("NEBIUS_BASE_URL must be https on an allowed host (nebius.com or WS_ALLOWED_BASE_HOSTS).");
+    process.exit(2);
+  }
+}
 if (!apiKey) {
   console.error("NEBIUS_API_KEY is not set. Put it in the root .env (never commit it) and pass --env-file=../.env");
   process.exit(2);

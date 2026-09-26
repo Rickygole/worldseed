@@ -5,16 +5,16 @@ import * as planRoute from "../../app/api/agent/plan/route";
 import * as critiqueRoute from "../../app/api/agent/critique/route";
 import * as narrateRoute from "../../app/api/agent/narrate/route";
 import * as closuresRoute from "../../app/api/closures/route";
+import * as confirmRoute from "../../app/api/closures/confirm/route";
 import { handleHealth } from "../../lib/server/handlers";
-import { MemoryCounters } from "../../lib/server/ratelimit";
 import type { Runtime } from "../../lib/server/runtime";
-import { FakeProvider, blockNetwork, makeServer } from "./fixtures";
+import { FakeProvider, blockNetwork, makeRuntime, makeServer } from "./fixtures";
 
 beforeEach(blockNetwork);
 
 function runtimeFor(provider: FakeProvider, cfg = {}): { rt: Runtime; server: ReturnType<typeof makeServer> } {
   const server = makeServer([], cfg, provider);
-  return { server, rt: { agent: server.deps, counters: new MemoryCounters(server.deps.now), search: null, closures: { cache: null } } };
+  return { server, rt: makeRuntime(server) };
 }
 
 describe("/api/health", () => {
@@ -29,8 +29,8 @@ describe("/api/health", () => {
       extractor: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
     });
     expect(out.fallbacks.planner).toEqual(["nvidia/nemotron-3-super-120b-a12b"]);
-    expect(out).toMatchObject({ ok: true, degraded: false, provider: { configured: true, reachable: true }, budget: { ceilingUsd: 1, exhausted: false } });
-    expect(out.tavily).toEqual({ configured: false, callsToday: 0, dailyCap: 30 });
+    expect(out).toMatchObject({ ok: true, degraded: false, degradedReason: null, planner: { available: true }, provider: { configured: true, reachable: true }, protection: "instance-local" });
+    expect(out.tavily).toEqual({ configured: false });
   });
   it("reports 'unavailable' and degraded when the planner model is not listed", async () => {
     const { rt } = runtimeFor(new FakeProvider([], ["nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"]));
@@ -59,7 +59,7 @@ describe("/api/health", () => {
     const { rt } = runtimeFor(new FakeProvider([]), { dailyBudgetUsd: 0.5 });
     const r = await rt.agent.budget.reserve(0.4);
     await rt.agent.budget.settle(r!, 0.5);
-    expect(await (await handleHealth(rt)).json()).toMatchObject({ degraded: true, degradedReason: "budget_exhausted", budget: { exhausted: true } });
+    expect(await (await handleHealth(rt)).json()).toMatchObject({ degraded: true, degradedReason: "budget_exhausted", planner: { available: false } });
   });
   it("never includes a key or the base URL", async () => {
     const { rt } = runtimeFor(new FakeProvider([]));
@@ -75,9 +75,53 @@ describe("/api/health", () => {
   });
 });
 
+describe("finding 11: /api/health exposes booleans, enums and model names only", () => {
+  const scan = (v: unknown, path = ""): string[] => {
+    if (typeof v === "number") return [path];
+    if (v && typeof v === "object") return Object.entries(v).flatMap(([k, x]) => scan(x, `${path}.${k}`));
+    return [];
+  };
+  it("has no counters, spend, ceiling, timestamps or call counts anywhere", async () => {
+    const { rt } = runtimeFor(new FakeProvider([]));
+    const r = await rt.agent.budget.reserve(0.2);
+    await rt.agent.budget.settle(r!, 0.2);
+    const out = await (await handleHealth(rt)).json();
+    expect(scan(out)).toEqual([]);
+    expect(Object.keys(out).sort()).toEqual(["degraded", "degradedReason", "fallbacks", "ok", "planner", "protection", "provider", "roles", "tavily"]);
+    const text = JSON.stringify(out);
+    for (const word of ["spent", "ceiling", "callsToday", "dailyCap", "checkedAt", "budget"]) expect(text).not.toContain(word);
+  });
+  it("polling is served from a 10 second per-process cache, so it cannot become store or provider traffic", async () => {
+    const p = new FakeProvider([]);
+    const { rt, server } = runtimeFor(p);
+    let reads = 0;
+    const realGet = server.store.get.bind(server.store);
+    server.store.get = async (k: string) => { reads++; return realGet(k); };
+    for (let i = 0; i < 50; i++) await handleHealth(rt);
+    expect(reads).toBe(1);
+    server.clock.t += 11_000;
+    await handleHealth(rt);
+    expect(reads).toBe(2);
+  });
+  it("reports the protection mode as an enum", async () => {
+    const shared = runtimeFor(new FakeProvider([]), { protection: "shared" });
+    expect((await (await handleHealth(shared.rt)).json()).protection).toBe("shared");
+    const off = runtimeFor(new FakeProvider([]), { protection: "off", liveAi: false });
+    expect((await (await handleHealth(off.rt)).json()).protection).toBe("off");
+  });
+  it("finding 2: with the kill switch on it reports degraded and makes no provider call, not even a model listing", async () => {
+    const p = new FakeProvider([]);
+    const { rt } = runtimeFor(p, { liveAi: false, protection: "off" });
+    const out = await (await handleHealth(rt)).json();
+    expect(out).toMatchObject({ degraded: true, degradedReason: "planner_unavailable", planner: { available: false } });
+    expect(out.roles.planner).toBe("unavailable");
+    expect(p.listCalls).toBe(0);
+  });
+});
+
 describe("route modules", () => {
   it("export POST handlers on the node runtime with a 60 s duration", () => {
-    for (const r of [parseRoute, planRoute, critiqueRoute, narrateRoute, closuresRoute]) {
+    for (const r of [parseRoute, planRoute, critiqueRoute, narrateRoute, closuresRoute, confirmRoute]) {
       expect(typeof r.POST).toBe("function");
       expect(r.runtime).toBe("nodejs");
       expect(r.maxDuration).toBe(60);

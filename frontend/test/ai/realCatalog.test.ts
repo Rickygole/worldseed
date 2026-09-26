@@ -28,3 +28,14 @@ describe.skipIf(!have)("committed snapshot catalog matches the contract (2.3)", 
     expect(msgs[0].content).toContain(eligible[0].id);
   });
 });
+
+const haveTraced = existsSync(path.resolve(__dirname, "../../public/snapshot/candidates.json"));
+describe.skipIf(!haveTraced)("finding 4: the default loader finds the catalog the way a deployed route does", () => {
+  it("reads public/snapshot from the working directory (the traced location) and tolerates the pipeline's newer lens tags", async () => {
+    const { createCatalogLoader } = await import("../../lib/server/catalogLoader");
+    const catalog = await createCatalogLoader()();
+    expect(catalog.candidates.length).toBeGreaterThan(0);
+    expect(catalog.gazetteer.length).toBeGreaterThan(0);
+    for (const c of catalog.candidates) expect(c.lens.every((l) => l === "access" || l === "ems")).toBe(true);
+  });
+});

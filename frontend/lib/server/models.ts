@@ -6,6 +6,7 @@
  * WS_MODEL_EXTRACTOR. One ID becomes the primary and the defaults follow as fallbacks; a
  * comma-separated list replaces the whole chain.
  */
+import { DEFAULT_PRICE, type PriceTable } from "./config";
 import type { LlmProvider } from "./tokenfactory";
 
 export type Role = "planner" | "critic" | "parser" | "narrator" | "extractor";
@@ -33,17 +34,31 @@ export const DEFAULT_ROLE_MODELS: Record<Role, string[]> = {
 /**
  * Capability flags. JSON-schema structured output is the default path for every model; native
  * tool calling is never relied on. Flags are best guesses until the first live smoke test.
+ *
+ * `reasoningToggle` is declared but deliberately unused: no request parameter that switches a
+ * model's reasoning on or off has been verified against Token Factory, so none is sent. Do not
+ * guess a parameter name; confirm it with scripts/smoke-token-factory.mjs first.
  */
 export function capsFor(modelId: string): ModelCaps {
   void modelId;
   return { supportsTools: false, supportsJsonSchema: true, reasoningToggle: true };
 }
 
-/** USD per million tokens. Unverified: every model is priced like the planner (conservative). */
-export const DEFAULT_PRICE = { inPerM: 1, outPerM: 3 };
-export function costUsd(modelId: string, inputTokens: number, outputTokens: number): number {
-  void modelId;
-  return (inputTokens * DEFAULT_PRICE.inPerM + outputTokens * DEFAULT_PRICE.outPerM) / 1_000_000;
+/**
+ * USD per million tokens. Prices are unverified, so every model defaults to the conservative
+ * planner-class price. Override with WS_PRICE_IN_PER_M / WS_PRICE_OUT_PER_M (all models) or
+ * WS_MODEL_PRICES="model-id=in/out,other-id=in/out" (per model, USD per million tokens).
+ */
+export { DEFAULT_PRICE };
+export const DEFAULT_PRICES: PriceTable = { fallback: DEFAULT_PRICE, byModel: {} };
+
+export function priceFor(modelId: string, prices: PriceTable = DEFAULT_PRICES) {
+  return prices.byModel[modelId.toLowerCase()] ?? prices.fallback;
+}
+
+export function costUsd(modelId: string, inputTokens: number, outputTokens: number, prices: PriceTable = DEFAULT_PRICES): number {
+  const p = priceFor(modelId, prices);
+  return (inputTokens * p.inPerM + outputTokens * p.outPerM) / 1_000_000;
 }
 
 const ENV_KEY: Record<Role, string> = {

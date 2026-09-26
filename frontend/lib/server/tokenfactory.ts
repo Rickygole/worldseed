@@ -6,6 +6,7 @@
  * the schema embedded in the system prompt; validation and the repair turn happen in the caller.
  */
 import OpenAI from "openai";
+import { logEvent } from "./log";
 import { capsFor } from "./models";
 
 export type ProviderErrorKind =
@@ -20,6 +21,8 @@ export type ProviderErrorKind =
   | "aborted";
 
 export class ProviderError extends Error {
+  /** Upstream calls that were made before this error surfaced (set by callRole). */
+  attempts?: number;
   constructor(
     public kind: ProviderErrorKind,
     message: string,
@@ -28,6 +31,60 @@ export class ProviderError extends Error {
   ) {
     super(message);
     this.name = "ProviderError";
+  }
+}
+
+/* ------------------------------ attempt gating ----------------------------- */
+
+export type DenyReason = "mission_input" | "mission_output" | "mission_calls" | "daily_budget" | "store_error" | "provider_backoff";
+
+/** Thrown by a gate to stop before an upstream attempt (budget, cap, backoff). Nothing was sent. */
+export class AttemptDenied extends Error {
+  attempts = 0;
+  constructor(
+    public reason: DenyReason,
+    public retryAfterS?: number,
+  ) {
+    super(`attempt denied: ${reason}`);
+    this.name = "AttemptDenied";
+  }
+}
+
+export type AttemptOutcome =
+  | { ok: true; usage: { inputTokens: number; outputTokens: number }; text: string; model: string }
+  | { ok: false; kind: ProviderErrorKind };
+
+/**
+ * Charged around EVERY upstream attempt, not once per request: a request that falls through a
+ * model chain or retries as JSON-in-text makes several billable calls, and each one is reserved
+ * before it is sent and settled after, success or failure.
+ */
+export interface AttemptGate {
+  before(model: string): Promise<{ maxTokens: number; handle: unknown }>;
+  after(handle: unknown, outcome: AttemptOutcome): Promise<void>;
+}
+
+/** Shared pause after a provider 429: honors Retry-After, otherwise backs off exponentially. */
+export class ProviderBackoff {
+  private until = 0;
+  private strikes = 0;
+  constructor(private now: () => number = Date.now) {}
+
+  /** Seconds left in the pause (0 when calls may go out). */
+  remainingS(): number {
+    return Math.max(0, Math.ceil((this.until - this.now()) / 1000));
+  }
+
+  hit(retryAfterS?: number): number {
+    const dflt = 2 * 2 ** Math.min(this.strikes, 5);
+    const s = Math.min(120, Math.max(1, Math.ceil(retryAfterS && retryAfterS > 0 ? retryAfterS : dflt)));
+    this.strikes++;
+    this.until = Math.max(this.until, this.now() + s * 1000);
+    return s;
+  }
+
+  ok(): void {
+    this.strikes = 0;
   }
 }
 
@@ -219,7 +276,17 @@ export interface RoleCallRequest {
 export interface RoleCallResult extends CompletionResult {
   /** Models that failed before this one answered, with why. */
   skipped: { model: string; kind: ProviderErrorKind }[];
+  /** Upstream calls made for this answer, the failed ones included. */
+  attempts: number;
 }
+
+export interface RoleCallOptions {
+  /** Hard cap on upstream calls for this invocation (default 3). */
+  maxAttempts?: number;
+  gate?: AttemptGate;
+}
+
+export const DEFAULT_MAX_ATTEMPTS = 3;
 
 /** Models that rejected `response_format` this process lifetime; they get JSON-in-text. */
 const downgraded = new Set<string>();
@@ -236,18 +303,23 @@ function withSchemaInPrompt(messages: ChatMessage[]): ChatMessage[] {
 }
 
 /**
- * Tries each model in order. Falls through on missing model, rate limit, timeout, upstream error
- * and schema rejection (retrying that model once as JSON-in-text). Auth errors are fatal.
+ * Tries models in order, at most `maxAttempts` upstream calls in total. Falls through on missing
+ * model, timeout and upstream error, and retries a schema rejection once as JSON-in-text. Auth
+ * errors, aborts and rate limits (429) stop the chain at once: another model would only add load.
+ * Every attempt goes through the optional gate (reserve before, settle after).
  */
 export async function callRole(
   provider: LlmProvider,
   models: readonly string[],
   req: RoleCallRequest,
   now: () => number = Date.now,
+  opts: RoleCallOptions = {},
 ): Promise<RoleCallResult> {
+  const maxAttempts = opts.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const skipped: RoleCallResult["skipped"] = [];
+  let attempts = 0;
   let last: ProviderError = new ProviderError("model_not_found", "no model available");
-  for (const model of models) {
+  outer: for (const model of models) {
     const remaining = req.deadlineAt - now();
     if (remaining < 1_500) {
       last = new ProviderError("timeout", "out of time before trying another model");
@@ -256,6 +328,18 @@ export async function callRole(
     const timeoutMs = Math.min(req.timeoutMs, remaining - 500);
     let mode: StructuredMode = capsFor(model).supportsJsonSchema && !downgraded.has(model) ? "json_schema" : "json_text";
     for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempts >= maxAttempts) break outer;
+      let maxTokens = req.maxTokens;
+      let handle: unknown;
+      if (opts.gate) {
+        try {
+          ({ maxTokens, handle } = await opts.gate.before(model));
+        } catch (e) {
+          if (e instanceof AttemptDenied) e.attempts = attempts;
+          throw e;
+        }
+      }
+      attempts++;
       try {
         const res = await provider.complete({
           model,
@@ -263,18 +347,22 @@ export async function callRole(
           messages: mode === "json_text" ? withSchemaInPrompt(req.messages) : req.messages,
           schemaName: req.schemaName,
           jsonSchema: req.jsonSchema,
-          maxTokens: req.maxTokens,
+          maxTokens,
           temperature: req.temperature ?? 0.2,
           timeoutMs,
           signal: req.signal,
           onDelta: req.onDelta,
         });
-        return { ...res, skipped };
+        if (opts.gate) await opts.gate.after(handle, { ok: true, usage: res.usage, text: res.text, model: res.model });
+        return { ...res, skipped, attempts };
       } catch (e) {
         const pe = classifyError(e);
-        if (pe.kind === "aborted" || pe.kind === "auth") throw pe;
+        if (opts.gate) await opts.gate.after(handle, { ok: false, kind: pe.kind });
+        pe.attempts = attempts;
+        if (pe.kind === "aborted" || pe.kind === "auth" || pe.kind === "rate_limited") throw pe;
         if (pe.kind === "schema_unsupported" && mode === "json_schema") {
           downgraded.add(model);
+          logEvent("warn", "model_downgraded", { model, to: "json_text" });
           mode = "json_text";
           continue;
         }
@@ -284,6 +372,7 @@ export async function callRole(
       }
     }
   }
+  last.attempts = attempts;
   throw last;
 }
 

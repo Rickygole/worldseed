@@ -1,7 +1,7 @@
 /**
  * Shared prompt pieces. Prompts are built on the server from these templates only; the client
  * never sends prompt text. The catalog subset shows IDs, titles, types and cost tiers, and no
- * numeric effects, so the model reasons about mechanisms and cannot invent numbers.
+ * numeric effects, so the model reasons about mechanisms and has no figures to repeat.
  */
 import type { CandidatePromptView } from "../../agent/catalog";
 import type { BaselineRow, EvaluationRow } from "../../agent/tools";
@@ -15,11 +15,13 @@ export const FRAMING = [
 ].join(" ");
 
 export const NUMBER_RULE = [
-  "NUMBERS: you never output a number, digit or spelled-out quantity in any text field.",
-  "When a figure would help, write a placeholder such as {{p90.delta}}, {{p90.baseline}}, {{pctWithin.delta}}, {{isolated.current}} or {{finalist.<bundleId>.pGoal}}. The application fills placeholders from simulator results.",
-  "Allowed placeholder metrics: p50, p90, pctWithin, isolated, equityGap, pGoal, cost. Allowed suffixes: baseline, current, delta.",
-  "Refer to candidates and bundles only by their exact IDs as given, never by title. IDs are the only tokens that may contain digits.",
-  "Never include links or markup.",
+  "NUMBERS: you never output a number, digit, numeral or spelled-out quantity in any text field, in any language. That includes words such as twelve, dozen, half, double, quarter and percent.",
+  "Do not write metric names that contain digits (such as p50 or p90) in prose: say median or worst-case travel time instead.",
+  "You also never write direction or size words: no better, worse, faster, cheaper, more, less, fewer, than, improves, reduces, cuts, saves, raises, lowers or similar. The application adds the direction next to every filled number. Describe mechanisms and unresolved issues only.",
+  "When a figure would help, write a placeholder such as {{p90.baseline}}, {{pctWithin.baseline}} or, only in a finalist's own headline and body, {{p90.delta}}, {{p90.current}}, {{isolated.current}} or {{pGoal}}. The application fills placeholders from simulator results.",
+  "Allowed placeholder metrics: p50, p90, pctWithin, isolated, equityGap, pGoal, cost. Allowed suffixes: baseline, current, delta. A placeholder may refer only to the bundle it sits in, never to another bundle.",
+  "Refer to candidates and bundles only by their exact IDs as given, never by title. Bundle IDs are assigned by the application; you never invent one.",
+  "Write plain English using letters and basic punctuation only. Never include links, markup, brackets or symbols.",
 ].join(" ");
 
 export function candidateLines(views: readonly CandidatePromptView[]): string {

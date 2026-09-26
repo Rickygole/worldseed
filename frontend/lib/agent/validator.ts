@@ -7,21 +7,29 @@
  *      allowed type. Every gazetteer ID exists.
  *   3. Bundles have 1-3 unique candidates, no duplicate bundles, at most 12 evaluated per mission.
  *   4. Round <= 3, the action matches the phase, the per-mission token budget is not exceeded.
- *   5. No numbers in model prose (prose.ts).
+ *   5. Model prose is screened (prose.ts): plain words only, no numbers or direction words; figures
+ *      appear only as {{slot}} placeholders limited to the item's own bundle or the baseline.
  *   6. finalize names exactly 3 distinct evaluated bundles and nothing unevaluated.
  *   7. On violation: one repair turn, then deterministic search. That is orchestration, done in
  *      lib/server/agentService.ts (repair) and agent/machine.ts (fallback), not here.
+ *
+ * Violation text never echoes model-supplied strings or key names: a violation carries a rule, a
+ * code, an index path and a fixed message. (An echo would put model text into logs, repair prompts
+ * and error events.)
  */
 import { z } from "zod";
 import { candidateRejection, type Catalog, type CatalogConstraints } from "./catalog";
-import { proseIssues } from "./prose";
+import { proseIssues, type SlotPolicy } from "./prose";
 import {
+  BUNDLE_ID_RE,
   CritiqueSchema,
   expectedAction,
   MAX_EVALUATED_BUNDLES,
   MAX_ROUNDS,
+  mintBundleIds,
   NarrationSchema,
   ParsedMissionSchema,
+  plannerModelSchemaFor,
   plannerSchemaFor,
   type BundleSpec,
   type ConfirmedMission,
@@ -75,11 +83,6 @@ export interface PlannerContext {
 
 const v = (rule: RuleNumber, code: string, path: string, message: string): Violation => ({ rule, code, path, message });
 
-/** Short, safe echo of model-supplied text for error messages. */
-function show(s: unknown): string {
-  return JSON.stringify(String(s).slice(0, 48));
-}
-
 /** Catalog filter implied by a confirmed mission. */
 export function constraintsOf(m: ConfirmedMission): CatalogConstraints {
   return { lens: m.lens, maxCostTier: m.constraints.maxCostTier, types: m.constraints.types };
@@ -91,10 +94,17 @@ export function bundleKey(candidateIds: readonly string[]): string {
 
 /* ----------------------------- shared helpers ----------------------------- */
 
-function zodViolations(err: z.ZodError): Violation[] {
+/** Zod messages for these codes would quote model-supplied key names or values. */
+export function safeMessage(i: z.core.$ZodIssue): string {
+  if (i.code === "unrecognized_keys") return "unexpected field";
+  if (i.code === "invalid_union") return "does not match any allowed shape";
+  return i.message.slice(0, 160);
+}
+
+export function zodViolations(err: z.ZodError): Violation[] {
   return err.issues.slice(0, 12).map((i) => {
     const code = i.code === "unrecognized_keys" ? "unknown_keys" : "schema";
-    return v(1, code, i.path.join(".") || "(root)", i.message);
+    return v(1, code, i.path.map((p) => (typeof p === "number" ? String(p) : String(p))).join(".") || "(root)", safeMessage(i));
   });
 }
 
@@ -115,22 +125,30 @@ export function checkTokenBudget(b: TokenBudget | undefined): Violation[] {
   return out;
 }
 
-export function checkProse(path: string, text: string, allowedTokens: readonly string[]): Violation[] {
-  return proseIssues(text, { allowedTokens }).map((i) => v(5, i.code, path, i.message));
+export function checkProse(path: string, text: string, allowedTokens: readonly string[], slots?: SlotPolicy): Violation[] {
+  return proseIssues(text, { allowedTokens, slots }).map((i) => v(5, i.code, path, i.message));
+}
+
+/**
+ * The identifiers a prose field may contain even though they hold digits: exact catalog IDs and
+ * application-minted bundle IDs (B1..B12). One builder is used by the client validators and by the
+ * server re-checks, so a sentence accepted in one place is accepted in the other. A bundle ID that
+ * does not have the minted shape is never whitelisted.
+ */
+export function allowedProseTokens(catalog: Catalog, bundleIds: Iterable<string> = []): string[] {
+  return [...catalog.byId.keys(), ...[...bundleIds].filter((id) => BUNDLE_ID_RE.test(id))];
 }
 
 function proseTokens(ctx: { catalog: Catalog; known?: readonly KnownBundle[] }, extra: readonly string[] = []): string[] {
-  const t = [...ctx.catalog.byId.keys(), ...extra];
-  for (const b of ctx.known ?? []) t.push(b.id);
-  return t;
+  return allowedProseTokens(ctx.catalog, [...(ctx.known ?? []).map((b) => b.id), ...extra]);
 }
 
 /** Rule 2 for a single candidate. */
 function checkCandidate(catalog: Catalog, k: CatalogConstraints, id: string, path: string): Violation[] {
   const c = catalog.byId.get(id);
-  if (!c) return [v(2, "unknown_candidate", path, `candidateId ${show(id)} is not in the catalog`)];
+  if (!c) return [v(2, "unknown_candidate", path, "candidateId is not in the catalog")];
   const why = candidateRejection(c, k);
-  return why ? [v(2, "candidate_not_allowed", path, `candidate ${show(id)} ${why}`)] : [];
+  return why ? [v(2, "candidate_not_allowed", path, `candidate ${why}`)] : [];
 }
 
 /** Rules 2 and 3 for a set of new bundles. `seen` holds keys of bundles already in play. */
@@ -144,7 +162,7 @@ function checkNewBundles(
   const out: Violation[] = [];
   bundles.forEach((b, i) => {
     const path = `${pathBase}.${i}`;
-    if (takenIds.has(b.id)) out.push(v(3, "duplicate_bundle_id", `${path}.id`, `bundle id ${show(b.id)} is already used`));
+    if (takenIds.has(b.id)) out.push(v(3, "duplicate_bundle_id", `${path}.id`, "bundle id is already used"));
     takenIds.add(b.id);
     if (new Set(b.candidateIds).size !== b.candidateIds.length) {
       out.push(v(3, "duplicate_candidate", `${path}.candidateIds`, "a bundle may not repeat a candidate"));
@@ -166,33 +184,74 @@ function knownKeys(ctx: PlannerContext): Set<string> {
 
 /* ------------------------------- planner ------------------------------- */
 
-export function validatePlannerOutput(raw: unknown, ctx: PlannerContext): ValidationResult<PlannerAction> {
+/** Rule 4 and the action allowed for this phase. Shared by both planner entry points. */
+function phaseViolations(raw: unknown, ctx: PlannerContext): { violations: Violation[]; expected: ReturnType<typeof expectedAction> } {
   const violations: Violation[] = [];
-
-  // Rule 4: round limit and the action allowed for this phase.
   if (ctx.round > MAX_ROUNDS || ctx.round < 1) {
     violations.push(v(4, "round_limit", "(round)", `round must be between 1 and ${MAX_ROUNDS}`));
   }
   const expected = expectedAction(ctx.phase, ctx.round);
   const rawAction = raw && typeof raw === "object" ? (raw as { action?: unknown }).action : undefined;
   if (typeof rawAction === "string" && rawAction !== expected) {
-    violations.push(v(4, "wrong_action", "action", `this turn requires action ${show(expected)}, got ${show(rawAction)}`));
+    violations.push(v(4, "wrong_action", "action", "the action does not match this turn"));
   }
   violations.push(...checkTokenBudget(ctx.budget));
+  return { violations, expected };
+}
 
-  // Rule 1: schema.
+/**
+ * Validates what a MODEL returned. Bundles carry no IDs in this form; on success the result is the
+ * same action with application-minted IDs (B1..B12, first unused, in order).
+ */
+export function validatePlannerOutput(raw: unknown, ctx: PlannerContext): ValidationResult<PlannerAction> {
+  const { violations, expected } = phaseViolations(raw, ctx);
+  const parsed = parseWith(plannerModelSchemaFor(expected) as z.ZodType<unknown>, raw);
+  if (!parsed.ok) return { ok: false, violations: [...violations, ...parsed.violations] };
+  const model = parsed.value as PlannerAction | { action: "propose"; bundles: { candidateIds: string[] }[] } | { action: "refine"; add: { candidateIds: string[] }[] };
+  const taken = knownIds(ctx);
+  let action: PlannerAction;
+  if (model.action === "propose") {
+    const ids = mintBundleIds(taken, model.bundles.length);
+    if (ids.length < model.bundles.length) violations.push(v(3, "too_many_bundles", "bundles", `at most ${MAX_EVALUATED_BUNDLES} bundles may be evaluated per mission`));
+    action = { ...model, bundles: model.bundles.map((b, i) => ({ id: ids[i] ?? "B12", candidateIds: b.candidateIds })) } as ProposeAction;
+  } else if (model.action === "refine") {
+    const ids = mintBundleIds(taken, model.add.length);
+    if (ids.length < model.add.length) violations.push(v(3, "too_many_bundles", "add", `at most ${MAX_EVALUATED_BUNDLES} bundles may be evaluated per mission`));
+    action = { ...model, add: model.add.map((b, i) => ({ id: ids[i] ?? "B12", candidateIds: b.candidateIds })) } as RefineAction;
+  } else {
+    action = model as PlannerAction;
+  }
+  violations.push(...checkPlannerAction(action, ctx));
+  return violations.length ? { ok: false, violations } : { ok: true, value: action };
+}
+
+/**
+ * Validates an action that already has bundle IDs (what the server returns to the browser). The
+ * IDs must be exactly the ones the application would mint next, so a hostile or buggy server
+ * cannot introduce its own identifiers either.
+ */
+export function validateMintedPlannerOutput(raw: unknown, ctx: PlannerContext): ValidationResult<PlannerAction> {
+  const { violations, expected } = phaseViolations(raw, ctx);
   const parsed = parseWith(plannerSchemaFor(expected) as z.ZodType<PlannerAction>, raw);
   if (!parsed.ok) return { ok: false, violations: [...violations, ...parsed.violations] };
   const action = parsed.value;
-
-  const tokens = proseTokens(ctx);
-  violations.push(...checkProse("log_sentence", action.log_sentence, tokens));
-
-  if (action.action === "propose") violations.push(...validatePropose(action, ctx, tokens));
-  else if (action.action === "refine") violations.push(...validateRefine(action, ctx));
-  else violations.push(...validateFinalize(action, ctx, tokens));
-
+  const fresh = action.action === "propose" ? action.bundles : action.action === "refine" ? action.add : [];
+  const want = mintBundleIds(knownIds(ctx), fresh.length);
+  fresh.forEach((b, i) => {
+    if (b.id !== want[i]) violations.push(v(3, "unminted_bundle_id", `${action.action === "propose" ? "bundles" : "add"}.${i}.id`, "bundle id was not assigned by the application"));
+  });
+  violations.push(...checkPlannerAction(action, ctx));
   return violations.length ? { ok: false, violations } : { ok: true, value: action };
+}
+
+function checkPlannerAction(action: PlannerAction, ctx: PlannerContext): Violation[] {
+  const fresh = action.action === "propose" ? action.bundles : action.action === "refine" ? action.add : [];
+  const tokens = allowedProseTokens(ctx.catalog, [...ctx.known.map((b) => b.id), ...fresh.map((b) => b.id)]);
+  const out = checkProse("log_sentence", action.log_sentence, tokens);
+  if (action.action === "propose") out.push(...validatePropose(action, ctx, tokens));
+  else if (action.action === "refine") out.push(...validateRefine(action, ctx));
+  else out.push(...validateFinalize(action, ctx, tokens));
+  return out;
 }
 
 function validatePropose(a: ProposeAction, ctx: PlannerContext, tokens: string[]): Violation[] {
@@ -209,14 +268,14 @@ function validateRefine(a: RefineAction, ctx: PlannerContext): Violation[] {
   const out: Violation[] = [];
   const ids = knownIds(ctx);
   a.keep.forEach((id, i) => {
-    if (!ids.has(id)) out.push(v(3, "unknown_bundle", `keep.${i}`, `bundle ${show(id)} was never proposed`));
+    if (!ids.has(id)) out.push(v(3, "unknown_bundle", `keep.${i}`, "bundle was never proposed"));
   });
   a.drop.forEach((id, i) => {
-    if (!ids.has(id)) out.push(v(3, "unknown_bundle", `drop.${i}`, `bundle ${show(id)} was never proposed`));
+    if (!ids.has(id)) out.push(v(3, "unknown_bundle", `drop.${i}`, "bundle was never proposed"));
   });
   const dropSet = new Set(a.drop);
   a.keep.forEach((id, i) => {
-    if (dropSet.has(id)) out.push(v(3, "keep_and_drop", `keep.${i}`, `bundle ${show(id)} cannot be both kept and dropped`));
+    if (dropSet.has(id)) out.push(v(3, "keep_and_drop", `keep.${i}`, "a bundle cannot be both kept and dropped"));
   });
   const max = ctx.maxEvaluated ?? MAX_EVALUATED_BUNDLES;
   if (ctx.known.length + a.add.length > max) {
@@ -233,13 +292,13 @@ function validateFinalize(a: FinalizeAction, ctx: PlannerContext, tokens: string
   a.finalists.forEach((f, i) => {
     const path = `finalists.${i}`;
     out.push(...checkProse(`${path}.tradeoff`, f.tradeoff, tokens));
-    if (seen.has(f.bundleId)) out.push(v(6, "duplicate_finalist", `${path}.bundleId`, `finalist ${show(f.bundleId)} is listed twice`));
+    if (seen.has(f.bundleId)) out.push(v(6, "duplicate_finalist", `${path}.bundleId`, "finalist is listed twice"));
     seen.add(f.bundleId);
     const b = byId.get(f.bundleId);
-    if (!b) out.push(v(6, "unknown_finalist", `${path}.bundleId`, `finalist ${show(f.bundleId)} was never proposed`));
-    else if (!b.evaluated) out.push(v(6, "unevaluated_finalist", `${path}.bundleId`, `finalist ${show(f.bundleId)} has not been evaluated`));
+    if (!b) out.push(v(6, "unknown_finalist", `${path}.bundleId`, "finalist was never proposed"));
+    else if (!b.evaluated) out.push(v(6, "unevaluated_finalist", `${path}.bundleId`, "finalist has not been evaluated"));
     else if (ctx.excludedBundleIds?.has(f.bundleId)) {
-      out.push(v(6, "excluded_finalist", `${path}.bundleId`, `finalist ${show(f.bundleId)} was dropped or vetoed`));
+      out.push(v(6, "excluded_finalist", `${path}.bundleId`, "finalist was dropped or vetoed"));
     }
   });
   return out;
@@ -263,13 +322,12 @@ export function validateCritiqueOutput(raw: unknown, ctx: CritiqueContext): Vali
   const evaluated = new Set(ctx.known.filter((b) => b.evaluated).map((b) => b.id));
   violations.push(...checkProse("log_sentence", a.log_sentence, tokens));
   a.concerns.forEach((c, i) => {
-    violations.push(...checkProse(`concerns.${i}.note`, c.note, tokens));
     if (!evaluated.has(c.bundleId)) {
-      violations.push(v(6, "unknown_bundle", `concerns.${i}.bundleId`, `bundle ${show(c.bundleId)} was not evaluated`));
+      violations.push(v(6, "unknown_bundle", `concerns.${i}.bundleId`, "bundle was not evaluated"));
     }
   });
   (a.veto ?? []).forEach((id, i) => {
-    if (!evaluated.has(id)) violations.push(v(6, "unknown_bundle", `veto.${i}`, `bundle ${show(id)} was not evaluated`));
+    if (!evaluated.has(id)) violations.push(v(6, "unknown_bundle", `veto.${i}`, "bundle was not evaluated"));
   });
   return violations.length ? { ok: false, violations } : { ok: true, value: a };
 }
@@ -289,7 +347,7 @@ export function validateParseOutput(raw: unknown, ctx: ParseContext): Validation
   violations.push(...checkProse("log_sentence", m.log_sentence, [...ctx.catalog.gazetteerById.keys()]));
   m.constraints.areas.forEach((id, i) => {
     if (!ctx.catalog.gazetteerById.has(id)) {
-      violations.push(v(2, "unknown_gazetteer", `constraints.areas.${i}`, `gazetteer id ${show(id)} does not exist`));
+      violations.push(v(2, "unknown_gazetteer", `constraints.areas.${i}`, "gazetteer id does not exist"));
     }
   });
   if (new Set(m.constraints.areas).size !== m.constraints.areas.length) {
@@ -315,11 +373,13 @@ export function validateNarrationOutput(raw: unknown, ctx: NarrationContext): Va
   const tokens = proseTokens(ctx, ctx.finalistIds);
   const seen = new Set<string>();
   n.items.forEach((it, i) => {
-    if (!allowed.has(it.bundleId)) violations.push(v(6, "unknown_bundle", `items.${i}.bundleId`, `bundle ${show(it.bundleId)} is not a finalist`));
-    if (seen.has(it.bundleId)) violations.push(v(6, "duplicate_finalist", `items.${i}.bundleId`, `bundle ${show(it.bundleId)} is narrated twice`));
+    if (!allowed.has(it.bundleId)) violations.push(v(6, "unknown_bundle", `items.${i}.bundleId`, "bundle is not a finalist"));
+    if (seen.has(it.bundleId)) violations.push(v(6, "duplicate_finalist", `items.${i}.bundleId`, "bundle is narrated twice"));
     seen.add(it.bundleId);
-    violations.push(...checkProse(`items.${i}.headline`, it.headline, tokens));
-    violations.push(...checkProse(`items.${i}.body`, it.body, tokens));
+    // Figures may be the item's OWN bundle only (or the baseline): a card cannot quote another bundle.
+    const own: SlotPolicy = { ownerBundleId: it.bundleId };
+    violations.push(...checkProse(`items.${i}.headline`, it.headline, tokens, own));
+    violations.push(...checkProse(`items.${i}.body`, it.body, tokens, own));
   });
   if (seen.size !== allowed.size) violations.push(v(6, "missing_finalist", "items", "every finalist must be narrated exactly once"));
   return violations.length ? { ok: false, violations } : { ok: true, value: n };

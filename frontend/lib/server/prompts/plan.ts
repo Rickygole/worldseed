@@ -1,6 +1,6 @@
 import type { CandidatePromptView } from "../../agent/catalog";
 import type { PlanRequest } from "../../agent/protocol";
-import type { BaselineRow, EvaluationRow, PlannerActionName } from "../../agent/tools";
+import { CONCERN_TEXT, type BaselineRow, type EvaluationRow, type PlannerActionName } from "../../agent/tools";
 import {
   FRAMING,
   NUMBER_RULE,
@@ -15,11 +15,11 @@ export const PLAN_SCHEMA_NAME = "planner_action";
 
 const ACTION_RULES: Record<PlannerActionName, string> = {
   propose:
-    "This turn you must return action propose: between 1 and 6 bundles, each with a short unique id (for example B1, B2) and 1 to 3 distinct candidateIds from the catalog, plus a hypothesis sentence about the mechanisms you expect to matter. Vary the bundles: different intervention types, different combinations.",
+    "This turn you must return action propose: between 1 and 6 bundles, each listing 1 to 3 distinct candidateIds from the catalog (the application assigns each bundle its id), plus a hypothesis sentence about the mechanisms you expect to matter. Vary the bundles: different intervention types, different combinations.",
   refine:
-    "This turn you must return action refine: keep (ids of bundles worth keeping), drop (ids to stop considering), and add (0 to 4 new bundles with fresh unique ids and 1 to 3 distinct catalog candidateIds each; never repeat a candidate set already evaluated). Use the evaluation table: prefer directions that improve the goal metric across futures, its worst cases, and the equity gap.",
+    "This turn you must return action refine: keep (ids of bundles worth keeping), drop (ids to stop considering), and add (0 to 4 new bundles, each listing 1 to 3 distinct catalog candidateIds; never repeat a candidate set already evaluated; the application assigns ids). Use the evaluation table to choose which mechanisms to extend.",
   finalize:
-    "This turn you must return action finalize: exactly 3 distinct finalists chosen only from evaluated bundles listed in the table that are marked active, each with a tradeoff sentence that names what the bundle costs or leaves unresolved. Do not rank them and do not recommend one.",
+    "This turn you must return action finalize: exactly 3 distinct finalists chosen only from evaluated bundles listed in the table that are marked active, each with a short tradeoff sentence (at most 100 characters) that names what the bundle costs or leaves unresolved. Do not rank them and do not recommend one.",
 };
 
 export interface PlanPromptInput {
@@ -50,8 +50,9 @@ export function buildPlanMessages(i: PlanPromptInput) {
   if (i.rows.length === 0) parts.push("No bundles have been evaluated yet.");
   else parts.push(`Simulator results (evaluation tool message):\n${evaluationTable(i.rows, i.baseline, i.req.dropped)}`);
   if (i.req.critique && i.req.critique.concerns.length > 0) {
+    // The sentence per kind is written here, on the server; the client sends only bundle and kind.
     parts.push(
-      "Critic concerns:\n" + i.req.critique.concerns.map((c) => `- ${c.bundleId} (${c.kind}): ${c.note}`).join("\n"),
+      "Critic concerns:\n" + i.req.critique.concerns.map((c) => `- ${c.bundleId} (${c.kind}): ${CONCERN_TEXT[c.kind]}`).join("\n"),
     );
   }
   if (i.excluded.size > 0) parts.push(`Not eligible as finalists: ${[...i.excluded].join(", ")}.`);

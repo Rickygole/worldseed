@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { greedyFinalists, greedyPlanRound, greedySearch, orderedCandidates, rankRows } from "../../lib/agent/greedy";
-import { validatePlannerOutput } from "../../lib/agent/validator";
+import { proseIssues } from "../../lib/agent/prose";
+import { validateMintedPlannerOutput } from "../../lib/agent/validator";
 import { MISSION, fakeCatalog, fakeEvaluator, row } from "./fixtures";
 
 const catalog = fakeCatalog();
@@ -32,11 +33,19 @@ describe("greedy deterministic search", () => {
   });
   it("its own bundles pass the same validator the planner is held to", () => {
     const round1 = greedyPlanRound({ catalog, mission: MISSION, round: 1, rows: [], known: [] });
-    const r = validatePlannerOutput(
+    const r = validateMintedPlannerOutput(
       { action: "propose", log_sentence: "Deterministic.", hypothesis: "Deterministic.", bundles: round1 },
       { catalog, mission: MISSION, phase: "search", round: 1, known: [] },
     );
     expect(r.ok).toBe(true);
+    expect(round1.map((b) => b.id)).toEqual(round1.map((_, i) => `B${i + 1}`)); // the same minted ids as the AI path
+  });
+  it("mints ids after the known ones, never reusing one", () => {
+    const r1 = greedyPlanRound({ catalog, mission: MISSION, round: 1, rows: [], known: [] });
+    const rows = r1.map((b, i) => row(b.id, b.candidateIds, { pGoal: i === 0 ? 0.9 : 0.1 }));
+    const r2 = greedyPlanRound({ catalog, mission: MISSION, round: 2, rows, known: r1 });
+    const used = new Set(r1.map((b) => b.id));
+    expect(r2.every((b) => /^B(1[0-2]|[1-9])$/.test(b.id) && !used.has(b.id))).toBe(true);
   });
   it("never proposes a duplicate set and grows the best bundle in later rounds", () => {
     const r1 = greedyPlanRound({ catalog, mission: MISSION, round: 1, rows: [], known: [] });
@@ -54,8 +63,10 @@ describe("greedy deterministic search", () => {
     expect(greedyFinalists(rows, MISSION, new Set(["B1"])).map((f) => f.bundleId)).toEqual(["B2", "B3", "B4"]);
     expect(greedyFinalists(rows.slice(0, 3), MISSION, new Set(["B1"])).map((f) => f.bundleId)).toEqual(["B1", "B2", "B3"]);
   });
-  it("finalist text carries no digits", () => {
+  it("finalist text passes the same prose screen as model text, and fits the tradeoff cap", () => {
     const f = greedyFinalists([row("B1", ["SP-BROENING"])], MISSION);
     expect(f[0].tradeoff).not.toMatch(/[0-9]/);
+    expect(proseIssues(f[0].tradeoff)).toEqual([]);
+    expect(f[0].tradeoff.length).toBeLessThanOrEqual(100);
   });
 });

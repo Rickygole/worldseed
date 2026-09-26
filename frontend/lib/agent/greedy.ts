@@ -18,7 +18,7 @@ import {
 } from "./catalog";
 import type { EvaluateFn } from "./evaluate";
 import type { BundleSpec, ConfirmedMission, EvaluationRow, GoalMetric } from "./tools";
-import { MAX_BUNDLE_SIZE, MAX_EVALUATED_BUNDLES, MAX_ROUNDS } from "./tools";
+import { MAX_BUNDLE_SIZE, MAX_EVALUATED_BUNDLES, MAX_ROUNDS, mintBundleIds } from "./tools";
 import { bundleKey, constraintsOf } from "./validator";
 
 export interface GreedyFinalist {
@@ -86,8 +86,10 @@ export function greedyPlanRound(input: GreedyRoundInput): BundleSpec[] {
   const order = orderedCandidates(catalog, mission);
   const room = MAX_EVALUATED_BUNDLES - known.length;
   const seen = new Set(known.map((b) => bundleKey(b.candidateIds)));
-  let next = known.length + 1;
-  const mint = (candidateIds: string[]): BundleSpec => ({ id: `S${next++}`, candidateIds });
+  // Bundle IDs are application-minted (B1..B12, first unused), the same scheme the AI path uses.
+  const free = mintBundleIds(known.map((b) => b.id), Math.max(room, 0));
+  let next = 0;
+  const mint = (candidateIds: string[]): BundleSpec => ({ id: free[next++] ?? "B12", candidateIds });
 
   if (round <= 1) {
     const fresh = order.filter((c) => !seen.has(bundleKey([c.id])));
@@ -123,8 +125,7 @@ export function greedyFinalists(
     .map((r) => ({
       bundleId: r.bundleId,
       candidateIds: r.candidateIds,
-      tradeoff:
-        "Ranked by deterministic search on the goal metric across the sampled futures; review its cost tier and worst case before applying.",
+      tradeoff: "Ranked by deterministic search on the goal metric; check its cost tier and worst case first.",
     }));
 }
 

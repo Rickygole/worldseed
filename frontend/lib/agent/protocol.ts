@@ -10,7 +10,6 @@ import {
   CONCERN_KINDS,
   ConfirmedMissionSchema,
   EvaluationRowSchema,
-  FinalistSchema,
 } from "./tools";
 
 export const MissionIdSchema = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/);
@@ -24,10 +23,12 @@ export const ParseRequestSchema = z.strictObject({
 });
 export type ParseRequest = z.infer<typeof ParseRequestSchema>;
 
+/**
+ * The critic's review as the planner sees it: bundle and kind only. No client-authored text is
+ * accepted here; the server writes the sentence for each kind itself.
+ */
 const CritiqueContextSchema = z.strictObject({
-  concerns: z
-    .array(z.strictObject({ bundleId: BundleIdSchema, kind: z.enum(CONCERN_KINDS), note: z.string().max(240) }))
-    .max(24),
+  concerns: z.array(z.strictObject({ bundleId: BundleIdSchema, kind: z.enum(CONCERN_KINDS) })).max(24),
   veto: z.array(BundleIdSchema).max(12),
 });
 
@@ -57,7 +58,8 @@ export type CritiqueRequest = z.infer<typeof CritiqueRequestSchema>;
 export const NarrateRequestSchema = z.strictObject({
   missionId: MissionIdSchema,
   mission: ConfirmedMissionSchema,
-  finalists: z.array(FinalistSchema).length(3),
+  // Only the ids: the planner's tradeoff sentence is not sent back into a prompt.
+  finalists: z.array(z.strictObject({ bundleId: BundleIdSchema })).length(3),
   evaluations: z.array(EvaluationRowSchema).min(3).max(12),
   baseline: BaselineRowSchema.optional(),
 });
@@ -69,6 +71,7 @@ export const ClosuresRequestSchema = z.strictObject({});
 
 export type FallbackReason =
   | "budget_exhausted"
+  | "evaluation_failed"
   | "mission_budget_exhausted"
   | "rate_limited"
   | "planner_unavailable"
@@ -97,9 +100,31 @@ export type Outcome<T> =
 export const UI_MESSAGES = {
   plannerUnavailable: "AI planner unavailable. Explore manually.",
   budgetExhausted: "Daily AI budget reached; try the recorded run.",
+  /** Planner output rejected. Only accurate when the run really does switch to deterministic search. */
   outputRejected: "Planner output rejected; deterministic search used.",
+  parserRejected: "The goal could not be read from your text (parser output rejected). Rephrase it, or explore manually.",
+  criticRejected: "Critic output rejected; continuing without a critique.",
+  narratorRejected: "Narration rejected; finalists are shown without narration.",
   deterministicLabel: "Deterministic search (not AI)",
 } as const;
+
+export type AgentRole = "parser" | "planner" | "critic" | "narrator" | "extractor";
+
+/** The rejection message for the role that produced the rejected output. Never claims a mode switch. */
+export function outputRejectedMessage(role: AgentRole): string {
+  switch (role) {
+    case "parser":
+      return UI_MESSAGES.parserRejected;
+    case "critic":
+      return UI_MESSAGES.criticRejected;
+    case "narrator":
+      return UI_MESSAGES.narratorRejected;
+    case "extractor":
+      return "Closure extraction output rejected; source links are shown without extracted closures.";
+    default:
+      return UI_MESSAGES.outputRejected;
+  }
+}
 
 /* --------------------------- SSE event shapes ------------------------- */
 
@@ -128,6 +153,11 @@ export const AGENT_EVENT_NAMES: readonly AgentEventName[] = ["status", "log", "t
 
 /* ------------------------------ closures ----------------------------- */
 
+/**
+ * A ProposedMutation is a PROPOSAL and carries no authority. The only way to turn a proposal into
+ * a mutation record is POST /api/closures/confirm with the proposal's single-use `confirmToken`,
+ * which the browser may send only after an explicit user action (see lib/agent/closures.ts).
+ */
 export type ProposedMutation =
   | { kind: "close_link"; linkId: string }
   | { kind: "close_edges"; edges: number[]; label: string };
@@ -139,15 +169,25 @@ export interface ClosureProposal {
   gazetteerId: string;
   mutation: ProposedMutation;
   provenance: { url: string; quote: string; retrievedAt: string };
+  /** Every proposal comes from a news snippet nobody has verified. The UI must say so next to the source link and quote. */
+  verification: "unverified";
   startDate?: string;
   endDate?: string;
+  /** Server-issued, single use, short lived. Present only when the server can honor a confirmation. */
+  confirmToken?: string;
 }
 
 export interface ClosureUnmatched {
   road: string;
   quote: string;
   sourceUrl: string;
-  reason: "not_in_model_area" | "ambiguous" | "unsupported_kind" | "already_ended";
+  reason:
+    | "not_in_model_area"
+    | "ambiguous"
+    | "unsupported_kind"
+    | "already_ended"
+    | "not_yet_started"
+    | "unclear_status";
 }
 
 export interface ClosureSource {
@@ -162,7 +202,7 @@ export type ClosuresResponse =
       status: "ok";
       retrievedAt: string;
       cached: boolean;
-      /** Set when served from the 6 h cache or after the daily cap; the UI labels it. */
+      /** Set when served from the cache or after the daily cap; the UI labels it. */
       cachedNotice?: string;
       sources: ClosureSource[];
       proposals: ClosureProposal[];
@@ -171,4 +211,28 @@ export type ClosuresResponse =
       message: string;
       model?: string;
     }
-  | { status: "unavailable"; reason: "no_key" | "cap_reached" | "upstream_error" | "rate_limited" | "catalog_unavailable"; message: string; retryAfterS?: number };
+  | {
+      status: "unavailable";
+      reason: "no_key" | "cap_reached" | "upstream_error" | "rate_limited" | "catalog_unavailable" | "disabled" | "protection_unavailable";
+      message: string;
+      retryAfterS?: number;
+    };
+
+/** POST /api/closures/confirm */
+export const ConfirmClosureRequestSchema = z.strictObject({ token: z.string().regex(/^[a-f0-9]{32}$/) });
+export type ConfirmClosureRequest = z.infer<typeof ConfirmClosureRequestSchema>;
+
+/** The shape lib/sim/compile.ts accepts for a tavily-origin mutation (a MutationRecord). */
+export interface ConfirmedClosureRecord {
+  id: string;
+  m: ProposedMutation;
+  origin: "tavily";
+  label: string;
+  provenance: { url: string; quote: string; retrievedAt: string };
+  /** ISO time the server consumed the confirmation token. */
+  confirmedAt: string;
+}
+
+export type ConfirmClosureResponse =
+  | { status: "ok"; record: ConfirmedClosureRecord }
+  | { status: "unavailable"; reason: "invalid_or_used" | "rate_limited" | "protection_unavailable"; message: string; retryAfterS?: number };

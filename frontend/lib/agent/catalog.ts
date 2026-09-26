@@ -27,11 +27,22 @@ export type CandidateType = z.infer<typeof CandidateTypeSchema>;
 
 export const COST_TIER_RANK: Record<CostTier, number> = { $: 1, $$: 2, $$$: 3 };
 
+const KNOWN_LENSES: ReadonlySet<string> = new Set(LensSchema.options);
+
+/**
+ * `lens` is an open list on the wire: the pipeline may tag a candidate with lenses this agent has
+ * no mission for yet (for example "xharbor"). Unknown lens values are dropped here, and a candidate
+ * left with no known lens is skipped by buildCatalog with a warning, never a hard failure.
+ */
 export const CandidateSchema = z.looseObject({
   id: z.string().regex(ID_RE),
   type: CandidateTypeSchema,
   title: z.string().min(1).max(200),
-  lens: z.array(LensSchema).min(1),
+  lens: z
+    .array(z.string())
+    .min(1)
+    .transform((l) => l.filter((x) => KNOWN_LENSES.has(x)))
+    .pipe(z.array(LensSchema).min(1)),
   costTier: CostTierSchema,
   costSource: z.string().nullable().optional(),
   leadTime: z.enum(["days", "weeks", "months"]),
@@ -67,23 +78,54 @@ export interface Catalog {
   byId: Map<string, Candidate>;
   gazetteer: GazetteerEntry[];
   gazetteerById: Map<string, GazetteerEntry>;
+  /** Entries that were skipped or trimmed while loading (never fatal). */
+  warnings: string[];
 }
 
-/** Parse and index raw JSON. Throws (ZodError) if the files break the contract. */
+/**
+ * Parse and index raw JSON. Entries that break the contract are skipped with a warning instead of
+ * failing the whole catalog; only a file that is not an array at all throws (ZodError).
+ * Extra fields (kind, mechanism, refs, delayS, ...) are carried through untouched.
+ */
 export function buildCatalog(candidatesJson: unknown, gazetteerJson: unknown = []): Catalog {
-  const candidates = z.array(CandidateSchema).parse(candidatesJson);
-  const gazetteer = z.array(GazetteerEntrySchema).parse(gazetteerJson);
+  const rawCandidates = z.array(z.unknown()).parse(candidatesJson);
+  const rawGazetteer = z.array(z.unknown()).parse(gazetteerJson);
+  const warnings: string[] = [];
+  const candidates: Candidate[] = [];
   const byId = new Map<string, Candidate>();
-  for (const c of candidates) {
-    if (byId.has(c.id)) throw new Error(`duplicate candidate id ${c.id}`);
-    byId.set(c.id, c);
-  }
+  const unknownLenses = new Set<string>();
+  rawCandidates.forEach((raw, i) => {
+    const r = CandidateSchema.safeParse(raw);
+    if (!r.success) {
+      warnings.push(`candidate #${i} skipped: does not match the contract`);
+      return;
+    }
+    const before = (raw as { lens?: unknown[] }).lens ?? [];
+    for (const l of before) if (typeof l === "string" && !KNOWN_LENSES.has(l)) unknownLenses.add(l);
+    if (byId.has(r.data.id)) {
+      warnings.push(`candidate #${i} skipped: duplicate id`);
+      return;
+    }
+    byId.set(r.data.id, r.data);
+    candidates.push(r.data);
+  });
+  if (unknownLenses.size > 0) warnings.push(`lens values ignored: ${[...unknownLenses].sort().join(", ")}`);
+  const gazetteer: GazetteerEntry[] = [];
   const gazetteerById = new Map<string, GazetteerEntry>();
-  for (const g of gazetteer) {
-    if (gazetteerById.has(g.id)) throw new Error(`duplicate gazetteer id ${g.id}`);
-    gazetteerById.set(g.id, g);
-  }
-  return { candidates, byId, gazetteer, gazetteerById };
+  rawGazetteer.forEach((raw, i) => {
+    const r = GazetteerEntrySchema.safeParse(raw);
+    if (!r.success) {
+      warnings.push(`gazetteer entry #${i} skipped: does not match the contract`);
+      return;
+    }
+    if (gazetteerById.has(r.data.id)) {
+      warnings.push(`gazetteer entry #${i} skipped: duplicate id`);
+      return;
+    }
+    gazetteerById.set(r.data.id, r.data);
+    gazetteer.push(r.data);
+  });
+  return { candidates, byId, gazetteer, gazetteerById, warnings };
 }
 
 /** The constraint subset the catalog filter needs. */
