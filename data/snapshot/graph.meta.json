@@ -1,0 +1,180 @@
+{
+ "snapshotId": "keybridge-2024-03-01-v1",
+ "classes": [
+  "motorway",
+  "trunk",
+  "primary",
+  "secondary",
+  "tertiary",
+  "residential",
+  "service",
+  "link",
+  "candidate"
+ ],
+ "flags": {
+  "TUNNEL": 1,
+  "BRIDGE": 2,
+  "HAZMAT_PROHIBITED": 4,
+  "TOLL": 8,
+  "CANDIDATE": 16,
+  "KEYBRIDGE": 32
+ },
+ "noCorridor": 65535,
+ "corridors": [
+  {
+   "id": "C-I895-TUNNEL",
+   "name": "Harbor Tunnel (I-895)"
+  },
+  {
+   "id": "C-I95-TUNNEL",
+   "name": "Fort McHenry Tunnel (I-95)"
+  },
+  {
+   "id": "C-I695",
+   "name": "Baltimore Beltway (I-695)"
+  },
+  {
+   "id": "C-I95",
+   "name": "I-95"
+  },
+  {
+   "id": "C-I895",
+   "name": "I-895"
+  },
+  {
+   "id": "C-I97",
+   "name": "I-97"
+  },
+  {
+   "id": "C-BROENING",
+   "name": "Broening Highway"
+  },
+  {
+   "id": "C-HANOVER",
+   "name": "Hanover Street"
+  }
+ ],
+ "links": [
+  {
+   "id": "L-KEYBRIDGE",
+   "name": "Francis Scott Key Bridge (I-695)",
+   "edges": [
+    35500,
+    58242,
+    80052,
+    80053,
+    80054,
+    80055
+   ]
+  },
+  {
+   "id": "L-FORTMCHENRY",
+   "name": "Fort McHenry Tunnel (I-95)",
+   "edges": [
+    27665,
+    57844,
+    60459,
+    60619
+   ]
+  },
+  {
+   "id": "L-HARBORTUNNEL",
+   "name": "Baltimore Harbor Tunnel (I-895)",
+   "edges": [
+    36049,
+    57845,
+    60467,
+    60469,
+    60471,
+    68075
+   ]
+  }
+ ],
+ "candidateEdgeCount": 0,
+ "units": {
+  "edgeTimeS": "seconds free-flow",
+  "edgeLenM": "metres"
+ },
+ "nodeCount": 36610,
+ "edgeCount": 81437,
+ "buffers": {
+  "nodeOsmId": {
+   "offset": 0,
+   "length": 36610,
+   "type": "f64"
+  },
+  "edgeOsmWay": {
+   "offset": 292880,
+   "length": 81437,
+   "type": "f64"
+  },
+  "nodeLon": {
+   "offset": 944376,
+   "length": 36610,
+   "type": "f32"
+  },
+  "nodeLat": {
+   "offset": 1090816,
+   "length": 36610,
+   "type": "f32"
+  },
+  "edgeFrom": {
+   "offset": 1237256,
+   "length": 81437,
+   "type": "u32"
+  },
+  "edgeTo": {
+   "offset": 1563008,
+   "length": 81437,
+   "type": "u32"
+  },
+  "edgeTimeS": {
+   "offset": 1888760,
+   "length": 81437,
+   "type": "f32"
+  },
+  "edgeLenM": {
+   "offset": 2214512,
+   "length": 81437,
+   "type": "f32"
+  },
+  "edgeCorridor": {
+   "offset": 2540264,
+   "length": 81437,
+   "type": "u16"
+  },
+  "edgeClass": {
+   "offset": 2703144,
+   "length": 81437,
+   "type": "u8"
+  },
+  "edgeFlags": {
+   "offset": 2784584,
+   "length": 81437,
+   "type": "u8"
+  },
+  "fwdOff": {
+   "offset": 2866024,
+   "length": 36611,
+   "type": "u32"
+  },
+  "fwdEdge": {
+   "offset": 3012472,
+   "length": 81437,
+   "type": "u32"
+  },
+  "revOff": {
+   "offset": 3338224,
+   "length": 36611,
+   "type": "u32"
+  },
+  "revEdge": {
+   "offset": 3484672,
+   "length": 81437,
+   "type": "u32"
+  }
+ },
+ "byteLength": 3810424,
+ "littleEndian": true,
+ "alignment": 8
+}

@@ -1,0 +1,26 @@
+[project]
+name = "worldseed-pipeline"
+version = "1.0.0"
+description = "WorldSeed build-time snapshot pipeline (free public data only)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=2.0",
+  "scipy>=1.13",
+  "pandas>=2.2",
+  "geopandas>=1.0",
+  "shapely>=2.0",
+  "h3>=4.1",
+  "scikit-learn>=1.5",
+  "networkx>=3.3",
+  "requests>=2.32",
+  "pyyaml>=6.0",
+  "pyproj>=3.6",
+  "pytest>=8.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

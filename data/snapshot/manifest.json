@@ -1,0 +1,156 @@
+{
+ "snapshotId": "keybridge-2024-03-01-v1",
+ "pipelineVersion": "1.0.0",
+ "builtAt": "2026-09-26T18:00:36Z",
+ "osmDate": "2024-03-01T00:00:00Z",
+ "acsVintage": "2020-2024 5-year",
+ "lodes": "LODES8 MD 2023",
+ "bbox": [
+  -76.8,
+  39.1,
+  -76.4,
+  39.34
+ ],
+ "h3Res": 9,
+ "osm": {
+  "osmDate": "2024-03-01T00:00:00Z",
+  "overpassEndpoint": "https://overpass-api.de/api/interpreter",
+  "tilesFetchedOn": [
+   "2026-09-26"
+  ],
+  "overpassServerTimestamp": "2026-09-26T17:30:06Z",
+  "method": "Overpass API attic query [date:\"2024-03-01T00:00:00Z\"], 3x2 tiles, plain HTTP, cached"
+ },
+ "files": {
+  "LICENSE.md": {
+   "sha256": "6a37ef6524f9d260e57606064100977c21f3236ba2e5372f85f5e7d989b1414c",
+   "bytes": 4666,
+   "gzipBytes": 2155
+  },
+  "access_sensitivity.json": {
+   "sha256": "2df6af714ba93b8823992ce6a28384e863537181f7439a62b5c9a31f34e79073",
+   "bytes": 13127,
+   "gzipBytes": 2748
+  },
+  "assumptions.json": {
+   "sha256": "1bccae6c2655b6e4fdba124453d2598ae1e1078908af96eece118a77a46e10fc",
+   "bytes": 7026,
+   "gzipBytes": 2671
+  },
+  "blockgroups.geojson": {
+   "sha256": "3b4464a3189370a8e3277030466095576bf34f08daae4729bfa310380a67da5d",
+   "bytes": 343974,
+   "gzipBytes": 57660
+  },
+  "blockgroups.json": {
+   "sha256": "460a1640380aefce95b0fafefd9fc13391b2fa49f961be1625f1349e2ff8112c",
+   "bytes": 211930,
+   "gzipBytes": 45720
+  },
+  "candidates.json": {
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+   "bytes": 3,
+   "gzipBytes": 11
+  },
+  "destinations.json": {
+   "sha256": "8852dc69ad1bfa8954486049b2b6bf4bb969480e96ed83117c740d5936f12c63",
+   "bytes": 2616,
+   "gzipBytes": 734
+  },
+  "facilities.json": {
+   "sha256": "f66f63dbe3d378ccf2a987458162045f3f5a97c88fd48a5c43eb7088c9b83017",
+   "bytes": 22482,
+   "gzipBytes": 3548
+  },
+  "gazetteer.json": {
+   "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+   "bytes": 3,
+   "gzipBytes": 11
+  },
+  "golden.json": {
+   "sha256": "969cdac0743a660274272f79a61fbc2db33c80167a67ae70f8008993ff3ad735",
+   "bytes": 695785,
+   "gzipBytes": 286889
+  },
+  "graph.bin": {
+   "sha256": "375a9016035e57be69794900709de420febd7a6d828cbabc4cfd45cd94111985",
+   "bytes": 3810424,
+   "gzipBytes": 1658073
+  },
+  "graph.meta.json": {
+   "sha256": "4205d24cc1d0be6d58b11feebb6a1ebba825bc793c711d961ef93a9df8d3745e",
+   "bytes": 2713,
+   "gzipBytes": 864
+  },
+  "hexes.bin": {
+   "sha256": "5f482913e4605c5100e19ed8ad71ddc591affcec5cbb3c116f6e20dad71fdb3f",
+   "bytes": 279520,
+   "gzipBytes": 176135
+  },
+  "hexes.meta.json": {
+   "sha256": "1c554968f3c276001ebe4c6d0e7329b516d3445f7436a0256a33d0b0abe5dabc",
+   "bytes": 168904,
+   "gzipBytes": 22291
+  },
+  "links.geojson": {
+   "sha256": "4dce12d3b1063930b548429aacbfedf421676a5429685ccef9a1f4a7f12a1f26",
+   "bytes": 92329,
+   "gzipBytes": 22672
+  }
+ },
+ "sources": [
+  {
+   "name": "OpenStreetMap",
+   "license": "ODbL 1.0",
+   "attribution": "(c) OpenStreetMap contributors",
+   "url": "https://www.openstreetmap.org/copyright",
+   "use": "road network, facilities, place names (2024-03-01 attic snapshot)"
+  },
+  {
+   "name": "Maryland iMAP (State of Maryland open data)",
+   "license": "State of Maryland data disclaimer (to be confirmed by legal review)",
+   "attribution": "MD iMAP, DoIT, MCAC, MSFA (fire stations); MD iMAP, DHMH OHCQ (hospitals)",
+   "url": "https://mdgeodata.md.gov/imap/rest/services",
+   "use": "fire stations and hospitals (second source)"
+  },
+  {
+   "name": "US Census Bureau ACS 5-Year Estimates",
+   "vintage": "2020-2024 5-year",
+   "release": "ACS 2024 5-year",
+   "tables": [
+    "B01003",
+    "B25044"
+   ],
+   "fetchedAt": "2026-09-26",
+   "transport": "Census Reporter API (api.censusreporter.org), third-party mirror of official ACS",
+   "officialApi": false,
+   "license": "US Government work (public domain); third-party mirror terms to be confirmed by legal review",
+   "attribution": "U.S. Census Bureau, American Community Survey 5-Year Estimates"
+  },
+  {
+   "name": "US Census Bureau TIGER/Line Cartographic Boundary Files",
+   "vintage": "TIGER/Line cartographic boundary 2023 (GENZ2023) 1:500k",
+   "url": "https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_24_bg_500k.zip",
+   "fetchedAt": "2026-09-26",
+   "license": "US Government work (public domain)",
+   "attribution": "U.S. Census Bureau, TIGER/Line cartographic boundary files"
+  },
+  {
+   "name": "US Census Bureau LEHD LODES8",
+   "vintage": "LODES8 MD 2023",
+   "urls": [
+    "https://lehd.ces.census.gov/data/lodes/LODES8/md/wac/md_wac_S000_JT00_2023.csv.gz",
+    "https://lehd.ces.census.gov/data/lodes/LODES8/md/rac/md_rac_S000_JT00_2023.csv.gz",
+    "https://lehd.ces.census.gov/data/lodes/LODES8/md/md_xwalk.csv.gz"
+   ],
+   "fetchedAt": "2026-09-26",
+   "license": "US Government work (public domain)",
+   "attribution": "U.S. Census Bureau, LEHD Origin-Destination Employment Statistics (LODES) 8"
+  }
+ ],
+ "totalBytes": 5655502,
+ "notes": [
+  "Artifact hashes are deterministic for fixed cached inputs; builtAt is the only wall-clock field.",
+  "The acsVintage differs from the architecture example (2018-2022): the latest ACS 5-year available through the keyless Census Reporter API was used."
+ ]
+}

@@ -1,0 +1,504 @@
+{
+ "snapshotId": "keybridge-2024-03-01-v1",
+ "note": "informational; not part of the simulator contract",
+ "anchors": [
+  {
+   "id": "D-DOWNTOWN-EMPLOYMENT-CENTER",
+   "jobs": 229492,
+   "shore": 0
+  },
+  {
+   "id": "D-HANOVER-EMPLOYMENT-CENTER",
+   "jobs": 74853,
+   "shore": 1
+  },
+  {
+   "id": "D-DUNDALK-EMPLOYMENT-CENTER",
+   "jobs": 71640,
+   "shore": 0
+  },
+  {
+   "id": "D-GLEN-BURNIE-EMPLOYMENT-CENTER",
+   "jobs": 54523,
+   "shore": 1
+  },
+  {
+   "id": "D-LANSDOWNE-EMPLOYMENT-CENTER",
+   "jobs": 53255,
+   "shore": 0
+  },
+  {
+   "id": "D-WOODLAWN-EMPLOYMENT-CENTER",
+   "jobs": 49575,
+   "shore": 0
+  },
+  {
+   "id": "D-JESSUP-EMPLOYMENT-CENTER",
+   "jobs": 45689,
+   "shore": 1
+  },
+  {
+   "id": "D-ESSEX-EMPLOYMENT-CENTER",
+   "jobs": 24233,
+   "shore": 0
+  }
+ ],
+ "worlds": {
+  "keybridge_removed": {
+   "contract_mean_over_anchors": {
+    "popMeanAddedS": 2.9457681370469597,
+    "lowWageMeanAddedS": 2.9314386967724624,
+    "addedP99S": 91.12476062606414,
+    "addedMaxS": 173.73508995888707,
+    "popAddedGt30s": 22698,
+    "lowWageAddedGt30s": 1641,
+    "popAddedGt60s": 15203,
+    "lowWageAddedGt60s": 1098,
+    "popAddedGt120s": 4299,
+    "lowWageAddedGt120s": 316,
+    "popAddedGt300s": 0,
+    "lowWageAddedGt300s": 0,
+    "popAddedGt600s": 0,
+    "lowWageAddedGt600s": 0
+   },
+   "per_destination": [
+    {
+     "id": "D-DOWNTOWN-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 0.0,
+     "addedMaxS": 0.0,
+     "popAddedGt60s": 0,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-HANOVER-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 4.735674940845966,
+     "addedMaxS": 394.2206136137247,
+     "popAddedGt60s": 20238,
+     "popAddedGt300s": 4173
+    },
+    {
+     "id": "D-DUNDALK-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 2.1934756484032687,
+     "addedMaxS": 148.79091811180115,
+     "popAddedGt60s": 29027,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-GLEN-BURNIE-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 15.70070680110838,
+     "addedMaxS": 641.8886427134275,
+     "popAddedGt60s": 58808,
+     "popAddedGt300s": 18418
+    },
+    {
+     "id": "D-LANSDOWNE-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 2.4121332215060143,
+     "addedMaxS": 318.3538940101862,
+     "popAddedGt60s": 14684,
+     "popAddedGt300s": 351
+    },
+    {
+     "id": "D-WOODLAWN-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 0.8617240705052653,
+     "addedMaxS": 205.29814238846302,
+     "popAddedGt60s": 9055,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-JESSUP-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 2.738591994409471,
+     "addedMaxS": 336.70722855627537,
+     "popAddedGt60s": 15260,
+     "popAddedGt300s": 599
+    },
+    {
+     "id": "D-ESSEX-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 4.666889056253364,
+     "addedMaxS": 215.01151059567928,
+     "popAddedGt60s": 37238,
+     "popAddedGt300s": 0
+    }
+   ],
+   "cross_shore_anchors_only": {
+    "popMeanAddedS": 8.293696426565946,
+    "lowWageMeanAddedS": 8.304886137333687,
+    "addedP99S": 280.40675558521934,
+    "addedMaxS": 443.697131546441,
+    "popAddedGt30s": 56221,
+    "lowWageAddedGt30s": 4043,
+    "popAddedGt60s": 38821,
+    "lowWageAddedGt60s": 2719,
+    "popAddedGt120s": 19728,
+    "lowWageAddedGt120s": 1440,
+    "popAddedGt300s": 9242,
+    "lowWageAddedGt300s": 653,
+    "popAddedGt600s": 0,
+    "lowWageAddedGt600s": 0,
+    "popCovered": 1056263
+   },
+   "worst_anchor": {
+    "popMeanAddedS": 20.367595857361746,
+    "lowWageMeanAddedS": 20.156861598589412,
+    "addedP99S": 464.04815466701984,
+    "addedMaxS": 641.8886427134275,
+    "popAddedGt30s": 101344,
+    "lowWageAddedGt30s": 7097,
+    "popAddedGt60s": 96045,
+    "lowWageAddedGt60s": 6730,
+    "popAddedGt120s": 83262,
+    "lowWageAddedGt120s": 5819,
+    "popAddedGt300s": 18418,
+    "lowWageAddedGt300s": 1333,
+    "popAddedGt600s": 712,
+    "lowWageAddedGt600s": 64
+   },
+   "jobs_within_30min": {
+    "popWeightedMeanBaselineJobs": 589802.484029954,
+    "popWeightedMeanLossPct": 0.6994826769359062,
+    "lowWageWeightedMeanLossPct": 0.6566047597321449,
+    "popLosingGt5pct": 13928,
+    "popLosingGt10pct": 9409,
+    "popLosingGt25pct": 0,
+    "lowWageLosingGt10pct": 651,
+    "maxLossPct": 22.064852711883283,
+    "meanJobsLostPerPerson": 3937.4274744105865
+   }
+  },
+  "harbor_tunnel_closed": {
+   "contract_mean_over_anchors": {
+    "popMeanAddedS": 14.485732400479929,
+    "lowWageMeanAddedS": 14.275640843313377,
+    "addedP99S": 60.695850510812996,
+    "addedMaxS": 88.71764424235646,
+    "popAddedGt30s": 215017,
+    "lowWageAddedGt30s": 15497,
+    "popAddedGt60s": 16977,
+    "lowWageAddedGt60s": 1408,
+    "popAddedGt120s": 0,
+    "lowWageAddedGt120s": 0,
+    "popAddedGt300s": 0,
+    "lowWageAddedGt300s": 0,
+    "popAddedGt600s": 0,
+    "lowWageAddedGt600s": 0
+   },
+   "per_destination": [
+    {
+     "id": "D-DOWNTOWN-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 0.0,
+     "addedMaxS": 0.0,
+     "popAddedGt60s": 0,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-HANOVER-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 6.6028848433893215,
+     "addedMaxS": 196.5372565984726,
+     "popAddedGt60s": 43584,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-DUNDALK-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 77.61929545094824,
+     "addedMaxS": 441.26293045282364,
+     "popAddedGt60s": 352315,
+     "popAddedGt300s": 104182
+    },
+    {
+     "id": "D-GLEN-BURNIE-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 28.069864767045726,
+     "addedMaxS": 387.5676235705614,
+     "popAddedGt60s": 157358,
+     "popAddedGt300s": 29738
+    },
+    {
+     "id": "D-LANSDOWNE-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 3.7523563552174064,
+     "addedMaxS": 191.01930090785027,
+     "popAddedGt60s": 30327,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-WOODLAWN-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 0.0,
+     "addedMaxS": 0.0,
+     "popAddedGt60s": 0,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-JESSUP-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 2.834522121040975,
+     "addedMaxS": 164.24785807728767,
+     "popAddedGt60s": 30329,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-ESSEX-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 34.00236896159744,
+     "addedMaxS": 307.2551369667053,
+     "popAddedGt60s": 203921,
+     "popAddedGt300s": 671
+    }
+   ],
+   "cross_shore_anchors_only": {
+    "popMeanAddedS": 26.06947586522229,
+    "lowWageMeanAddedS": 26.249787687336468,
+    "addedP99S": 177.50810685224627,
+    "addedMaxS": 247.60559332702928,
+    "popAddedGt30s": 332500,
+    "lowWageAddedGt30s": 23988,
+    "popAddedGt60s": 187970,
+    "lowWageAddedGt60s": 13797,
+    "popAddedGt120s": 36003,
+    "lowWageAddedGt120s": 2887,
+    "popAddedGt300s": 0,
+    "lowWageAddedGt300s": 0,
+    "popAddedGt600s": 0,
+    "lowWageAddedGt600s": 0,
+    "popCovered": 1056263
+   },
+   "worst_anchor": {
+    "popMeanAddedS": 106.35475672591753,
+    "lowWageMeanAddedS": 104.44930551203711,
+    "addedP99S": 344.33824557065964,
+    "addedMaxS": 441.26293045282364,
+    "popAddedGt30s": 636122,
+    "lowWageAddedGt30s": 44383,
+    "popAddedGt60s": 509672,
+    "lowWageAddedGt60s": 35133,
+    "popAddedGt120s": 402207,
+    "lowWageAddedGt120s": 27761,
+    "popAddedGt300s": 133919,
+    "lowWageAddedGt300s": 9943,
+    "popAddedGt600s": 0,
+    "lowWageAddedGt600s": 0
+   },
+   "jobs_within_30min": {
+    "popWeightedMeanBaselineJobs": 589802.484029954,
+    "popWeightedMeanLossPct": 0.46473474888722704,
+    "lowWageWeightedMeanLossPct": 0.4836640622489386,
+    "popLosingGt5pct": 5950,
+    "popLosingGt10pct": 0,
+    "popLosingGt25pct": 0,
+    "lowWageLosingGt10pct": 0,
+    "maxLossPct": 7.50304617810531,
+    "meanJobsLostPerPerson": 2534.0978793635804
+   }
+  },
+  "keybridge_and_harbor_tunnel_closed": {
+   "contract_mean_over_anchors": {
+    "popMeanAddedS": 22.58600884731252,
+    "lowWageMeanAddedS": 22.200818144390936,
+    "addedP99S": 100.94792664603837,
+    "addedMaxS": 196.50229825713674,
+    "popAddedGt30s": 352341,
+    "lowWageAddedGt30s": 25041,
+    "popAddedGt60s": 64061,
+    "lowWageAddedGt60s": 4650,
+    "popAddedGt120s": 9183,
+    "lowWageAddedGt120s": 646,
+    "popAddedGt300s": 0,
+    "lowWageAddedGt300s": 0,
+    "popAddedGt600s": 0,
+    "lowWageAddedGt600s": 0
+   },
+   "per_destination": [
+    {
+     "id": "D-DOWNTOWN-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 0.0,
+     "addedMaxS": 0.0,
+     "popAddedGt60s": 0,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-HANOVER-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 11.813842314813634,
+     "addedMaxS": 425.71234472095966,
+     "popAddedGt60s": 66345,
+     "popAddedGt300s": 4173
+    },
+    {
+     "id": "D-DUNDALK-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 103.4308557739552,
+     "addedMaxS": 585.813259512186,
+     "popAddedGt60s": 394809,
+     "popAddedGt300s": 202316
+    },
+    {
+     "id": "D-GLEN-BURNIE-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 62.53305136144803,
+     "addedMaxS": 809.9466593414545,
+     "popAddedGt60s": 241477,
+     "popAddedGt300s": 86568
+    },
+    {
+     "id": "D-LANSDOWNE-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 6.16448957672342,
+     "addedMaxS": 318.3538940101862,
+     "popAddedGt60s": 45010,
+     "popAddedGt300s": 351
+    },
+    {
+     "id": "D-WOODLAWN-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 0.8617240705052653,
+     "addedMaxS": 205.29814238846302,
+     "popAddedGt60s": 9055,
+     "popAddedGt300s": 0
+    },
+    {
+     "id": "D-JESSUP-EMPLOYMENT-CENTER",
+     "shore": 1,
+     "popMeanAddedS": 5.573114115450446,
+     "addedMaxS": 336.70722855627537,
+     "popAddedGt60s": 45589,
+     "popAddedGt300s": 599
+    },
+    {
+     "id": "D-ESSEX-EMPLOYMENT-CENTER",
+     "shore": 0,
+     "popMeanAddedS": 53.48154241687382,
+     "addedMaxS": 518.0260585099459,
+     "popAddedGt60s": 251579,
+     "popAddedGt300s": 37444
+    }
+   ],
+   "cross_shore_anchors_only": {
+    "popMeanAddedS": 45.24306648920128,
+    "lowWageMeanAddedS": 45.271787283296405,
+    "addedP99S": 314.2566006896642,
+    "addedMaxS": 522.1511119423059,
+    "popAddedGt30s": 499638,
+    "lowWageAddedGt30s": 35930,
+    "popAddedGt60s": 397887,
+    "lowWageAddedGt60s": 28650,
+    "popAddedGt120s": 85698,
+    "lowWageAddedGt120s": 6465,
+    "popAddedGt300s": 13725,
+    "lowWageAddedGt300s": 989,
+    "popAddedGt600s": 0,
+    "lowWageAddedGt600s": 0,
+    "popCovered": 1056263
+   },
+   "worst_anchor": {
+    "popMeanAddedS": 165.96390713540325,
+    "lowWageMeanAddedS": 163.00123636884388,
+    "addedP99S": 602.0521480888128,
+    "addedMaxS": 809.9466593414545,
+    "popAddedGt30s": 745803,
+    "lowWageAddedGt30s": 52126,
+    "popAddedGt60s": 636286,
+    "lowWageAddedGt60s": 44085,
+    "popAddedGt120s": 574167,
+    "lowWageAddedGt120s": 40057,
+    "popAddedGt300s": 288884,
+    "lowWageAddedGt300s": 20671,
+    "popAddedGt600s": 11536,
+    "lowWageAddedGt600s": 831
+   },
+   "jobs_within_30min": {
+    "popWeightedMeanBaselineJobs": 589802.484029954,
+    "popWeightedMeanLossPct": 1.7304418358668512,
+    "lowWageWeightedMeanLossPct": 1.6987789685439707,
+    "popLosingGt5pct": 109082,
+    "popLosingGt10pct": 21617,
+    "popLosingGt25pct": 0,
+    "lowWageLosingGt10pct": 1521,
+    "maxLossPct": 26.69684124067268,
+    "meanJobsLostPerPerson": 9705.773093152777
+   }
+  }
+ },
+ "keybridge_worst_block_groups_jobs30": [
+  {
+   "geoid": "240054521002",
+   "county": "Baltimore County",
+   "pop": 938,
+   "meanJobsLost": 94569.61410055481,
+   "meanLossPct": 17.64673337933623
+  },
+  {
+   "geoid": "240054519001",
+   "county": "Baltimore County",
+   "pop": 1085,
+   "meanJobsLost": 83549.77506371579,
+   "meanLossPct": 17.45606306181369
+  },
+  {
+   "geoid": "240054521001",
+   "county": "Baltimore County",
+   "pop": 1716,
+   "meanJobsLost": 91888.61984636074,
+   "meanLossPct": 17.386947985341827
+  },
+  {
+   "geoid": "240054521003",
+   "county": "Baltimore County",
+   "pop": 835,
+   "meanJobsLost": 99597.2735134821,
+   "meanLossPct": 17.01469895838754
+  },
+  {
+   "geoid": "240054519002",
+   "county": "Baltimore County",
+   "pop": 1811,
+   "meanJobsLost": 78519.49330342033,
+   "meanLossPct": 15.339587034059374
+  },
+  {
+   "geoid": "240054520002",
+   "county": "Baltimore County",
+   "pop": 1318,
+   "meanJobsLost": 72915.25661492423,
+   "meanLossPct": 12.799861822574751
+  },
+  {
+   "geoid": "240054520001",
+   "county": "Baltimore County",
+   "pop": 1139,
+   "meanJobsLost": 65731.55185236249,
+   "meanLossPct": 11.48636858504123
+  },
+  {
+   "geoid": "240037313063",
+   "county": "Anne Arundel County",
+   "pop": 1358,
+   "meanJobsLost": 23768.42827881172,
+   "meanLossPct": 8.368449912103056
+  },
+  {
+   "geoid": "240037313061",
+   "county": "Anne Arundel County",
+   "pop": 625,
+   "meanJobsLost": 28705.86226192591,
+   "meanLossPct": 7.665920544131896
+  },
+  {
+   "geoid": "240037313065",
+   "county": "Anne Arundel County",
+   "pop": 2165,
+   "meanJobsLost": 23265.657418450868,
+   "meanLossPct": 6.7842431109725325
+  }
+ ]
+}

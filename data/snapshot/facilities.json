@@ -1,0 +1,1292 @@
+[
+ {
+  "id": "F-EMS-001",
+  "kind": "ems_station",
+  "name": "FutureCare",
+  "lat": 39.321772,
+  "lng": -76.617824,
+  "node": 14970,
+  "snapM": 51.0,
+  "osm": "node/10057586563",
+  "active": true,
+  "sources": [
+   "osm"
+  ]
+ },
+ {
+  "id": "F-EMS-002",
+  "kind": "ems_station",
+  "name": "Middle River Volunteer Ambulance Rescue Company",
+  "lat": 39.335134,
+  "lng": -76.433859,
+  "node": 7243,
+  "snapM": 145.0,
+  "osm": null,
+  "active": true,
+  "sources": [
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-001",
+  "kind": "fire_station",
+  "name": "Lake Shore Fire Company 20",
+  "lat": 39.108228,
+  "lng": -76.495666,
+  "node": 21468,
+  "snapM": 22.5,
+  "osm": "node/367797300",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-002",
+  "kind": "fire_station",
+  "name": "(unnamed)",
+  "lat": 39.123253,
+  "lng": -76.744396,
+  "node": 27535,
+  "snapM": 293.6,
+  "osm": "node/7487866867",
+  "active": true,
+  "sources": [
+   "osm"
+  ]
+ },
+ {
+  "id": "F-FIRE-003",
+  "kind": "fire_station",
+  "name": "Jacobsville Fire Station 10",
+  "lat": 39.123889,
+  "lng": -76.526389,
+  "node": 25159,
+  "snapM": 73.6,
+  "osm": "node/367797310",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-004",
+  "kind": "fire_station",
+  "name": "Armiger Fire Company 30",
+  "lat": 39.131663,
+  "lng": -76.562163,
+  "node": 34258,
+  "snapM": 91.0,
+  "osm": "way/1191319878",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-005",
+  "kind": "fire_station",
+  "name": "Severn Fire Station Company 4",
+  "lat": 39.134552,
+  "lng": -76.687919,
+  "node": 31958,
+  "snapM": 80.8,
+  "osm": "node/3864190228",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-006",
+  "kind": "fire_station",
+  "name": "Jessup Fire Company 29",
+  "lat": 39.137817,
+  "lng": -76.753322,
+  "node": 17652,
+  "snapM": 67.5,
+  "osm": "way/184514823",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-007",
+  "kind": "fire_station",
+  "name": "Company 26 - South Glen Burnie Fire Station",
+  "lat": 39.13807,
+  "lng": -76.634105,
+  "node": 24126,
+  "snapM": 62.1,
+  "osm": "node/1867852962",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-008",
+  "kind": "fire_station",
+  "name": "Marley Fire Station 18",
+  "lat": 39.152384,
+  "lng": -76.596504,
+  "node": 19481,
+  "snapM": 43.8,
+  "osm": "way/457945571",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-009",
+  "kind": "fire_station",
+  "name": "Riviera Beach Fire Company 13",
+  "lat": 39.156595,
+  "lng": -76.517175,
+  "node": 22415,
+  "snapM": 39.4,
+  "osm": "way/420334090",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-010",
+  "kind": "fire_station",
+  "name": "Harmans/Dorsey Fire Company 21",
+  "lat": 39.158301,
+  "lng": -76.712702,
+  "node": 34428,
+  "snapM": 59.6,
+  "osm": "way/119757379",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-011",
+  "kind": "fire_station",
+  "name": "Glen Burnie Fire Company 33",
+  "lat": 39.164032,
+  "lng": -76.626989,
+  "node": 19671,
+  "snapM": 45.1,
+  "osm": "node/367797332",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-012",
+  "kind": "fire_station",
+  "name": "BWI Fire & Rescue Department",
+  "lat": 39.171269,
+  "lng": -76.673071,
+  "node": 27360,
+  "snapM": 250.3,
+  "osm": "way/91502142",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-013",
+  "kind": "fire_station",
+  "name": "Waterloo Fire Station",
+  "lat": 39.172629,
+  "lng": -76.778326,
+  "node": 35055,
+  "snapM": 99.7,
+  "osm": "way/613533019",
+  "active": true,
+  "sources": [
+   "osm"
+  ]
+ },
+ {
+  "id": "F-FIRE-014",
+  "kind": "fire_station",
+  "name": "Orchard Beach Fire Company 11",
+  "lat": 39.178732,
+  "lng": -76.550078,
+  "node": 20227,
+  "snapM": 156.0,
+  "osm": "node/367797309",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-015",
+  "kind": "fire_station",
+  "name": "Ferndale Fire Company 34",
+  "lat": 39.182637,
+  "lng": -76.640351,
+  "node": 33034,
+  "snapM": 32.9,
+  "osm": "way/514873626",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-016",
+  "kind": "fire_station",
+  "name": "Linthicum Fire Company 32",
+  "lat": 39.201946,
+  "lng": -76.653885,
+  "node": 17314,
+  "snapM": 45.5,
+  "osm": "way/374893154",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-017",
+  "kind": "fire_station",
+  "name": "Elkridge Volunteer Fire Department",
+  "lat": 39.21021,
+  "lng": -76.737421,
+  "node": 459,
+  "snapM": 134.8,
+  "osm": "way/568587402",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-018",
+  "kind": "fire_station",
+  "name": "Baltimore County Fire Department Sparrows Point - Station 57",
+  "lat": 39.221912,
+  "lng": -76.468357,
+  "node": 2151,
+  "snapM": 190.3,
+  "osm": null,
+  "active": true,
+  "sources": [
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-019",
+  "kind": "fire_station",
+  "name": "Brooklyn Community Fire Company 31",
+  "lat": 39.223802,
+  "lng": -76.614077,
+  "node": 17358,
+  "snapM": 41.2,
+  "osm": "way/288239726",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-020",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 39",
+  "lat": 39.225411,
+  "lng": -76.588201,
+  "node": 13983,
+  "snapM": 26.3,
+  "osm": "way/286930170",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-021",
+  "kind": "fire_station",
+  "name": "Baltimore County Fire Station #5",
+  "lat": 39.234714,
+  "lng": -76.686578,
+  "node": 4929,
+  "snapM": 60.4,
+  "osm": "way/281224718",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-022",
+  "kind": "fire_station",
+  "name": "Baltimore County Fire Department Station 26 - North Point",
+  "lat": 39.236851,
+  "lng": -76.442201,
+  "node": 2489,
+  "snapM": 81.9,
+  "osm": "way/298934035",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-023",
+  "kind": "fire_station",
+  "name": "English Consul Volunteer Firemens Association Station 37",
+  "lat": 39.238056,
+  "lng": -76.64,
+  "node": 34431,
+  "snapM": 77.2,
+  "osm": "node/367796243",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-024",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 38",
+  "lat": 39.239301,
+  "lng": -76.602883,
+  "node": 13504,
+  "snapM": 40.1,
+  "osm": "node/367797429",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-025",
+  "kind": "fire_station",
+  "name": "Edgemere Fire Department Station 9",
+  "lat": 39.2425,
+  "lng": -76.449444,
+  "node": 2967,
+  "snapM": 30.5,
+  "osm": "node/367796929",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-026",
+  "kind": "fire_station",
+  "name": "Lansdowne Volunteer Firemens Association Number 1 Station 36",
+  "lat": 39.246389,
+  "lng": -76.661111,
+  "node": 2404,
+  "snapM": 39.5,
+  "osm": "node/367796240",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-027",
+  "kind": "fire_station",
+  "name": "Arbutus Volunteer Fire Department Station 350",
+  "lat": 39.250331,
+  "lng": -76.691893,
+  "node": 33224,
+  "snapM": 47.6,
+  "osm": "way/174393132",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-028",
+  "kind": "fire_station",
+  "name": "Baltimore County Fire Department Station 06 - Dundalk",
+  "lat": 39.259255,
+  "lng": -76.511962,
+  "node": 33475,
+  "snapM": 42.8,
+  "osm": "way/299147462",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-029",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 37",
+  "lat": 39.260757,
+  "lng": -76.635136,
+  "node": 10824,
+  "snapM": 17.4,
+  "osm": "way/283593523",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-030",
+  "kind": "fire_station",
+  "name": "Violetville Volunteer Fire Department Station 34",
+  "lat": 39.261007,
+  "lng": -76.68,
+  "node": 3874,
+  "snapM": 125.2,
+  "osm": null,
+  "active": true,
+  "sources": [
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-031",
+  "kind": "fire_station",
+  "name": "Baltimore County Fire Department Station 27 - Wise Avenue",
+  "lat": 39.262588,
+  "lng": -76.481814,
+  "node": 5058,
+  "snapM": 63.2,
+  "osm": "way/299146302",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-032",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 47",
+  "lat": 39.265493,
+  "lng": -76.654199,
+  "node": 14912,
+  "snapM": 31.4,
+  "osm": "way/296373892",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-033",
+  "kind": "fire_station",
+  "name": "Peter J. O'Connor Fire Station",
+  "lat": 39.270518,
+  "lng": -76.599459,
+  "node": 33795,
+  "snapM": 33.8,
+  "osm": "way/103695700",
+  "active": true,
+  "sources": [
+   "osm"
+  ]
+ },
+ {
+  "id": "F-FIRE-034",
+  "kind": "fire_station",
+  "name": "Catonsville Fire Department Station 4",
+  "lat": 39.27188,
+  "lng": -76.733634,
+  "node": 7007,
+  "snapM": 43.6,
+  "osm": "way/149508410",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-035",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 35",
+  "lat": 39.272724,
+  "lng": -76.608696,
+  "node": 12454,
+  "snapM": 33.3,
+  "osm": "node/367797432",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-036",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 31",
+  "lat": 39.274295,
+  "lng": -76.543183,
+  "node": 10118,
+  "snapM": 44.6,
+  "osm": "node/367797419",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-037",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 34",
+  "lat": 39.274829,
+  "lng": -76.615077,
+  "node": 15536,
+  "snapM": 31.8,
+  "osm": "way/338550614",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-038",
+  "kind": "fire_station",
+  "name": "Baltimore City Fire Station 32",
+  "lat": 39.277986,
+  "lng": -76.636992,
+  "node": 15068,
+  "snapM": 32.0,
+  "osm": "way/336423032",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-039",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 33",
+  "lat": 39.279792,
+  "lng": -76.612957,
+  "node": 12003,
+  "snapM": 29.7,
+  "osm": "way/338550613",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-040",
+  "kind": "fire_station",
+  "name": "Baltimore City Fire Department Engine Company 30, Truck Company 8, Medic 12",
+  "lat": 39.280985,
+  "lng": -76.670937,
+  "node": 13729,
+  "snapM": 63.0,
+  "osm": "way/574657915",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-041",
+  "kind": "fire_station",
+  "name": "Baltimore County Fire Department Station 25 - Hyde Park",
+  "lat": 39.28595,
+  "lng": -76.440216,
+  "node": 5045,
+  "snapM": 36.5,
+  "osm": "way/298913986",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-042",
+  "kind": "fire_station",
+  "name": "Engine House No. 4",
+  "lat": 39.285958,
+  "lng": -76.567473,
+  "node": 36248,
+  "snapM": 42.6,
+  "osm": "way/336214832",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-043",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 28",
+  "lat": 39.286111,
+  "lng": -76.586109,
+  "node": 12384,
+  "snapM": 33.2,
+  "osm": "way/336272729",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-044",
+  "kind": "fire_station",
+  "name": "Baltimore County Fire Department Station 58 - Back River Neck",
+  "lat": 39.287126,
+  "lng": -76.426403,
+  "node": 7558,
+  "snapM": 443.6,
+  "osm": "way/298935891",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-045",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 18 Medic 21",
+  "lat": 39.287394,
+  "lng": -76.647548,
+  "node": 26263,
+  "snapM": 62.8,
+  "osm": "way/336454379",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-046",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 40",
+  "lat": 39.287778,
+  "lng": -76.546944,
+  "node": 34260,
+  "snapM": 42.9,
+  "osm": "node/367797427",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-047",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 23",
+  "lat": 39.287868,
+  "lng": -76.620372,
+  "node": 9734,
+  "snapM": 54.9,
+  "osm": "way/338029317",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-048",
+  "kind": "fire_station",
+  "name": "Eastview Fire Department Station 15",
+  "lat": 39.288283,
+  "lng": -76.507126,
+  "node": 1463,
+  "snapM": 71.0,
+  "osm": "way/299143803",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-049",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 26",
+  "lat": 39.289283,
+  "lng": -76.60919,
+  "node": 31767,
+  "snapM": 54.8,
+  "osm": "way/202589499",
+  "active": true,
+  "sources": [
+   "osm"
+  ]
+ },
+ {
+  "id": "F-FIRE-050",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 19",
+  "lat": 39.294535,
+  "lng": -76.653065,
+  "node": 10728,
+  "snapM": 36.1,
+  "osm": "way/255161417",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-051",
+  "kind": "fire_station",
+  "name": "Essex Volunteer Fire Company 51",
+  "lat": 39.295244,
+  "lng": -76.405035,
+  "node": 6873,
+  "snapM": 91.6,
+  "osm": "way/298918173",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-052",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 14",
+  "lat": 39.295278,
+  "lng": -76.693889,
+  "node": 16140,
+  "snapM": 35.4,
+  "osm": "node/367797436",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-053",
+  "kind": "fire_station",
+  "name": "Oldtown Fire Station",
+  "lat": 39.297348,
+  "lng": -76.605474,
+  "node": 31707,
+  "snapM": 45.2,
+  "osm": "way/336338254",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-054",
+  "kind": "fire_station",
+  "name": "Baltimore City Fire Department",
+  "lat": 39.298619,
+  "lng": -76.642162,
+  "node": 16994,
+  "snapM": 65.2,
+  "osm": "way/255336786",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-055",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 29",
+  "lat": 39.299194,
+  "lng": -76.570142,
+  "node": 27493,
+  "snapM": 25.0,
+  "osm": "way/336228694",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-056",
+  "kind": "fire_station",
+  "name": "Westview Fire Department Station 13",
+  "lat": 39.300269,
+  "lng": -76.739095,
+  "node": 32111,
+  "snapM": 46.2,
+  "osm": "way/180069977",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-057",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 22",
+  "lat": 39.304959,
+  "lng": -76.630345,
+  "node": 16438,
+  "snapM": 32.1,
+  "osm": "node/367797444",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-058",
+  "kind": "fire_station",
+  "name": "Engine 33",
+  "lat": 39.305309,
+  "lng": -76.583845,
+  "node": 13782,
+  "snapM": 57.0,
+  "osm": "way/336266748",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-059",
+  "kind": "fire_station",
+  "name": "Middleborough Volunteer Fire Dept. Station 23",
+  "lat": 39.307228,
+  "lng": -76.431261,
+  "node": 6821,
+  "snapM": 33.2,
+  "osm": null,
+  "active": true,
+  "sources": [
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-060",
+  "kind": "fire_station",
+  "name": "Baltimore City Fire Department Walbrook Station",
+  "lat": 39.309227,
+  "lng": -76.670584,
+  "node": 12874,
+  "snapM": 42.7,
+  "osm": "way/336529053",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-061",
+  "kind": "fire_station",
+  "name": "Essex Fire Department Station 7",
+  "lat": 39.315164,
+  "lng": -76.468696,
+  "node": 5854,
+  "snapM": 39.4,
+  "osm": "way/298935518",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-062",
+  "kind": "fire_station",
+  "name": "Herman Williams, Jr. Fire Station",
+  "lat": 39.317704,
+  "lng": -76.601846,
+  "node": 31885,
+  "snapM": 48.2,
+  "osm": "way/336326548",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-063",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 20",
+  "lat": 39.319003,
+  "lng": -76.651316,
+  "node": 14384,
+  "snapM": 31.4,
+  "osm": "way/124259651",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-064",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 12",
+  "lat": 39.319722,
+  "lng": -76.592778,
+  "node": 29066,
+  "snapM": 45.7,
+  "osm": "node/367797438",
+  "active": true,
+  "sources": [
+   "osm"
+  ]
+ },
+ {
+  "id": "F-FIRE-065",
+  "kind": "fire_station",
+  "name": "Rosedale Volunteer Fire Company Station 28",
+  "lat": 39.321816,
+  "lng": -76.512319,
+  "node": 1423,
+  "snapM": 49.3,
+  "osm": "way/298935856",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-066",
+  "kind": "fire_station",
+  "name": "Woodlawn Volunteer Fire Company Station 33",
+  "lat": 39.321964,
+  "lng": -76.72926,
+  "node": 23816,
+  "snapM": 38.2,
+  "osm": "node/367797374",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-067",
+  "kind": "fire_station",
+  "name": "Middle River Volunteer Fire & Rescue Company Station 74",
+  "lat": 39.322121,
+  "lng": -76.42337,
+  "node": 24271,
+  "snapM": 46.5,
+  "osm": "way/112279682",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-068",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 13",
+  "lat": 39.325556,
+  "lng": -76.560833,
+  "node": 15802,
+  "snapM": 24.4,
+  "osm": "node/367797435",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-069",
+  "kind": "fire_station",
+  "name": "Baltimore City Fire Station 7",
+  "lat": 39.326835,
+  "lng": -76.609274,
+  "node": 27671,
+  "snapM": 40.7,
+  "osm": "node/367797526",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-070",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 3",
+  "lat": 39.327927,
+  "lng": -76.683352,
+  "node": 12206,
+  "snapM": 37.0,
+  "osm": "way/336560270",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-071",
+  "kind": "fire_station",
+  "name": "Baltimore Fire Station 6",
+  "lat": 39.333641,
+  "lng": -76.633162,
+  "node": 15126,
+  "snapM": 30.0,
+  "osm": "node/367797330",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-072",
+  "kind": "fire_station",
+  "name": "Golden Ring Fire Department Station 16",
+  "lat": 39.334635,
+  "lng": -76.496951,
+  "node": 32042,
+  "snapM": 38.3,
+  "osm": "node/367797033",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-073",
+  "kind": "fire_station",
+  "name": "Woodlawn Fire Department Station 3",
+  "lat": 39.337619,
+  "lng": -76.754957,
+  "node": 3424,
+  "snapM": 122.8,
+  "osm": "way/224039344",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-FIRE-074",
+  "kind": "fire_station",
+  "name": "Littleton B. Wyatt, Sr. Fire Station",
+  "lat": 39.338005,
+  "lng": -76.665556,
+  "node": 8533,
+  "snapM": 32.3,
+  "osm": "way/336510605",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ]
+ },
+ {
+  "id": "F-HOSP-001",
+  "kind": "hospital",
+  "name": "Baltimore Washington Medical Center",
+  "lat": 39.137824,
+  "lng": -76.62194,
+  "node": 24136,
+  "snapM": 218.2,
+  "osm": "way/444216738",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-002",
+  "kind": "hospital",
+  "name": "MedStar Harbor Hospital",
+  "lat": 39.251798,
+  "lng": -76.614619,
+  "node": 30378,
+  "snapM": 102.6,
+  "osm": "relation/14680864",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-003",
+  "kind": "hospital",
+  "name": "Saint Agnes Hospital",
+  "lat": 39.271607,
+  "lng": -76.67345,
+  "node": 9250,
+  "snapM": 72.5,
+  "osm": "way/273279468",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-004",
+  "kind": "hospital",
+  "name": "University Of Maryland Medical Center",
+  "lat": 39.288179,
+  "lng": -76.623881,
+  "node": 31849,
+  "snapM": 30.5,
+  "osm": null,
+  "active": true,
+  "sources": [
+   "md-imap"
+  ],
+  "ed": null
+ },
+ {
+  "id": "F-HOSP-005",
+  "kind": "hospital",
+  "name": "Grace Medical Center",
+  "lat": 39.288732,
+  "lng": -76.649036,
+  "node": 16387,
+  "snapM": 28.5,
+  "osm": "way/495060210",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-006",
+  "kind": "hospital",
+  "name": "Johns Hopkins Bayview Medical Center",
+  "lat": 39.291254,
+  "lng": -76.54785,
+  "node": 29328,
+  "snapM": 46.6,
+  "osm": "way/85609491",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-007",
+  "kind": "hospital",
+  "name": "Mercy Medical Center",
+  "lat": 39.293011,
+  "lng": -76.612447,
+  "node": 14253,
+  "snapM": 68.7,
+  "osm": "way/107442323",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-008",
+  "kind": "hospital",
+  "name": "Johns Hopkins Hospital",
+  "lat": 39.29625,
+  "lng": -76.591834,
+  "node": 30996,
+  "snapM": 87.7,
+  "osm": "way/113103986",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-009",
+  "kind": "hospital",
+  "name": "UM Medical Center Midtown Campus (UMMC)",
+  "lat": 39.299747,
+  "lng": -76.620826,
+  "node": 13575,
+  "snapM": 61.6,
+  "osm": "way/262587501",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ },
+ {
+  "id": "F-HOSP-010",
+  "kind": "hospital",
+  "name": "Medstar Union Memorial Hospital",
+  "lat": 39.329492,
+  "lng": -76.614812,
+  "node": 31868,
+  "snapM": 14.3,
+  "osm": "way/444298133",
+  "active": true,
+  "sources": [
+   "osm",
+   "md-imap"
+  ],
+  "ed": true
+ }
+]

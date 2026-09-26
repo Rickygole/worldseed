@@ -1,0 +1,194 @@
+[
+ {
+  "id": "A-CALL-TO-WHEELS",
+  "label": "Call-processing and turnout delay (EMS lens)",
+  "value": 60,
+  "unit": "s",
+  "status": "assumption",
+  "source": null,
+  "note": "Added once to every EMS response time (call_to_wheels_delay_min = 1.0 min). The 1.0 min figure comes from the feasibility spike (spikes/SPIKE_REPORT.md), where it was a stated parameter, not a measurement."
+ },
+ {
+  "id": "A-EMS-THRESHOLD",
+  "label": "EMS response-time threshold for \"within\" and \"isolated\"",
+  "value": 480,
+  "unit": "s",
+  "status": "assumption",
+  "source": null,
+  "note": "8 minutes; a common planning benchmark, not tied to a specific agency standard here."
+ },
+ {
+  "id": "A-EMS-SOURCES",
+  "label": "Which facilities count as EMS response sources",
+  "value": "fire_station + ems_station (all active)",
+  "unit": null,
+  "status": "assumption",
+  "source": null,
+  "note": "Baltimore City and the surrounding county fire departments stage EMS units at fire stations, but per-station unit counts are not in any source we used. Every station is one source; no unit availability."
+ },
+ {
+  "id": "A-SPEED-DEFAULTS",
+  "label": "Free-flow speed by OSM highway class when no maxspeed tag (mph)",
+  "value": "motorway 55, motorway_link 35, trunk 45, trunk_link 30, primary 35, primary_link 25, secondary 30, secondary_link 25, tertiary 25, tertiary_link 20, unclassified 25, residential 25, living_street 10",
+  "unit": "mph",
+  "status": "assumption",
+  "source": null,
+  "note": "Same table as the feasibility spike. maxspeed tags override; unit-less maxspeed is read as km/h (OSM convention)."
+ },
+ {
+  "id": "A-NO-DELAYS",
+  "label": "No intersection, signal, turn, or congestion delay in the snapshot graph",
+  "value": "free-flow",
+  "unit": null,
+  "status": "assumption",
+  "source": null,
+  "note": "Edge time = length / speed. Turn restrictions are not modeled. Stress futures are a later, separate layer."
+ },
+ {
+  "id": "A-SNAP-SPEED",
+  "label": "Hex-to-node snap speed",
+  "value": 20,
+  "unit": "km/h",
+  "status": "assumption",
+  "source": null,
+  "note": "snapS = straight-line distance from the hex center to the nearest drivable node / 20 km/h."
+ },
+ {
+  "id": "A-SNAP-TARGETS",
+  "label": "Snap targets are nodes with at least one non-motorway, non-link street edge",
+  "value": "trunk|primary|secondary|tertiary|residential|service incident",
+  "unit": null,
+  "status": "assumption",
+  "source": null
+ },
+ {
+  "id": "A-AREA-APPORTION",
+  "label": "Population, zero-vehicle households and low-wage workers apportioned to hexes by area share",
+  "value": "BG value x area(hex \u2229 BG \u2229 bbox) / area(BG)",
+  "unit": null,
+  "status": "assumption",
+  "source": null,
+  "note": "Uniform density inside a land-clipped block group. Areas in UTM 18N. The part of a block group outside the study bbox is not modeled, so hex totals are smaller than block-group totals for edge block groups."
+ },
+ {
+  "id": "A-JOBS-BLOCK-POINTS",
+  "label": "Jobs placed at the LODES block internal point",
+  "value": "WAC C000 at blklatdd/blklondd (LODES crosswalk)",
+  "unit": null,
+  "status": "sourced",
+  "source": "LEHD LODES8 WAC and crosswalk"
+ },
+ {
+  "id": "A-ZVH",
+  "label": "Zero-vehicle households",
+  "value": "B25044_003E + B25044_010E",
+  "unit": "households",
+  "status": "sourced",
+  "source": "ACS 5-year table B25044 (owner and renter occupied, no vehicle available)"
+ },
+ {
+  "id": "A-LOW-WAGE",
+  "label": "Low-wage workers (equity group)",
+  "value": "LODES RAC CE01 (jobs with earnings <= 1250 USD/month), by home block, summed to block group",
+  "unit": "workers",
+  "status": "sourced",
+  "source": "LEHD LODES8 technical documentation (CE01 definition)",
+  "note": "The architecture doc calls this field SE01; in LODES8 WAC/RAC files the earnings bins are CE01/CE02/CE03."
+ },
+ {
+  "id": "A-ACCESS-K",
+  "label": "Access-lens destinations",
+  "value": 8,
+  "unit": "destinations",
+  "status": "assumption",
+  "source": null,
+  "note": "Weighted k-means (weights = WAC jobs, K=8, random_state=7) over WAC blocks in the bbox; details in build_destinations.py."
+ },
+ {
+  "id": "A-ACCESS-WEIGHTS",
+  "label": "Destination weights",
+  "value": "jobs_k / sum(jobs)",
+  "unit": null,
+  "status": "assumption",
+  "source": null,
+  "note": "A hex's access time is the job-weighted mean driving time to the K destinations plus snapS."
+ },
+ {
+  "id": "A-ACCESS-CAP",
+  "label": "Access time cap (also used for unreachable destinations)",
+  "value": 7200,
+  "unit": "s",
+  "status": "assumption",
+  "source": null
+ },
+ {
+  "id": "A-ACCESS-ADDED-OK",
+  "label": "Access \"added time acceptable\" threshold",
+  "value": 300,
+  "unit": "s",
+  "status": "assumption",
+  "source": null,
+  "note": "pctWithin (Access) = share of population whose added access time is at most 5 minutes."
+ },
+ {
+  "id": "A-ACCESS-CUTOFF",
+  "label": "Access \"cut-off\" block-group threshold",
+  "value": 600,
+  "unit": "s",
+  "status": "assumption",
+  "source": null,
+  "note": "A block group is cut off when its population-weighted median added access time exceeds 10 minutes."
+ },
+ {
+  "id": "A-QUANTILE",
+  "label": "Weighted quantile definition",
+  "value": "first value (sorted by value, then hex index) whose cumulative weight >= q x total weight; no interpolation",
+  "unit": null,
+  "status": "assumption",
+  "source": null
+ },
+ {
+  "id": "A-SHORE-RULE",
+  "label": "Shore (side of the Patapsco) classification",
+  "value": "Baltimore County = 0, Anne Arundel and Howard = 1, Baltimore city by a hand-drawn harbor divider polyline",
+  "unit": null,
+  "status": "assumption",
+  "source": null,
+  "note": "See pipeline/worldseed_pipeline/shore.py; cells within 250 m of the divider are 2 (ambiguous)."
+ },
+ {
+  "id": "A-KEYBRIDGE-EDGES",
+  "label": "Key Bridge removal set",
+  "value": "I-695 ways 24555622, 1026914410, 1026914409, 1026914408, 1026914407, 24555626",
+  "unit": "OSM way ids",
+  "status": "sourced",
+  "source": "OpenStreetMap attic snapshot 2024-03-01, verified against tags and geometry by fix_keybridge.py",
+  "note": "The plan expected 2 directed edges (osmnx simplified); the raw-way graph has 6 directed edges (3 per carriageway)."
+ },
+ {
+  "id": "A-HAZMAT-TUNNELS",
+  "label": "Hazmat prohibited in the Fort McHenry and Harbor tunnels",
+  "value": "HAZMAT_PROHIBITED flag on the tunnel bore edges",
+  "unit": null,
+  "status": "assumption",
+  "source": null,
+  "note": "Reflects the widely known hazmat restriction on Baltimore's harbor tunnels; not re-verified against MDTA rules in this build. To be confirmed."
+ },
+ {
+  "id": "A-BBOX",
+  "label": "Study bounding box",
+  "value": "-76.80, 39.10, -76.40, 39.34 (W, S, E, N)",
+  "unit": "degrees",
+  "status": "assumption",
+  "source": null,
+  "note": "Widened from the spike so the western I-695 arc and northern Anne Arundel are in the graph."
+ },
+ {
+  "id": "A-OSM-DATE",
+  "label": "OpenStreetMap snapshot date",
+  "value": "2024-03-01T00:00:00Z",
+  "unit": null,
+  "status": "sourced",
+  "source": "Overpass attic query on overpass-api.de"
+ }
+]
