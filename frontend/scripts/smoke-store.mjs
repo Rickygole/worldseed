@@ -13,7 +13,16 @@
  * every check passed.
  *
  * Every argument is sent as a string, exactly as the app does.
+ *
+ * --help  prints this text. The script talks to the REAL store named in the environment and spends
+ *         a few dozen commands of its allowance; it never calls a model.
  */
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL(import.meta.url), "utf8");
+  console.log(src.slice(src.indexOf("/**") + 3, src.indexOf("*/")).replace(/^ \* ?/gm, "").trim());
+  process.exit(0);
+}
 const url = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "").trim().replace(/\/+$/, "");
 const token = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "").trim();
 if (!url || !token) {

@@ -30,6 +30,7 @@ import {
   type Outcome,
   type PlanRequest,
 } from "./protocol";
+import { rationaleLogSentence, renderRationale, type Rationale } from "./rationale";
 import { cardLines, fillSlots, makeSlotResolver } from "./slots";
 import {
   BaselineRowSchema,
@@ -37,6 +38,7 @@ import {
   ConfirmedMissionSchema,
   EvaluatedRowSchema,
   MAX_EVALUATED_BUNDLES,
+  MAX_FUTURES_PER_ROW,
   MAX_ROUNDS,
   type BaselineRow,
   type BundleSpec,
@@ -75,7 +77,7 @@ export type Mode = "ai" | "deterministic";
 export interface LogEntry {
   id: number;
   t: number;
-  /** "commentary" entries are model text (labeled AI commentary, screened, mechanism only). */
+  /** "commentary" entries are the application's rendering of a model's rationale SELECTION, labeled RATIONALE_LABEL. */
   kind: LogKind | "evaluation" | "state" | "commentary";
   sentence: string;
   model?: string;
@@ -97,22 +99,26 @@ export interface Finalist {
   bundleId: string;
   candidateIds: string[];
   costTier: string;
-  /** AI commentary on the bundle's mechanism (screened; "" when withheld or when deterministic search chose it). */
+  /** Kept for compatibility. Always "": a finalist carries no model text. */
   mechanismNote: string;
   /** Application-authored label: how this finalist was chosen. "" for AI-chosen finalists. */
   note: string;
 }
 
-/** What a finalist card shows: application text and simulator numbers, plus labeled AI commentary. */
+/**
+ * What a finalist card shows. Every field is application or catalog text: no model-written text
+ * appears on a card. The model's rationale appears only in the decision log.
+ */
 export interface FinalistCard {
   /** Application template: bundle id and the catalog titles of its candidates. */
   headline: string;
   /** Application templates filled from the bundle's own simulator row, with real signs and directions. */
   lines: string[];
-  /** AI commentary, mechanism only ("" when there is none). Show it under the label `commentaryLabel`. */
+  /** The catalog's own description of what the candidates do (pipeline data, not model output); "" when the catalog has none. */
   commentary: string;
-  commentaryLabel: "AI commentary";
-  /** The planner's per-finalist mechanism note ("" when none). Same label. */
+  /** Label to show above `commentary`. */
+  commentaryLabel: typeof CARD_TEXT_LABEL;
+  /** Kept for compatibility. Always "". */
   mechanismNote: string;
   /** How a deterministic search chose it ("" for AI choices). */
   note: string;
@@ -137,7 +143,7 @@ export interface MachineState {
   baseline?: BaselineRow;
   critique?: CritiqueOutput;
   finalists: Finalist[];
-  /** AI commentary per finalist (screened, mechanism only). Headlines and result lines come from `card()`. */
+  /** Kept for compatibility. Always empty: cards carry no model text (see FinalistCard). */
   narration: Record<string, { commentary: string }>;
   appliedBundleId?: string;
   log: LogEntry[];
@@ -160,7 +166,23 @@ export interface MachineDeps {
   now?: () => number;
   onApply?: (bundle: { bundleId: string; candidateIds: string[] }) => void | Promise<void>;
   limits?: { inputTokens: number; outputTokens: number };
+  /**
+   * Also ask the narrator for a rationale per finalist. Off by default: the narrator's output can
+   * only reach the decision log (never a card), so it costs a model call for one labeled log line.
+   */
+  narrate?: boolean;
+  /**
+   * Supplies the Cloudflare Turnstile token for the mission start (sent as `turnstileToken` with the
+   * parse request). Needed only when the server has WS_TURNSTILE_SECRET set; a token is single use,
+   * so return a fresh one each call.
+   */
+  turnstileToken?: () => string | undefined | Promise<string | undefined>;
+  /** The simulator's configured futures per bundle. A row claiming more (or fewer than one) is refused. Default MAX_FUTURES_PER_ROW. */
+  maxFutures?: number;
 }
+
+/** Label above the catalog description on a finalist card. */
+export const CARD_TEXT_LABEL = "How it works (catalog description)";
 
 class Cancelled extends Error {}
 
@@ -202,7 +224,7 @@ export class AgentMachine {
     return () => this.listeners.delete(fn);
   };
 
-  /** Replaces {{slot}} placeholders in model prose with simulator results. */
+  /** Replaces {{slot}} placeholders with simulator results (application text only; no model prose is ever passed through). */
   fill(text: string, focusBundleId?: string): string {
     return fillSlots(text, makeSlotResolver({ baseline: this.state.baseline, rows: this.state.rows, focusBundleId }));
   }
@@ -299,7 +321,9 @@ export class AgentMachine {
     const run = this.newRun();
     this.set({ ...this.initial(), log: this.state.log, missionId, phase: "parsing" });
     try {
-      const outcome = await this.deps.api.parse({ missionId, text }, this.callOpts(run));
+      const token = await this.deps.turnstileToken?.();
+      this.live(run);
+      const outcome = await this.deps.api.parse({ missionId, text, ...(token ? { turnstileToken: token } : {}) }, this.callOpts(run));
       this.live(run);
       if (outcome.status !== "ok") return this.degradeToIdle(outcome, "parser");
       this.track("parser", outcome.model);
@@ -383,7 +407,7 @@ export class AgentMachine {
       }
       if (this.state.mode === "ai") await this.critique(run, mission);
       await this.finalize(run, mission);
-      if (this.state.mode === "ai") await this.narrate(run, mission);
+      if (this.state.mode === "ai" && this.deps.narrate === true) await this.narrate(run, mission);
       this.live(run);
       this.phase("finalists");
       this.log("state", `${this.state.finalists.length} finalist bundles ready. You decide what to apply.`);
@@ -458,6 +482,10 @@ export class AgentMachine {
         continue;
       }
       const { futures: rowFutures, ...r } = parsed.data;
+      if (rowFutures > (this.deps.maxFutures ?? MAX_FUTURES_PER_ROW)) {
+        refused.malformed_row++;
+        continue;
+      }
       const b = wanted.get(r.bundleId);
       if (!b) refused.unknown_bundle++;
       else if (have.has(r.bundleId)) refused.duplicate_row++;
@@ -550,12 +578,12 @@ export class AgentMachine {
     if (this.state.mode === "ai" && ids.length >= 3) {
       const action = await this.askPlanner(run, mission, "finalize", Math.max(1, Math.min(this.state.round, MAX_ROUNDS)), excluded);
       if (action?.action === "finalize") {
-        finalists = action.finalists.map((f) => this.toFinalist(f.bundleId, f.mechanism_note, ""));
+        finalists = action.finalists.map((f) => this.toFinalist(f.bundleId, ""));
       }
     }
     this.live(run);
     if (!finalists) {
-      finalists = greedyFinalists(this.state.rows, mission, excluded).map((f) => this.toFinalist(f.bundleId, "", f.note));
+      finalists = greedyFinalists(this.state.rows, mission, excluded).map((f) => this.toFinalist(f.bundleId, f.note));
       this.log("decision", `Deterministic search (not AI) ranked ${finalists.length} finalists by the goal metric.`);
     }
     this.set({ finalists });
@@ -590,11 +618,7 @@ export class AgentMachine {
       this.logFallbackOnce(UI_MESSAGES.narratorRejected);
       return;
     }
-    const narration: MachineState["narration"] = {};
-    for (const it of check.value.items) narration[it.bundleId] = { commentary: it.commentary };
-    this.noteWithheld(check.withheld, outcome.model);
-    this.set({ narration });
-    this.log("decision", "AI commentary written for the finalists. It is screened and describes mechanism only; every headline and result line is computed by the application from simulator numbers.", { model: outcome.model });
+    for (const it of check.value.items) this.logRationale(`narrator, ${it.bundleId}`, it.rationale, outcome.model);
   }
 
   /* ------------------------------- planner ------------------------------- */
@@ -646,30 +670,19 @@ export class AgentMachine {
       return null;
     }
     this.logPlannerDecision(check.value, round, outcome.model);
-    this.noteWithheld(check.withheld, outcome.model);
     return check.value;
   }
 
-  /** Application-authored line for what the planner did, then its labeled commentary (from the validated value). */
+  /** Application-authored line for what the planner did, then its rationale selection rendered as a labeled log line. */
   private logPlannerDecision(a: PlannerAction, round: number, model: string): void {
     if (a.action === "propose") {
       this.log("decision", `Round ${round}: the planner proposed ${a.bundles.length} bundle${a.bundles.length === 1 ? "" : "s"} (${a.bundles.map((b) => b.id).join(", ")}).`, { model, raw: a });
-      this.logCommentary("planner", a.commentary, model);
-      this.logCommentary("planner, mechanism", a.mechanism_note, model);
     } else if (a.action === "refine") {
       this.log("decision", `Round ${round}: the planner kept ${a.keep.length}, dropped ${a.drop.length} and added ${a.add.length} bundle${a.add.length === 1 ? "" : "s"}${a.add.length > 0 ? ` (${a.add.map((b) => b.id).join(", ")})` : ""}.`, { model, raw: a });
-      this.logCommentary("planner", a.commentary, model);
     } else {
       this.log("decision", `The planner chose finalists ${a.finalists.map((f) => f.bundleId).join(", ")}.`, { model, raw: a });
-      this.logCommentary("planner", a.commentary, model);
     }
-  }
-
-  /** Commentary the client screen rejected although the server had passed it: say so in the log. */
-  private noteWithheld(withheld: readonly Violation[] | undefined, model?: string): void {
-    if (withheld && withheld.length > 0) {
-      this.log("validator", "AI commentary was withheld because it did not pass the screen; the rest of the answer was used.", { model, errors: describeViolations(withheld) });
-    }
+    this.logRationale("planner", a.rationale, model);
   }
 
   /** Only called when the mode really does switch, so its wording may say so. */
@@ -699,7 +712,7 @@ export class AgentMachine {
 
   private degradedMessage(o: Fb): string {
     if (o.reason === "budget_exhausted") return UI_MESSAGES.budgetExhausted;
-    if (o.reason === "rate_limited") return o.message;
+    if (o.reason === "rate_limited" || o.reason === "verification_failed") return o.message;
     return UI_MESSAGES.plannerUnavailable;
   }
 
@@ -710,10 +723,10 @@ export class AgentMachine {
     return this.state.bundles.map((b) => ({ id: b.id, candidateIds: b.candidateIds, evaluated: scored.has(b.id) }));
   }
 
-  private toFinalist(bundleId: string, mechanismNote: string, note: string): Finalist {
+  private toFinalist(bundleId: string, note: string): Finalist {
     const b = this.state.bundles.find((x) => x.id === bundleId);
     const candidateIds = b?.candidateIds ?? [];
-    return { bundleId, candidateIds, costTier: bundleCostTier(this.deps.catalog, candidateIds), mechanismNote, note };
+    return { bundleId, candidateIds, costTier: bundleCostTier(this.deps.catalog, candidateIds), mechanismNote: "", note };
   }
 
   /** "Read your mission as ...": an application template over the validated fields (no model text). */
@@ -724,12 +737,13 @@ export class AgentMachine {
     return `Read your mission as: ${p.lens} lens, lower ${metric} (you set the target next), cost tier up to ${p.constraints.maxCostTier}${types}${areas.length > 0 ? `, areas ${areas.join(", ")}` : ""}.`;
   }
 
-  /** Logs model commentary, labeled, only when there is some. */
-  private logCommentary(who: string, text: string, model?: string): void {
-    if (text.trim() !== "") this.log("commentary", `AI commentary (${who}, mechanism only): ${text}`, { model });
+  /** Logs the rendered rationale, labeled; nothing is logged when the sentence cannot be rendered. */
+  private logRationale(who: string, r: Rationale, model?: string): void {
+    const text = renderRationale(r, this.deps.catalog);
+    if (text.trim() !== "") this.log("commentary", rationaleLogSentence(text, who), { model });
   }
 
-  /** The card for a finalist: application headline and result lines, plus the labeled AI commentary. */
+  /** The card for a finalist: application headline, simulator result lines and the catalog's own description. No model text. */
   card(bundleId: string): FinalistCard | undefined {
     const f = this.state.finalists.find((x) => x.bundleId === bundleId);
     if (!f) return undefined;
@@ -738,9 +752,9 @@ export class AgentMachine {
     return {
       headline: `${f.bundleId}: ${titles.join(" + ")}`,
       lines: row ? cardLines(row, this.state.baseline, this.state.mission?.lens ?? "access") : [],
-      commentary: this.state.narration[bundleId]?.commentary ?? "",
-      commentaryLabel: "AI commentary",
-      mechanismNote: f.mechanismNote,
+      commentary: f.candidateIds.map((id) => this.deps.catalog.byId.get(id)?.mechanism ?? "").filter((t) => t !== "").join(" "),
+      commentaryLabel: CARD_TEXT_LABEL,
+      mechanismNote: "",
       note: f.note,
     };
   }

@@ -2,14 +2,15 @@
  * Agent tool schemas (docs/ARCHITECTURE.md 2.7). Shared by the browser state machine and the
  * server routes, which both re-validate every model output.
  *
- * The model returns exactly one action per turn. It is never asked for a metric or an outcome:
- * its text fields are "AI commentary" about mechanism and rationale, screened by prose.ts (no
- * digits, number words, direction, quantifier or size words). Every headline and result line next
- * to a figure is an application template filled from simulator numbers with the real sign. The
- * screen is a filter, not a proof that a sentence makes no quantitative claim.
+ * The model returns exactly one action per turn. It is never asked for a metric, an outcome or a
+ * sentence: its only "why" is a `rationale` SELECTION (a kind from a fixed list, plus an optional
+ * catalog id), which the application renders as a labeled line in the decision log (rationale.ts).
+ * No model-written text reaches a card or the log. Every headline and result line next to a
+ * figure is an application template filled from simulator numbers with the real sign.
  */
 import { z } from "zod";
 import { CostTierSchema, ID_RE, LensSchema, CandidateTypeSchema } from "./catalog";
+import { makeRationaleSchema } from "./rationale";
 
 export const CandidateIdSchema = z.string().regex(ID_RE);
 /**
@@ -35,11 +36,6 @@ export function mintBundleIds(taken: Iterable<string>, count: number): string[] 
   return out;
 }
 
-/** Model-authored commentary fields: mechanism and rationale only. An empty string means the commentary was withheld. */
-export const COMMENTARY_MAX_CHARS = 160;
-export const MECHANISM_NOTE_MAX_CHARS = 100;
-const Commentary = z.string().max(COMMENTARY_MAX_CHARS);
-
 function bundleSchema(candidateId: z.ZodType<string>) {
   return z.strictObject({
     id: BundleIdSchema,
@@ -55,28 +51,24 @@ function modelBundleSchema(candidateId: z.ZodType<string>) {
 export function makeProposeSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("propose"),
-    commentary: Commentary,
+    rationale: makeRationaleSchema(candidateId),
     bundles: z.array(bundleSchema(candidateId)).min(1).max(6),
-    mechanism_note: z.string().max(MECHANISM_NOTE_MAX_CHARS),
   });
 }
 export function makeRefineSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("refine"),
-    commentary: Commentary,
+    rationale: makeRationaleSchema(candidateId),
     keep: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     drop: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     add: z.array(bundleSchema(candidateId)).max(4),
   });
 }
-/** A mechanism note is one short screened sentence, kept small because it is displayed next to results. */
-export const FinalistSchema = z.strictObject({
-  bundleId: BundleIdSchema,
-  mechanism_note: z.string().max(MECHANISM_NOTE_MAX_CHARS),
-});
+/** A finalist is a bundle id and nothing else: there is no model text on a finalist. */
+export const FinalistSchema = z.strictObject({ bundleId: BundleIdSchema });
 export const FinalizeSchema = z.strictObject({
   action: z.literal("finalize"),
-  commentary: Commentary,
+  rationale: makeRationaleSchema(),
   finalists: z.array(FinalistSchema).length(3),
 });
 
@@ -95,15 +87,14 @@ export const PlannerActionSchema = z.discriminatedUnion("action", [ProposeSchema
 export function makeProposeModelSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("propose"),
-    commentary: Commentary,
+    rationale: makeRationaleSchema(candidateId),
     bundles: z.array(modelBundleSchema(candidateId)).min(1).max(6),
-    mechanism_note: z.string().max(MECHANISM_NOTE_MAX_CHARS),
   });
 }
 export function makeRefineModelSchema(candidateId: z.ZodType<string> = CandidateIdSchema) {
   return z.strictObject({
     action: z.literal("refine"),
-    commentary: Commentary,
+    rationale: makeRationaleSchema(candidateId),
     keep: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     drop: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES),
     add: z.array(modelBundleSchema(candidateId)).max(4),
@@ -203,9 +194,8 @@ export const NarrationSchema = z.strictObject({
     .array(
       z.strictObject({
         bundleId: BundleIdSchema,
-        // AI commentary on the option's mechanism. The headline and every result line next to it are
-        // application templates (see slots.ts cardLines); an empty string means it was withheld.
-        commentary: z.string().max(420),
+        // A selection, not text: rendered by the application into the decision log only.
+        rationale: makeRationaleSchema(),
       }),
     )
     .min(1)
@@ -219,11 +209,11 @@ export type NarrationOutput = z.infer<typeof NarrationSchema>;
 export const EvaluationRowSchema = z.strictObject({
   bundleId: BundleIdSchema,
   candidateIds: z.array(CandidateIdSchema).min(1).max(MAX_BUNDLE_SIZE),
-  p50S: z.number().finite().min(-1e7).max(1e7),
-  p90S: z.number().finite().min(-1e7).max(1e7),
+  p50S: z.number().finite().min(0).max(1e7),
+  p90S: z.number().finite().min(0).max(1e7),
   pctWithin: z.number().finite().min(0).max(100),
   isolatedCount: z.number().int().min(0).max(100_000),
-  equityGapS: z.number().finite().min(-1e7).max(1e7),
+  equityGapS: z.number().finite().min(0).max(1e7),
   pGoal: z.number().finite().min(0).max(1).nullable(),
   costTier: CostTierSchema,
 });
@@ -234,15 +224,16 @@ export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
  * were run FOR THIS ROW. The machine counts futures by summing this field over the rows it
  * accepts; it never uses an aggregate the evaluator claims for a batch.
  */
-export const EvaluatedRowSchema = EvaluationRowSchema.extend({ futures: z.number().int().min(0).max(10_000_000) });
+export const MAX_FUTURES_PER_ROW = 100_000;
+export const EvaluatedRowSchema = EvaluationRowSchema.extend({ futures: z.number().int().min(1).max(MAX_FUTURES_PER_ROW) });
 export type EvaluatedRow = z.infer<typeof EvaluatedRowSchema>;
 
 export const BaselineRowSchema = z.strictObject({
-  p50S: z.number().finite().min(-1e7).max(1e7),
-  p90S: z.number().finite().min(-1e7).max(1e7),
+  p50S: z.number().finite().min(0).max(1e7),
+  p90S: z.number().finite().min(0).max(1e7),
   pctWithin: z.number().finite().min(0).max(100),
   isolatedCount: z.number().int().min(0).max(100_000),
-  equityGapS: z.number().finite().min(-1e7).max(1e7),
+  equityGapS: z.number().finite().min(0).max(1e7),
 });
 export type BaselineRow = z.infer<typeof BaselineRowSchema>;
 

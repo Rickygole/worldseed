@@ -189,7 +189,7 @@ export class UpstashRestStore implements SharedStore {
   }
 
   private async send(path: string, body: unknown): Promise<unknown> {
-    this.commandsSent += path === "" ? 1 : (body as unknown[]).length;
+    this.onCommands?.(path === "" ? 1 : (body as unknown[]).length);
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), this.timeoutMs);
     try {
@@ -209,10 +209,14 @@ export class UpstashRestStore implements SharedStore {
     }
   }
 
-  /** REST bodies carry every argument as a string. */
-  /** Commands actually sent so far (a pipeline or transaction counts each command). */
-  commandsSent = 0;
+  /**
+   * Called once per request actually sent, with that request's own command count. The meter uses it,
+   * so each command is counted exactly once no matter how many requests are in flight (there is no
+   * shared counter to diff).
+   */
+  onCommands?: (n: number) => void;
 
+  /** REST bodies carry every argument as a string. */
   private static wire(cmd: (string | number)[]): string[] {
     return cmd.map((c) => String(c));
   }
@@ -355,9 +359,9 @@ export interface MeterOptions {
 }
 
 /**
- * Commands each operation may send (the Upstash billing unit). incrLite is 1 in steady state and
- * 2 when its key was just created (the expiry follows); the meter reserves the worst case and, when
- * the inner store counts what it really sent, gives the difference back afterwards.
+ * Commands each operation may send (the Upstash billing unit), used to refuse an operation BEFORE
+ * it is sent when the allowance cannot cover it. incrLite is 1 in steady state and 2 when its key
+ * was just created (the expiry follows); the check reserves the worst case.
  */
 export const COMMAND_COST = { incr: 2, incrLite: 2, peek: 2, get: 1, set: 1, setIfAbsent: 1, take: 1, del: 1, delIfEquals: 1 } as const;
 
@@ -366,6 +370,10 @@ export const COMMAND_COST = { incr: 2, incrLite: 2, peek: 2, get: 1, set: 1, set
  * plan's monthly quota. Once the allowance is used the wrapper throws StoreBudgetError without any
  * network call, and callers fail closed with a clear message. The worst case per month is
  * (instances) x (perDay) x 31 commands.
+ *
+ * Accounting is per request: the inner store reports each request's own command count as it is
+ * sent (`onCommands`), and a store without that hook is charged the documented constant per
+ * operation. Nothing is ever derived from a counter shared by concurrent calls.
  */
 export class MeteredStore implements SharedStore {
   private hour = -1;
@@ -373,11 +381,14 @@ export class MeteredStore implements SharedStore {
   private usedHour = 0;
   private usedDay = 0;
   private now: () => number;
+  private counted: boolean;
   constructor(
     private inner: SharedStore,
     private opts: MeterOptions,
   ) {
     this.now = opts.now ?? Date.now;
+    this.counted = inner instanceof UpstashRestStore;
+    if (inner instanceof UpstashRestStore) inner.onCommands = (n) => this.add(n);
   }
 
   get kind(): "memory" | "upstash" {
@@ -388,6 +399,12 @@ export class MeteredStore implements SharedStore {
   usage(): { hour: number; day: number } {
     this.roll();
     return { hour: this.usedHour, day: this.usedDay };
+  }
+
+  /** True once the allowance cannot cover another typical operation. Never touches the store. */
+  exhausted(): boolean {
+    this.roll();
+    return this.usedHour + COMMAND_COST.incr > this.opts.perHour || this.usedDay + COMMAND_COST.incr > this.opts.perDay;
   }
 
   private roll(): void {
@@ -404,27 +421,18 @@ export class MeteredStore implements SharedStore {
     }
   }
 
-  private charge(cost: number): void {
+  private add(n: number): void {
     this.roll();
-    if (this.usedHour + cost > this.opts.perHour || this.usedDay + cost > this.opts.perDay) throw new StoreBudgetError();
-    this.usedHour += cost;
-    this.usedDay += cost;
+    this.usedHour += n;
+    this.usedDay += n;
   }
 
-  /** Runs `fn` after charging its worst-case cost, then trues the meter up to what the inner store really sent. */
+  /** Refuses (without sending anything) when the worst case does not fit; charges the constant if the inner store does not report. */
   private async metered<T>(cost: number, fn: () => Promise<T>): Promise<T> {
-    this.charge(cost);
-    const counter = this.inner as { commandsSent?: number };
-    const before = counter.commandsSent;
-    try {
-      return await fn();
-    } finally {
-      if (before !== undefined && counter.commandsSent !== undefined) {
-        const diff = counter.commandsSent - before - cost;
-        this.usedHour += diff;
-        this.usedDay += diff;
-      }
-    }
+    this.roll();
+    if (this.usedHour + cost > this.opts.perHour || this.usedDay + cost > this.opts.perDay) throw new StoreBudgetError();
+    if (!this.counted) this.add(cost);
+    return fn();
   }
 
   async incr(key: string, by: number, ttlMs: number): Promise<IncrResult> {
@@ -504,6 +512,6 @@ export function createSharedStore(env: StoreEnv, opts: { fetchImpl?: typeof fetc
   return new MeteredStore(new UpstashRestStore({ url: c.url, token: c.token, fetchImpl: opts.fetchImpl }), { perHour, perDay, now: opts.now });
 }
 
-/** Per-process command allowance: about 100 full missions a day, at most 279,000 commands per instance-month. */
+/** Per-process command allowance: about 60 full missions a day, at most 186,000 commands per instance-month. */
 export const DEFAULT_STORE_HOURLY_COMMANDS = 2_400;
-export const DEFAULT_STORE_DAILY_COMMANDS = 9_000;
+export const DEFAULT_STORE_DAILY_COMMANDS = 6_000;

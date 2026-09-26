@@ -96,7 +96,7 @@ describe("finding 2: Upstash REST store sends the exact commands (plain fetch, n
     expect(fake.requests.every((r) => r.path === "" && r.auth === `Bearer ${FAKE_TOKEN}`)).toBe(true);
   });
   it("peek is one pipeline of GET and PTTL (2 commands)", async () => {
-    const fake = new FakeUpstash();
+    const fake = new FakeUpstash(() => 1_000_000); // a fixed clock: a real one can tick between set and peek
     const s = mk(fake);
     await s.set("p", "42", 9_000);
     fake.requests.length = 0;

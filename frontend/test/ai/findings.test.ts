@@ -299,14 +299,11 @@ describe("finding 5: free text does not reach a prompt beyond the structured fie
     expect(res.status).toBe(400);
     expect(s.provider.calls).toHaveLength(0);
   });
-  it("a markdown link in model output is rejected (repro: [x](//evil) passed)", async () => {
-    const s = makeServer([proposeReply([{ candidateIds: ["SP-BROENING"] }], { mechanism_note: "See [x](//evil.example) for details." })]);
+  it("a markdown link in model output is rejected (repro: [x](//evil) passed); there is no field left that could carry it", async () => {
+    const s = makeServer([proposeReply([{ candidateIds: ["SP-BROENING"] }], { mechanism_note: "See [x](//evil.example) for details." }), proposeReply([{ candidateIds: ["SP-BROENING"] }], { rationale: "See [x](//evil.example) for details." })]);
     const ev = await readSse(await handlePlan(post("/api/agent/plan", planReq({ missionId: "MISSION-00035" })), s.deps));
-    const log = ev.find((e) => e.event === "log" && e.data.code === "commentary_withheld")!;
-    expect(log.data.errors.join(" ")).toContain("charset");
-    const done = doneOf(ev);
-    expect(done).toMatchObject({ status: "ok", repaired: false });
-    expect(done.result.mechanism_note).toBe(""); // the link never reaches the client
+    expect(doneOf(ev)).toMatchObject({ status: "fallback", reason: "output_rejected" }); // both attempts carried text
+    expect(JSON.stringify(ev)).not.toContain("evil.example"); // never echoed, never delivered
   });
 });
 

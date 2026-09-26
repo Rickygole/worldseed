@@ -43,7 +43,13 @@ export interface ServerConfig {
   /** Upstream provider calls one HTTP request may make in total, repair turn included. */
   maxAttemptsPerRequest: number;
   ipMissionsPerHour: number;
+  /** New missions one client may start per day on this process (in memory, before any store command). */
   ipMissionsPerDay: number;
+  /** New missions this process admits per hour and per day across all clients; known missions are exempt. */
+  newMissionsPerHour: number;
+  newMissionsPerDay: number;
+  /** Cloudflare Turnstile secret. When set, every new mission must carry a valid token. */
+  turnstileSecret?: string;
   ipClosuresPerHour: number;
   tavilyDailyCap: number;
   tavilyCacheMs: number;
@@ -153,13 +159,16 @@ export function readConfig(env: Env = process.env): ServerConfig {
     protection,
     dailyBudgetUsd,
     budgetResetHourUtc: Math.min(23, Math.max(0, Math.floor(Number(env.WS_BUDGET_RESET_HOUR_UTC ?? "8")) || 0)),
-    ipDailyUsd: num(env, "WS_IP_DAILY_USD", 0.15),
-    missionInputTokens: num(env, "WS_MISSION_INPUT_TOKENS", 30_000),
-    missionOutputTokens: num(env, "WS_MISSION_OUTPUT_TOKENS", 6_000),
+    ipDailyUsd: num(env, "WS_IP_DAILY_USD", 0.2),
+    missionInputTokens: num(env, "WS_MISSION_INPUT_TOKENS", 36_000),
+    missionOutputTokens: num(env, "WS_MISSION_OUTPUT_TOKENS", 7_000),
     missionMaxCalls: Math.floor(num(env, "WS_MISSION_MAX_CALLS", 12)),
     maxAttemptsPerRequest: Math.min(3, Math.floor(num(env, "WS_MAX_ATTEMPTS_PER_REQUEST", 3))),
     ipMissionsPerHour: num(env, "WS_IP_MISSIONS_PER_HOUR", 8),
-    ipMissionsPerDay: num(env, "WS_IP_MISSIONS_PER_DAY", 15),
+    ipMissionsPerDay: Math.floor(num(env, "WS_IP_MISSIONS_PER_DAY", 10)),
+    newMissionsPerHour: Math.floor(num(env, "WS_NEW_MISSIONS_PER_HOUR", 30)),
+    newMissionsPerDay: Math.floor(num(env, "WS_NEW_MISSIONS_PER_DAY", 120)),
+    turnstileSecret: env.WS_TURNSTILE_SECRET?.trim() || undefined,
     ipClosuresPerHour: num(env, "WS_IP_CLOSURES_PER_HOUR", 10),
     tavilyDailyCap: num(env, "WS_TAVILY_DAILY_CAP", 30),
     tavilyCacheMs: num(env, "WS_TAVILY_CACHE_MS", 6 * 3600_000),
@@ -170,7 +179,7 @@ export function readConfig(env: Env = process.env): ServerConfig {
     modelsCacheMs: num(env, "WS_MODELS_CACHE_MS", 10 * 60_000),
     trustedProxyHops: hops < 1 ? 1 : hops,
     trustForwarded: serverless || ["1", "true", "yes"].includes((env.WS_TRUST_FORWARDED ?? "").trim().toLowerCase()),
-    frontDoorPerIpPerMin: Math.floor(num(env, "WS_FRONT_DOOR_PER_IP_PER_MIN", 30)),
+    frontDoorPerIpPerMin: Math.floor(num(env, "WS_FRONT_DOOR_PER_IP_PER_MIN", 20)),
     frontDoorGlobalPerMin: Math.floor(num(env, "WS_FRONT_DOOR_GLOBAL_PER_MIN", 240)),
     allowedOrigins: (env.WS_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     prices: parsePriceTable(env),

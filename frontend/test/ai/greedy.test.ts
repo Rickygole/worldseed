@@ -33,7 +33,7 @@ describe("greedy deterministic search", () => {
   it("its own bundles pass the same validator the planner is held to", () => {
     const round1 = greedyPlanRound({ catalog, mission: MISSION, round: 1, rows: [], known: [] });
     const r = validateMintedPlannerOutput(
-      { action: "propose", commentary: "", mechanism_note: "", bundles: round1 },
+      { action: "propose", rationale: { kind: "cheap_first" }, bundles: round1 },
       { catalog, mission: MISSION, phase: "search", round: 1, known: [] },
     );
     expect(r.ok).toBe(true);

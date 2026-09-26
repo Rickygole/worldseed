@@ -1,16 +1,19 @@
 /**
- * Commentary screen: what a model may write in a text field.
+ * Prose screen: a filter for sentences that sit near results.
+ *
+ * STATUS: since the rationale redesign no model-written text reaches the UI at all (a model picks
+ * a rationale kind; the application renders the sentence, see rationale.ts, and finalist cards
+ * are application and catalog text). This screen therefore no longer sits on a model output path.
+ * It is kept as (1) the certifier for the fixed rationale sentences (rendering runs them through
+ * it and tests check the whole table) and (2) a maintained regression target for the vocabulary
+ * rules below. Where model-derived text can still reach a reader is listed in the known-limits
+ * block of the round report, next to the screen that guards each place.
  *
  * The design decision behind it: the model never writes an outcome sentence. Every headline and
  * result line next to a figure is an application template filled from simulator numbers, with the
- * real sign and direction. The only model text is "AI commentary", limited to MECHANISM and
- * rationale: what an option physically or operationally does, which corridor or shore it touches,
- * what it depends on, its cost tier. This module is the screen that keeps commentary to that.
- *
- * The honest claim is narrow: numbers and outcomes are computed by the simulator; AI commentary
- * describes mechanism only and is screened. The screen is a filter with known limits, not a proof
- * that a sentence makes no quantitative claim; it is written as a positive allowlist first and a
- * vocabulary blacklist second.
+ * real sign and direction. The screen is written as a positive allowlist first and a vocabulary
+ * blacklist second, and is a filter with known limits, not a proof that a sentence makes no
+ * quantitative claim.
  *
  * Pipeline (docs/ARCHITECTURE.md 2.7, rule 5):
  *   1. Normalize: drop format and invisible characters (zero-width, soft hyphen), NFKC-fold
@@ -45,7 +48,8 @@ export type SlotMetric = (typeof SLOT_METRICS)[number];
  * The one sentence about prose that the product may defend. It is deliberately not "the model
  * cannot state a number": the screen is a filter with known limits, not a proof.
  */
-export const PROSE_CLAIM = "Numbers and outcomes are computed by the simulator; AI commentary describes mechanism only and is screened.";
+export const PROSE_CLAIM =
+  "Numbers, outcomes and finalist cards are produced by the application from simulator results; AI text appears only as clearly labeled rationale in the decision log and is screened.";
 
 const BUNDLE_SLOT_ID = "B(?:1[0-2]|[1-9])";
 const SLOT_BODY =

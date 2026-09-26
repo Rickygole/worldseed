@@ -175,7 +175,9 @@ export class DailyBudget {
     this.observe(window, value);
     if (value > this.ceilingMicros) {
       await this.store.incrLite(key, -micros, 2 * DAY_MS).catch(() => undefined);
-      this.observe(window, value - micros);
+      // A call that does not fit means the day is spent for practical purposes: health and the
+      // preflight report it (until the next real read of the ledger) instead of admitting more work.
+      this.observe(window, Math.max(value - micros, this.ceilingMicros));
       return null;
     }
     return { key, micros };
@@ -309,57 +311,177 @@ export type FrontDoorKind = "ai" | "closures" | "confirm";
 
 export interface FrontDoorOptions {
   perIpPerMin: number;
+  /** Process-wide per-minute window for the closure and confirmation routes. The AI routes are NOT counted here: see admitNewMission. */
   globalPerMin: number;
   closuresPerIpPerHour: number;
   /** New missions one client may start per day on this process (the shared limits stay authoritative). */
   missionsPerIpPerDay: number;
+  /** New missions this process admits per hour and per day, across all clients. Known missions do not count. */
+  newMissionsPerHour?: number;
+  newMissionsPerDay?: number;
+  /** Multiplier for the shared "local" bucket (no trusted proxy: one bucket stands for many clients). */
+  localScale?: number;
   now?: () => number;
 }
 
+export type Admission = { ok: true; retryAfterS: 0 } | { ok: false; retryAfterS: number; reason: "ip_day" | "global_hour" | "global_day" };
+
+const CLIENT_KEYS_MAX = 20_000;
+const EVICT_CHUNK = 1_000;
+const KNOWN_MISSIONS_MAX = 5_000;
+const KNOWN_TTL_MS = 2 * HOUR_MS;
+
 /**
  * The first line of defense, in process memory: it runs BEFORE any store command, so a flood of
- * requests is turned away without costing a single store operation. Sliding windows per client
- * (tighter for "unknown"), an hourly window per client for closure searches, and one process-wide
- * window. It is per process by nature; the shared limits behind it stay authoritative.
+ * requests is turned away without costing a single store operation.
+ *
+ *   - Per-client sliding windows (tighter for "unknown", looser for the shared "local" bucket).
+ *   - Closure and confirm routes also share one process-wide per-minute window.
+ *   - New missions (a (mission, client) pair this process has not seen) are admitted against a
+ *     per-client daily count and process-wide hourly and daily caps. Missions this process already
+ *     knows, including the ones in progress, are exempt from the process-wide caps: a burst of new
+ *     visitors cannot starve the missions that are already running.
+ *   - Process-wide windows live in their own fields, so evicting per-client keys can never reset them.
+ * It is per process by nature; the shared limits behind it stay authoritative.
  */
 export class FrontDoor {
-  private hits = new Map<string, number[]>();
+  private clients = new Map<string, number[]>();
+  private globals = new Map<string, number[]>();
+  private known = new Map<string, number>();
   private now: () => number;
   constructor(private o: FrontDoorOptions) {
     this.now = o.now ?? Date.now;
   }
 
-  private allow(key: string, limit: number, windowMs: number): { ok: boolean; retryAfterS: number } {
+  private get newPerHour(): number {
+    return this.o.newMissionsPerHour ?? 30;
+  }
+  private get newPerDay(): number {
+    return this.o.newMissionsPerDay ?? 120;
+  }
+
+  private live(map: Map<string, number[]>, key: string, windowMs: number, t: number): number[] {
+    const list = (map.get(key) ?? []).filter((x) => t - x < windowMs);
+    return list;
+  }
+  private retryAfter(list: number[], windowMs: number, t: number): number {
+    return Math.max(1, Math.ceil((list[0] + windowMs - t) / 1000));
+  }
+
+  /** Records a hit for a per-client key, keeping the map bounded by evicting the least recently used clients in chunks. */
+  private touch(key: string, list: number[]): void {
+    this.clients.delete(key); // re-insert at the end: Map order is then least-recently-used first
+    this.clients.set(key, list);
+    if (this.clients.size > CLIENT_KEYS_MAX) {
+      let n = 0;
+      for (const k of this.clients.keys()) {
+        this.clients.delete(k);
+        if (++n >= EVICT_CHUNK) break;
+      }
+    }
+  }
+
+  private scale(ip: string, n: number): number {
+    if (ip === UNKNOWN_IP) return Math.max(1, Math.floor(n / 5));
+    if (ip === LOCAL_IP) return Math.max(1, Math.floor(n * (this.o.localScale ?? 10)));
+    return n;
+  }
+
+  private clientAllow(key: string, limit: number, windowMs: number): { ok: boolean; retryAfterS: number } {
     const t = this.now();
-    const list = (this.hits.get(key) ?? []).filter((x) => t - x < windowMs);
+    const list = this.live(this.clients, key, windowMs, t);
     if (list.length >= limit) {
-      this.hits.set(key, list);
-      return { ok: false, retryAfterS: Math.max(1, Math.ceil((list[0] + windowMs - t) / 1000)) };
+      this.touch(key, list);
+      return { ok: false, retryAfterS: this.retryAfter(list, windowMs, t) };
     }
     list.push(t);
-    this.hits.set(key, list);
-    if (this.hits.size > 20_000) {
-      for (const [k, v] of this.hits) if (v.length === 0 || t - v[v.length - 1] >= HOUR_MS) this.hits.delete(k);
-      while (this.hits.size > 20_000) this.hits.delete(this.hits.keys().next().value as string);
-    }
+    this.touch(key, list);
     return { ok: true, retryAfterS: 0 };
   }
 
-  /** Counts a new mission for this client today; refuses once the daily allowance on this process is used. */
-  newMission(ip: string): { ok: boolean; retryAfterS: number } {
-    const tight = ip === UNKNOWN_IP;
-    return this.allow(`missions:${ip}`, tight ? Math.max(1, Math.floor(this.o.missionsPerIpPerDay / 5)) : this.o.missionsPerIpPerDay, DAY_MS);
+  private globalAllow(key: string, limit: number, windowMs: number): { ok: boolean; retryAfterS: number } {
+    const t = this.now();
+    const list = this.live(this.globals, key, windowMs, t);
+    if (list.length >= limit) {
+      this.globals.set(key, list);
+      return { ok: false, retryAfterS: this.retryAfter(list, windowMs, t) };
+    }
+    list.push(t);
+    this.globals.set(key, list);
+    return { ok: true, retryAfterS: 0 };
+  }
+
+  /** How many per-client keys are held (bounded; for tests and diagnostics). */
+  clientCount(): number {
+    return this.clients.size;
+  }
+
+  /** True when this process has already admitted this (mission, client) pair. */
+  isKnown(missionId: string, clientKey: string): boolean {
+    const k = `${missionId}|${clientKey}`;
+    const exp = this.known.get(k);
+    if (exp === undefined) return false;
+    if (exp <= this.now()) {
+      this.known.delete(k);
+      return false;
+    }
+    return true;
+  }
+
+  /** Remembers a mission that exists in the shared record, so its later turns are exempt from the process-wide caps. */
+  markKnown(missionId: string, clientKey: string): void {
+    const k = `${missionId}|${clientKey}`;
+    this.known.delete(k);
+    this.known.set(k, this.now() + KNOWN_TTL_MS);
+    if (this.known.size > KNOWN_MISSIONS_MAX) {
+      let n = 0;
+      for (const key of this.known.keys()) {
+        this.known.delete(key);
+        if (++n >= 250) break;
+      }
+    }
+  }
+
+  /**
+   * Admits one NEW mission: the client's daily count on this process, then the process-wide hourly
+   * and daily caps. All three must allow it, and nothing is recorded when one refuses.
+   */
+  admitNewMission(ip: string): Admission {
+    const t = this.now();
+    const ipKeyName = `missions:${ip}`;
+    const ipLimit = this.scale(ip, this.o.missionsPerIpPerDay);
+    const ipList = this.live(this.clients, ipKeyName, DAY_MS, t);
+    if (ipList.length >= ipLimit) return { ok: false, retryAfterS: this.retryAfter(ipList, DAY_MS, t), reason: "ip_day" };
+    const hour = this.live(this.globals, "new:hour", HOUR_MS, t);
+    if (hour.length >= this.newPerHour) return { ok: false, retryAfterS: this.retryAfter(hour, HOUR_MS, t), reason: "global_hour" };
+    const day = this.live(this.globals, "new:day", DAY_MS, t);
+    if (day.length >= this.newPerDay) return { ok: false, retryAfterS: this.retryAfter(day, DAY_MS, t), reason: "global_day" };
+    ipList.push(t);
+    hour.push(t);
+    day.push(t);
+    this.touch(ipKeyName, ipList);
+    this.globals.set("new:hour", hour);
+    this.globals.set("new:day", day);
+    return { ok: true, retryAfterS: 0 };
+  }
+
+  /** Gives back an admission (the mission turned out to exist already, on another instance). */
+  refundNewMission(ip: string): void {
+    const ipKeyName = `missions:${ip}`;
+    for (const [map, key] of [[this.clients, ipKeyName], [this.globals, "new:hour"], [this.globals, "new:day"]] as const) {
+      const list = map.get(key);
+      if (list && list.length > 0) list.pop();
+    }
   }
 
   check(kind: FrontDoorKind, ip: string): { ok: boolean; retryAfterS: number } {
-    const tight = ip === UNKNOWN_IP;
-    const perIp = tight ? Math.max(1, Math.floor(this.o.perIpPerMin / 5)) : this.o.perIpPerMin;
-    const a = this.allow(`ip:${ip}`, perIp, 60_000);
+    const a = this.clientAllow(`ip:${ip}`, this.scale(ip, this.o.perIpPerMin), 60_000);
     if (!a.ok) return a;
     if (kind === "closures") {
-      const c = this.allow(`closures:${ip}`, tight ? Math.max(1, Math.floor(this.o.closuresPerIpPerHour / 5)) : this.o.closuresPerIpPerHour, HOUR_MS);
+      const c = this.clientAllow(`closures:${ip}`, this.scale(ip, this.o.closuresPerIpPerHour), HOUR_MS);
       if (!c.ok) return c;
     }
-    return this.allow("global", this.o.globalPerMin, 60_000);
+    if (kind === "ai") return { ok: true, retryAfterS: 0 };
+    return this.globalAllow("global", this.o.globalPerMin, 60_000);
   }
 }

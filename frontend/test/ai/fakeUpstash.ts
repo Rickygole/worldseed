@@ -21,6 +21,8 @@ export class FakeUpstash {
   /** Status to answer transactions with when mode is "txn-4xx". */
   /** "ok" answers normally; "down" rejects like a network failure; "500" answers with a server error; "no-nx" rejects PEXPIRE ... NX like Redis before 7.0. */
   mode: "ok" | "down" | "500" | "error-item" | "no-nx" | "txn-404" | "txn-not-array" | "unauthorized" = "ok";
+  /** Wall-clock delay before each answer, so concurrent requests genuinely interleave (0 = answer on the next tick). */
+  latencyMs = 0;
   private data = new Map<string, { v: string; exp: number | null }>();
   constructor(private now: () => number = Date.now) {}
 
@@ -97,6 +99,7 @@ export class FakeUpstash {
     const headers = new Headers(init?.headers);
     const body = JSON.parse(String(init?.body ?? "null"));
     this.requests.push({ path, auth: headers.get("authorization"), body });
+    if (this.latencyMs > 0) await new Promise((r) => setTimeout(r, this.latencyMs));
     const json = (o: unknown) => new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json" } });
     if (this.mode === "down") throw new TypeError("fetch failed");
     if (this.mode === "500") return new Response("boom", { status: 500 });

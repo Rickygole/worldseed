@@ -27,7 +27,7 @@ describe("model registry", () => {
   });
   it("config reads only server env and applies the documented defaults", () => {
     const c = readConfig({});
-    expect(c).toMatchObject({ dailyBudgetUsd: 1, ipDailyUsd: 0.15, missionInputTokens: 30_000, missionOutputTokens: 6_000, missionMaxCalls: 12, ipMissionsPerHour: 8, ipMissionsPerDay: 15, tavilyDailyCap: 30, baseURL: "https://api.tokenfactory.nebius.com/v1/", trustForwarded: false });
+    expect(c).toMatchObject({ dailyBudgetUsd: 1, ipDailyUsd: 0.2, missionInputTokens: 36_000, missionOutputTokens: 7_000, missionMaxCalls: 12, ipMissionsPerHour: 8, ipMissionsPerDay: 10, newMissionsPerHour: 30, newMissionsPerDay: 120, frontDoorPerIpPerMin: 20, tavilyDailyCap: 30, baseURL: "https://api.tokenfactory.nebius.com/v1/", trustForwarded: false });
     expect(readConfig({ WS_DAILY_BUDGET_USD: "abc" }).dailyBudgetUsd).toBe(1);
   });
 });

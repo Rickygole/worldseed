@@ -34,6 +34,7 @@ const eff = { op: "corridor_speed", corridor: "C-FAKE", factor: 1.1 };
 const cand = (id: string, type: string, lens: string[], costTier: string, title: string) => ({
   id, type, title, lens, costTier, costSource: null, leadTime: "weeks", hypothetical: true, effect: eff,
   assumptions: [], sources: [], notes: "internal note with 999 numbers",
+  mechanism: `Fake catalog description of the ${type.replace(/_/g, " ")} option ${id.length > 0 ? "" : ""}.`.replace(" .", "."),
 });
 
 export const FAKE_CANDIDATES = [
@@ -212,20 +213,20 @@ export const doneOf = (events: { event: string; data: any }[]) => events.find((e
 /** Model-form replies: bundles carry candidate IDs only (a stray `id` in the input is dropped). */
 const noIds = (bundles: { id?: string; candidateIds: string[] }[]) => bundles.map((b) => ({ candidateIds: b.candidateIds }));
 export const proposeReply = (bundles: { id?: string; candidateIds: string[] }[], over: Record<string, unknown> = {}) =>
-  JSON.stringify({ action: "propose", commentary: "Starting with a broad mix of signal and link mechanisms across types.", bundles: noIds(bundles), mechanism_note: "Retiming and a connector act on the detour.", ...over });
+  JSON.stringify({ action: "propose", rationale: { kind: "spread_mechanisms" }, bundles: noIds(bundles), ...over });
 export const refineReply = (add: { id?: string; candidateIds: string[] }[], keep: string[] = [], drop: string[] = [], over: Record<string, unknown> = {}) =>
-  JSON.stringify({ action: "refine", commentary: "Extending a promising mechanism with another candidate.", keep, drop, add: noIds(add), ...over });
+  JSON.stringify({ action: "refine", rationale: { kind: "extend_kept" }, keep, drop, add: noIds(add), ...over });
 export const finalizeReply = (ids: string[], over: Record<string, unknown> = {}) =>
   JSON.stringify({
-    action: "finalize", commentary: "These finalists differ in mechanism and cost tier.",
-    finalists: ids.map((bundleId) => ({ bundleId, mechanism_note: "Relies on a hypothetical connector." })), ...over,
+    action: "finalize", rationale: { kind: "mix_of_types" },
+    finalists: ids.map((bundleId) => ({ bundleId })), ...over,
   });
 export const critiqueReply = (over: Record<string, unknown> = {}) =>
   JSON.stringify({ action: "critique", concerns: [{ bundleId: "B1", kind: "worst_case" }], veto: [], ...over });
 export const narrateReply = (ids: string[]) =>
   JSON.stringify({
     action: "narrate",
-    items: ids.map((bundleId) => ({ bundleId, commentary: "Retimes signals on the corridor and depends on a hypothetical link." })),
+    items: ids.map((bundleId) => ({ bundleId, rationale: { kind: "spread_mechanisms" } })),
   });
 export const parseReply = (over: Record<string, unknown> = {}) =>
   JSON.stringify({

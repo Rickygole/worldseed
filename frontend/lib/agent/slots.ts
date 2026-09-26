@@ -43,30 +43,37 @@ function value(metric: string, row: EvaluationRow | BaselineRow): number | null 
   }
 }
 
-function level(metric: string, n: number): string {
-  if (metric === "p50" || metric === "p90" || metric === "equityGap") return `${(n / 60).toFixed(1)} min`;
-  if (metric === "pctWithin") return `${n.toFixed(0)}%`;
-  if (metric === "pGoal") return `${Math.round(n * 100)}%`;
-  return `${Math.round(n)}`;
+/** The value as it is displayed: minutes and percentages to one decimal, groups whole, chance in whole percent. */
+function shown(metric: string, n: number): number {
+  if (metric === "p50" || metric === "p90" || metric === "equityGap") return Math.round((n / 60) * 10) / 10;
+  if (metric === "pctWithin") return Math.round(n * 10) / 10;
+  if (metric === "pGoal") return Math.round(n * 100);
+  return Math.round(n);
 }
 
-/** Size of a change plus a direction computed from its sign, or "no change" when it rounds to zero. */
-function change(metric: string, d: number): string {
-  let size: string;
-  let shown: number;
-  if (metric === "p50" || metric === "p90" || metric === "equityGap") {
-    shown = Math.abs(d) / 60;
-    size = `${shown.toFixed(1)} min`;
-  } else if (metric === "pctWithin") {
-    shown = Math.abs(d);
-    size = `${shown.toFixed(1)} points`;
-  } else {
-    shown = Math.abs(Math.round(d));
-    size = `${shown} ${shown === 1 ? "group" : "groups"}`;
-  }
-  if (Number(shown.toFixed(1)) === 0 || shown === 0) return "no change";
+function level(metric: string, n: number): string {
+  const v = shown(metric, n);
+  if (metric === "p50" || metric === "p90" || metric === "equityGap") return `${v.toFixed(1)} min`;
+  if (metric === "pctWithin") return `${v.toFixed(1)}%`;
+  if (metric === "pGoal") return `${v}%`;
+  return `${v}`;
+}
+
+/**
+ * Size of a change plus a direction, both computed from the DISPLAYED values (the same rounding as
+ * `level`), so the text can never contradict itself: two figures that display as equal are "no
+ * change", and "0.1 min better" only ever appears next to figures that differ by 0.1 min.
+ */
+function change(metric: string, cur: number, base: number): string {
+  const d = Math.round((shown(metric, cur) - shown(metric, base)) * 10) / 10;
+  if (d === 0) return "no change";
+  const size = Math.abs(d);
+  let text: string;
+  if (metric === "p50" || metric === "p90" || metric === "equityGap") text = `${size.toFixed(1)} min`;
+  else if (metric === "pctWithin") text = `${size.toFixed(1)} points`;
+  else text = `${size} ${size === 1 ? "group" : "groups"}`;
   const improved = LOWER_IS_BETTER[metric] ? d < 0 : d > 0;
-  return `${size} ${improved ? "better" : "worse"}`;
+  return `${text} ${improved ? "better" : "worse"}`;
 }
 
 export function makeSlotResolver(ctx: SlotContext): (slot: string) => string | undefined {
@@ -90,7 +97,7 @@ export function makeSlotResolver(ctx: SlotContext): (slot: string) => string | u
     if (typeof cur !== "number") return undefined;
     if (variant === "delta") {
       const b = ctx.baseline ? value(slot.metric, ctx.baseline) : undefined;
-      return typeof b === "number" && slot.metric !== "pGoal" ? change(slot.metric, cur - b) : undefined;
+      return typeof b === "number" && slot.metric !== "pGoal" ? change(slot.metric, cur, b) : undefined;
     }
     return level(slot.metric, cur);
   };
@@ -113,7 +120,7 @@ export function cardLines(row: EvaluationRow, baseline: BaselineRow | undefined,
     if (typeof cur !== "number") return `${label}: not computed`;
     const base = baseline ? value(metric, baseline) : undefined;
     if (typeof base !== "number") return `${label}: ${level(metric, cur)}`;
-    return `${label}: ${level(metric, cur)} (baseline ${level(metric, base)}; ${change(metric, cur - base)})`;
+    return `${label}: ${level(metric, cur)} (baseline ${level(metric, base)}; ${change(metric, cur, base)})`;
   };
   return [
     line(`${travel}, median`, "p50"),

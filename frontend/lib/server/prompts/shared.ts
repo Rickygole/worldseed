@@ -4,6 +4,7 @@
  * numeric effects, so the model reasons about mechanisms and has no figures to repeat.
  */
 import type { CandidatePromptView } from "../../agent/catalog";
+import { RATIONALE_KINDS } from "../../agent/rationale";
 import type { BaselineRow, EvaluationRow } from "../../agent/tools";
 import type { ChatMessage } from "../tokenfactory";
 
@@ -15,18 +16,13 @@ export const FRAMING = [
 ].join(" ");
 
 /**
- * The commentary rules. Model text is labeled "AI commentary" and is limited to mechanism and
- * rationale. The screen in lib/agent/prose.ts enforces these rules; this text tells the model what
- * the screen will refuse, so its first answer usually passes.
+ * The rationale rule. The model writes no sentences at all: its "why" is a rationale kind from a
+ * fixed list (plus an optional catalog id), and the application renders the wording. Nothing a
+ * model writes reaches a reader as text.
  */
-export const NUMBER_RULE = [
-  'COMMENTARY: your text fields are labeled "AI commentary" and describe MECHANISM and RATIONALE only: what an intervention physically or operationally does, which corridor, shore or neighborhood it touches, what it depends on, and its cost tier in words. You never describe results or outcomes: the simulator computes them and the application prints them.',
-  "you never output a number, digit, numeral or spelled-out quantity in any text field, in any language: no twelve, dozen, half, double, quarter, percent, and no counts such as two neighborhoods. Say first or second for rank, both for a pair.",
-  "You never write words of change or size: no better, worse, faster, cheaper, more, less, fewer, than, improves, reduces, cuts, eases, saves, raises, lowers, fixes, solves, restores, eliminates, all, every, none, nobody, never, always, entire, complete, most, few, tiny, huge, dramatic, sooner, later, baseline. No negations (no, not, cannot). No time units (minutes, hours, days).",
-  "Do not write metric names that contain digits (such as p50 or p90).",
-  "Refer to candidates and bundles only by their exact IDs as given, never by title. Bundle IDs are assigned by the application; you never invent one.",
-  "Write plain English using letters, basic punctuation and parentheses only. Never include links, markup, brackets, slashes or symbols, and never use words about rescue, deployment, routing or operations.",
-  'Good commentary: "Combines a harbor shuttle link with retimed signals on the tunnel approach, so it touches both shores and depends on a hypothetical link."',
+export const RATIONALE_RULE = [
+  `RATIONALE: you never write a sentence. In the rationale field choose exactly one kind: ${RATIONALE_KINDS.join(", ")}. The application shows the fixed wording for that kind in the decision log, labeled as an unverified AI rationale. Optionally add focus: one catalog candidate id from the list below that the choice centers on.`,
+  "Never describe results or outcomes: the simulator computes them and the application prints them. Bundle IDs are assigned by the application; you never invent one.",
 ].join(" ");
 
 export function candidateLines(views: readonly CandidatePromptView[]): string {

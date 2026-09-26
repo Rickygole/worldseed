@@ -51,6 +51,14 @@ export const CandidateSchema = z.looseObject({
   assumptions: z.array(z.string()).default([]),
   sources: z.array(z.unknown()).default([]),
   notes: z.string().default(""),
+  /**
+   * Pipeline-authored description of what the intervention does, shown on finalist cards. Static
+   * data, never model output. Text with digits, markup or an implausible length is dropped.
+   */
+  mechanism: z
+    .string()
+    .optional()
+    .transform((t) => (t !== undefined && t.length > 0 && t.length <= 600 && /^[A-Za-z .,;:'()&\-]+$/.test(t) ? t.trim() : undefined)),
 });
 export type Candidate = z.infer<typeof CandidateSchema>;
 

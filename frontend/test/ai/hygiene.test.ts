@@ -94,11 +94,12 @@ describe("prompts", () => {
   it("use none of the forbidden operational words", () => {
     for (const msgs of all()) for (const m of msgs) expect(m.content).not.toMatch(PRODUCT_WORDS);
   });
-  it("tell the model that its text is mechanism-only commentary with no numbers, results or direction words (plan and narrate prompts)", () => {
+  it("tell the model it writes no sentence: it selects a rationale kind, and never describes results (plan and narrate prompts)", () => {
     for (const msgs of [all()[1], all()[3]]) {
-      expect(msgs[0].content).toContain("you never output a number");
-      expect(msgs[0].content).toContain("AI commentary");
-      expect(msgs[0].content).toContain("MECHANISM");
+      expect(msgs[0].content).toContain("you never write a sentence");
+      expect(msgs[0].content).toContain("RATIONALE");
+      expect(msgs[0].content).toContain("Never describe results or outcomes");
+      expect(msgs[0].content).not.toContain("AI commentary");
     }
   });
   it("the parser and critic prompts ask for no free text at all", () => {

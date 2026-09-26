@@ -23,7 +23,7 @@ import {
 } from "../agent/protocol";
 import { ExtractionSchema, toJsonSchema, type ExtractedClosure } from "../agent/tools";
 import { runStructured, type AgentDeps } from "./agentService";
-import { matchRoad, normalizeForQuote, roadAppearsIn } from "./gazetteerMatch";
+import { isCommonStreetName, matchRoad, normalizeForQuote, normalizeName, roadAppearsIn } from "./gazetteerMatch";
 import { logEvent } from "./log";
 import { MissionLedger } from "./missions";
 import { buildExtractMessages, EXTRACT_SCHEMA_NAME } from "./prompts/extract";
@@ -121,29 +121,56 @@ const cleanDate = (d?: string): string | undefined => (d && ISO_DATE.test(d) ? d
 
 /* ------------------------ what a quote actually says ----------------------- */
 
-const CLOSURE_VERB = /\b(?:clos(?:ed|es|ing|ure|ures)|shut(?:\s?down)?|blocked|blocking|barricad\w+|out of service|impassable)\b/i;
+const CLOSURE_VERB = /\b(?:clos(?:ed|es|ing|ure|ures)|close(?!\s+(?:to|by|call|friends?|contact|together|up|out)\b)|shut(?:\s?down)?|shuts|blocked|blocking|barricad\w+|out of service|impassable)\b/i;
 const NEGATION = /\b(?:not|no longer|isn't|aren't|wasn't|weren't|hasn't|haven't|never|denied|denies|rumou?rs?|unfounded)\b/i;
 const REOPENED = /\b(?:re-?open(?:ed|s|ing)?|lifted|resum(?:ed|es|ing)|cleared)\b/i;
-const FUTURE_OR_MODAL =
-  /\b(?:could|might|may|would|should|will|plans? to|planning to|planned|expected to|scheduled|proposed|considering|possible|potential|if|unless|sometime|eventually|soon|upcoming|later this|next (?:week|month|year|spring|summer|fall|winter|autumn)|in the (?:spring|summer|fall|winter|autumn))\b/i;
-/** A stated current window: the source says when the closure is in effect. */
-const CURRENT_WINDOW = /\b(?:through|until|till|currently|remains?|remained|closed since|since|today|tonight|this (?:week|weekend|morning|afternoon|evening)|overnight|right now|ongoing)\b/i;
+const WEEKDAY = "(?:mon|tues|wednes|thurs|fri|satur|sun)day";
+const MONTH = "(?:jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?";
+/**
+ * Speculation: the closure is a possibility, a prediction or a plan that is not fixed. No stated
+ * window rescues these. ("may" is matched lower-case only, so the month May is not a modal.)
+ */
+const SPECULATIVE =
+  /\b(?:could|might|would|should|plans? to|planning to|considering|proposed|possible|possibly|potential|if|unless|expected to|likely to|sometime|eventually|soon|upcoming|later this|next (?:week|month|year|spring|summer|fall|winter|autumn)|in the (?:spring|summer|fall|winter|autumn))\b|\bmay\b/;
+/** A scheduled or announced closure: usable only together with a stated window. */
+const SCHEDULED = /\b(?:will|scheduled|planned|slated|set to|to close)\b/i;
+/** A stated window: the source says when the closure is in effect (a day, a date, "tonight", "through Friday"). */
+const CURRENT_WINDOW = new RegExp(
+  `\\b(?:through|thru|until|till|currently|remains?|remained|closed since|since|today|tonight|tomorrow|this (?:week|weekend|morning|afternoon|evening)|the weekend|weekend|overnight|right now|ongoing|further notice|${WEEKDAY}s?|${MONTH}\\s+\\d{1,2}|\\d{1,2}/\\d{1,2})\\b`,
+  "i",
+);
 
 /**
  * Closing part of a facility is not closing the facility: a whole-link or whole-road mutation may
- * only be proposed for a closure that is stated as the whole thing.
+ * only be proposed for a closure that is stated as the whole thing. Phrases that state the whole
+ * thing ("all lanes", "both directions", "northbound and southbound", "to traffic") are removed
+ * first, so they do not trip the partial patterns below.
  */
+const WHOLE_CLOSURE =
+  /\b(?:all|both|every) (?:travel |traffic )?lanes\b|\b(?:in |to )?both directions\b|\b(?:northbound and southbound|southbound and northbound|eastbound and westbound|westbound and eastbound)\b|\b(?:to )?all (?:traffic|vehicles|directions)\b|\bto traffic\b|\bno traffic\b/gi;
 const PARTIAL_CLOSURE =
-  /\b(?:lanes?|bores?|ramps?|shoulders?|trucks?|hazmat|hazardous|one direction|one way|northbound|southbound|eastbound|westbound|inbound|outbound|single[- ]lane|left lane|right lane|center lane|express lanes?|carpool|hov|partial(?:ly)?|intermittent(?:ly)?|alternating|one side)\b/i;
+  /\b(?:lanes?|bores?|ramps?|shoulders?|trucks?|hazmat|hazardous|one direction|one way|northbound|southbound|eastbound|westbound|inbound|outbound|[A-Za-z]+-bound|single[- ]lane|left lane|right lane|center lane|express lanes?|carpool|hov|partial(?:ly)?|intermittent(?:ly)?|alternating|one side|(?:most|some|local|through|commercial|heavy|oversize\w*) (?:traffic|vehicles|drivers)|non-\w+ traffic|except|open to|cars may)\b/i;
 /** A completed or past event, or an article about a reopening. */
 const PAST_EVENT =
   /\b(?:was|were|had been|briefly|temporarily closed|earlier|yesterday|last (?:night|week|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday) (?:morning|afternoon|evening|night)|previously|formerly|after (?:a|the) (?:crash|collision|accident))\b/i;
-/** Studies, models, drills and other things that are not a real closure. */
+/** The closure is stated as a present state ("is closed", "remains closed", "has closed"). */
+const PRESENT_STATE = /\b(?:is|are|remains?|stays?|has been|have been|has|have|will be|is being|are being)\s+(?:\w+\s+){0,2}?(?:closed|shut(?: down)?)\b/i;
+/** Words that make a following "closed" a passive or perfect form rather than an active past action. */
+const AUX = new Set(["is", "are", "was", "were", "be", "been", "being", "remains", "remain", "remained", "stays", "has", "have", "had", "will", "to", "and", "or", "not"]);
+/** How long: an event that ran for a stated time is over. */
+const DURATION = /\bfor (?:about |roughly |nearly |almost )?(?:\d+|an?|one|two|three|four|five|six|several|a few|many) (?:hours?|minutes?|days?)\b/i;
+/** Studies, models, drills and other things that are not a real closure (nouns only: crews that "drill" or a plan "modeled on" last year are not one). */
 const HYPOTHETICAL =
-  /\b(?:(?:a|the|this|that|new|recent|one)\s+stud(?:y|ies)|stud(?:y|ies)\s+(?:of|found|shows?|suggests?|modeled|modelled)|studied|model(?:ed|led|ing|s)?|simulat\w+|tabletop|drills?|exercises?|scenarios?|what[- ]if|what happens|hypothetical\w*|rehearsal|mock|test run|analysis|projected)\b/i;
+  /\b(?:(?:a|the|this|that|new|recent|one)\s+(?:\w+\s+){0,3}stud(?:y|ies)|stud(?:y|ies)\s+(?:of|found|shows?|suggests?|modeled|modelled)|studied|(?:mock|tabletop|fire|emergency|evacuation|training|a|the)\s+(?:drills?|exercises?)|drill scenario|tabletop|simulat\w+|scenario planning|what[- ]if|what happens|hypothetical\w*|rehearsal|test run|(?:a|the|this)\s+analysis|models? (?:show|predict|suggest|indicate)|modell?ed (?:what|how|the effect|the impact)|projected)\b/i;
 /** Comment threads, hearsay and text that tries to instruct the extractor. */
 const HEARSAY =
-  /\b(?:comments?|commented|wrote|posted|user\d*|reportedly|allegedly|apparently|i heard|heard that|trust me|people say|word is|tweet\w*|rumou?rs?|unconfirmed)\b|\bsystem note\b|\bextractor\b|ignore (?:all )?(?:previous|prior|the above)|\binstructions?\b/i;
+  /\b(?:comments?|commented|wrote|posted|user\d*|readers?|respond(?:s|ed)?|reportedly|allegedly|apparently|i heard|heard that|trust me|people say|word is|tweet\w*|rumou?rs?|unconfirmed)\b|\bsystem note\b|\bextractor\b|ignore (?:all )?(?:previous|prior|the above)|\binstructions?\b|\breport (?:this|the following)\b|\b[A-Z][a-z]+ (?:from|of|in) [A-Z][a-z]+:/;
+
+/** True when the text has an ACTIVE past "closed" ("police closed the road"), not a passive or perfect one ("was closed", "has closed"). */
+function hasActivePastClosed(text: string): boolean {
+  const words = text.toLowerCase().split(/[^a-z']+/).filter(Boolean);
+  return words.some((w, i) => (w === "closed" || w === "shut") && !AUX.has(words[i - 1] ?? "") && !AUX.has(words[i - 2] ?? ""));
+}
 
 /** A place name followed by a street type is a street ("Boston Street"), not the city. Either capitalization. */
 const STREET_TYPE =
@@ -156,6 +183,11 @@ const STREET_TYPE =
 const OTHER_PLACES =
   "Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|West Virginia|Wisconsin|Wyoming|District of Columbia|" +
   "Boston|Philadelphia|Chicago|Houston|Dallas|Atlanta|Miami|Seattle|Denver|Detroit|Pittsburgh|Richmond|Norfolk|Rosslyn|Georgetown|Arlington|Alexandria|Washington|New Haven|Hartford|Newark|Brooklyn|Manhattan|London|Toronto|Potomac|Capitol|Springfield|Annapolis Junction";
+/** Full state names, matched in any capitalization ("ohio" in a lower-case headline is still Ohio). A street type after the name makes it a street. */
+const STATE_NAMES = new RegExp(
+  `\\b(?:alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|west virginia|wisconsin|wyoming|district of columbia)\\b(?!\\s+${STREET_TYPE}\\b)`,
+  "i",
+);
 const OTHER_PLACE_G = new RegExp(`\\b(?:${OTHER_PLACES})\\b(?!\\s+${STREET_TYPE}\\b)`, "g");
 const OTHER_STATE_ABBR = /,\s*(?!MD\b)(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b|\bD\.?C\.?\b/;
 /** The area, named in the quote's OWN sentence. */
@@ -179,12 +211,21 @@ export function ownPlaceNames(catalog: Pick<Catalog, "gazetteer">): Set<string> 
 
 export type ScreenReason = "unclear_status" | "not_in_model_area" | "partial_closure" | "completed_event" | "hypothetical_scenario" | "hearsay";
 
+/** Neighborhoods distinctive enough that naming one in the quote's own sentence anchors it to the model area. */
+const STRONG_LOCAL = new Set([
+  "canton", "highlandtown", "fells point", "fell's point", "federal hill", "locust point", "hampden", "pigtown", "washington village/pigtown",
+  "bolton hill", "remington", "sowebo", "greektown", "otterbein", "inner harbor", "port covington", "turner station", "glen burnie", "linthicum",
+  "lansdowne", "halethorpe", "arbutus", "catonsville", "middle river", "harbor point", "hollins market", "patterson park",
+]);
+const escapeRe = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * Why a grounded quote is not a usable proposal, or null. The quote must state a whole, current
  * closure: not partial (a lane, a bore, trucks only), not past or reopened, not a study or drill,
- * not hearsay, not negated or speculative without a stated window. The area must be named in the
- * quote's own sentence, and neither the quote nor its sentence may point at another city or state
- * (a city that is itself one of the gazetteer's neighborhoods, like Brooklyn, is not "another city").
+ * not hearsay, not negated or speculative, and a scheduled closure only with a stated window. The
+ * area must be named in the quote's own sentence, and neither the quote nor its sentence may point
+ * at another city or state (a city that is itself one of the gazetteer's neighborhoods, like
+ * Brooklyn, is not "another city").
  */
 export function screenClosure(item: Pick<ExtractedClosure, "quote">, result: TavilyResult | undefined, ownPlaces: ReadonlySet<string> = new Set()): ScreenReason | null {
   const sentence = result ? sentenceAround(result.content, item.quote) : item.quote;
@@ -192,20 +233,53 @@ export function screenClosure(item: Pick<ExtractedClosure, "quote">, result: Tav
   const article = result ? `${result.title} ${result.content}` : context;
 
   const others = [...context.matchAll(OTHER_PLACE_G)].map((m) => m[0]).filter((p) => !ownPlaces.has(p.toLowerCase()));
-  if (others.length > 0 || OTHER_STATE_ABBR.test(context)) return "not_in_model_area";
-  const ownHere = [...ownPlaces].some((p) => p.length > 3 && new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(context));
-  // Anchor: the area named in the quote's own sentence, or one of its neighborhoods there plus the area named somewhere in the article.
-  if (!AREA_ANCHOR.test(context) && !(ownHere && AREA_ANCHOR.test(article))) return "not_in_model_area";
+  if (others.length > 0 || OTHER_STATE_ABBR.test(context) || STATE_NAMES.test(context)) return "not_in_model_area";
+  const ownNames = [...ownPlaces].filter((p) => p.length > 3 && new RegExp(`\\b${escapeRe(p)}\\b`, "i").test(context));
+  const ownHere = ownNames.length > 0;
+  const strongHere = ownNames.some((p) => STRONG_LOCAL.has(p));
+  // Anchor: the area named in the quote's own sentence, or a distinctive neighborhood there, or one of its neighborhoods there plus the area named somewhere in the article.
+  if (!AREA_ANCHOR.test(context) && !strongHere && !(ownHere && AREA_ANCHOR.test(article))) return "not_in_model_area";
   for (const [name, landmark] of SHARED_NAME_LANDMARKS) if (name.test(context) && !landmark.test(context)) return "not_in_model_area";
 
   if (HEARSAY.test(context)) return "hearsay";
   if (HYPOTHETICAL.test(context)) return "hypothetical_scenario";
   if (!CLOSURE_VERB.test(item.quote)) return "unclear_status";
-  if (PARTIAL_CLOSURE.test(context)) return "partial_closure";
+  if (PARTIAL_CLOSURE.test(context.replace(WHOLE_CLOSURE, " "))) return "partial_closure";
   if (NEGATION.test(context) || REOPENED.test(context)) return "unclear_status";
-  if (PAST_EVENT.test(context) && !/\b(?:has been|have been|remains?|is|are) (?:\w+ )?closed\b/i.test(context)) return "completed_event";
-  if (FUTURE_OR_MODAL.test(context) && !CURRENT_WINDOW.test(context)) return "unclear_status";
+  const present = PRESENT_STATE.test(context);
+  if (!present) {
+    if (PAST_EVENT.test(context)) return "completed_event";
+    // An active past action with a day name or a duration ("police closed the tunnel for two hours Tuesday") is over.
+    if (hasActivePastClosed(context) && (new RegExp(`\\b${WEEKDAY}\\b`, "i").test(context) || DURATION.test(context))) return "completed_event";
+  }
+  if (SPECULATIVE.test(context)) return "unclear_status";
+  if (SCHEDULED.test(context) && !CURRENT_WINDOW.test(context)) return "unclear_status";
   return null;
+}
+
+export interface ClosureConfidence {
+  level: "high" | "low";
+  /** Why a reader should check the source before confirming (present when level is "low"). */
+  hint?: string;
+}
+
+/**
+ * How firmly the quote states a current, whole closure. "high" needs a declarative statement ("is
+ * closed", "remains closed", "has closed", "will close ... tonight") that also gives a window or a
+ * cause. Anything less (a headline fragment such as "closed indefinitely, MDTA says", an active
+ * past action, a closure only announced) is "low": the proposal is still shown, but the UI must
+ * tell the reader to read the source first. It is a hint about wording, not a verdict on the facts.
+ */
+export function closureConfidence(item: Pick<ExtractedClosure, "quote">, result: TavilyResult | undefined): ClosureConfidence {
+  const sentence = result ? sentenceAround(result.content, item.quote) : item.quote;
+  const context = `${item.quote} ${sentence}`;
+  const declarative = PRESENT_STATE.test(context) || /\b(?:will|to)\s+(?:be\s+)?(?:close|closed|shut)\b/i.test(context);
+  const scheduledOnly = SCHEDULED.test(context) && !PRESENT_STATE.test(context);
+  const grounded = CURRENT_WINDOW.test(context) || /\b(?:for|due to|after|because|as part of|while|following)\b/i.test(context);
+  if (declarative && grounded && !scheduledOnly) return { level: "high" };
+  if (scheduledOnly && declarative && grounded) return { level: "low", hint: "The source describes a closure that is scheduled, not one already in effect. Read it before confirming." };
+  if (!declarative) return { level: "low", hint: "The quote is worded as a headline fragment or a past action, not a statement that the road is closed now. Read the source before confirming." };
+  return { level: "low", hint: "The quote gives no time window or reason. Read the source before confirming." };
 }
 
 /** A road name as displayed: plain characters only. Anything else (markup, brackets, links) is replaced. */
@@ -213,6 +287,13 @@ export const UNREADABLE_ROAD = "(unreadable road name)";
 export function safeRoadText(road: string): string {
   const t = road.replace(/\s+/g, " ").trim();
   return t.length > 0 && t.length <= 80 && /^[A-Za-z0-9 .,'&\-]+$/.test(t) && !/https?|www\./i.test(t) ? t : UNREADABLE_ROAD;
+}
+
+/** The mutation a gazetteer entry stands for, or null when it cannot be closed (a neighborhood, a corridor). */
+export function mutationFor(entry: Pick<Catalog["gazetteer"][number], "name" | "ref">): ClosureProposal["mutation"] | null {
+  if (entry.ref.link) return { kind: "close_link", linkId: entry.ref.link };
+  if (entry.ref.edges && entry.ref.edges.length > 0) return { kind: "close_edges", edges: entry.ref.edges, label: entry.name };
+  return null;
 }
 
 export function matchClosures(
@@ -249,20 +330,33 @@ export function matchClosures(
       unmatched.push({ ...base, reason: "not_in_model_area" });
       continue;
     }
+    let entry;
+    let tieBreak = false;
     if (m.status === "ambiguous") {
-      unmatched.push({ ...base, reason: "ambiguous" });
-      continue;
-    }
-    const { entry } = m;
-    let mutation: ClosureProposal["mutation"] | null = null;
-    if (entry.ref.link) mutation = { kind: "close_link", linkId: entry.ref.link };
-    else if (entry.ref.edges && entry.ref.edges.length > 0) mutation = { kind: "close_edges", edges: entry.ref.edges, label: entry.name };
+      // Several entries share the name. When exactly one of them can be closed (the others are a
+      // corridor or a neighborhood, which have no closure), that one is proposed, with a low-confidence
+      // flag. A name that exists in every town ("Main Street") is never resolved this way.
+      const closable = m.entries.filter((e) => mutationFor(e) !== null);
+      if (closable.length === 1 && !isCommonStreetName(normalizeName(c.road))) {
+        entry = closable[0];
+        tieBreak = true;
+      } else {
+        unmatched.push({ ...base, reason: "ambiguous" });
+        continue;
+      }
+    } else entry = m.entry;
+    const mutation = mutationFor(entry);
     if (!mutation) {
       unmatched.push({ ...base, reason: "unsupported_kind" });
       continue;
     }
     if (seen.has(entry.id)) continue;
     seen.add(entry.id);
+    const conf = closureConfidence(c, byUrl.get(c.sourceUrl));
+    if (tieBreak) {
+      conf.level = "low";
+      conf.hint = "The article's road name fits more than one model-area entry; this is the one that can be closed. Confirm it is the intended road, and read the source first.";
+    }
     proposals.push({
       id: `closure-${proposals.length + 1}`,
       road: base.road,
@@ -271,6 +365,8 @@ export function matchClosures(
       mutation,
       provenance: { url: c.sourceUrl, quote: c.quote, retrievedAt },
       verification: "unverified",
+      confidence: conf.level,
+      ...(conf.hint ? { reviewHint: conf.hint } : {}),
       startDate,
       endDate,
     });
@@ -325,10 +421,15 @@ const stripTokens = (v: OkResponse): OkResponse => ({ ...v, proposals: v.proposa
 
 /* ------------------------- stateless confirmation tokens ------------------------- */
 
+/**
+ * What a token signs: the proposal id, the gazetteer id and the provenance, and nothing else. The
+ * mutation (which links or edges to close) is NOT in the token: it is looked up from the server's
+ * own gazetteer when the token is redeemed, so token size no longer depends on how many edges a
+ * road has (the Beltway has 334) and the client can never influence the mutation.
+ */
 interface ConfirmPayload {
-  /** Proposal id, matched name, gazetteer id, mutation and provenance exactly as proposed. */
-  p: Pick<ClosureProposal, "id" | "matchedName" | "gazetteerId" | "mutation" | "provenance">;
-  /** Hashed key of the requester the token was issued to. */
+  p: Pick<ClosureProposal, "id" | "gazetteerId" | "provenance">;
+  /** Hashed key of the requester (browser session, else address bucket) the token was issued to. */
   c: string;
   /** Expiry, epoch ms. */
   x: number;
@@ -341,12 +442,14 @@ const sign = (secret: string, body: string): string => b64(createHmac("sha256", 
 
 /** A confirmation token: HMAC over the proposal, requester and expiry. No store write is needed to issue one. */
 export function issueConfirmToken(secret: string, p: ConfirmPayload["p"], clientKey: string, nowMs: number): string {
+  if (!secret) throw new Error("no confirmation secret");
   const payload: ConfirmPayload = { p, c: clientKey, x: nowMs + CONFIRM_TTL_MS, j: randomBytes(12).toString("hex") };
   const body = b64(JSON.stringify(payload));
   return `v1.${body}.${sign(secret, body)}`;
 }
 
 function verifyConfirmToken(secret: string, token: string): ConfirmPayload | null {
+  if (!secret) return null;
   const m = /^v1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(token);
   if (!m) return null;
   const want = Buffer.from(sign(secret, m[1]));
@@ -368,7 +471,7 @@ function withTokens(deps: ClosuresDeps, clientKey: string, value: OkResponse): O
     proposals: value.proposals.map((p) => {
       const { confirmToken: _drop, ...bare } = p;
       void _drop;
-      return { ...bare, confirmToken: issueConfirmToken(deps.confirmSecret, { id: p.id, matchedName: p.matchedName, gazetteerId: p.gazetteerId, mutation: p.mutation, provenance: p.provenance }, clientKey, t) };
+      return { ...bare, confirmToken: issueConfirmToken(deps.confirmSecret, { id: p.id, gazetteerId: p.gazetteerId, provenance: p.provenance }, clientKey, t) };
     }),
   };
 }
@@ -379,10 +482,12 @@ function withTokens(deps: ClosuresDeps, clientKey: string, value: OkResponse): O
  * cost no store command; the expensive part runs at most once at a time per process, and never
  * more than the daily cap allows.
  */
-export async function lookupClosures(deps: ClosuresDeps, ip: string, state: ClosuresState, deadlineAt: number): Promise<ClosuresResponse> {
+export async function lookupClosures(deps: ClosuresDeps, ip: string, state: ClosuresState, deadlineAt: number, requester: string = ipKey(ip)): Promise<ClosuresResponse> {
+  // Without a signing secret no confirmation could ever be honored, so no proposal is offered at all.
+  if (!deps.confirmSecret) return { status: "unavailable", reason: "disabled", message: "Closure search is switched off on this deployment." };
   const r = await lookupBare(deps, ip, state, deadlineAt);
   // Tokens are issued per response, bound to this requester, never shared between callers of one lookup or cache entry.
-  return r.status === "ok" ? withTokens(deps, ipKey(ip), r) : r;
+  return r.status === "ok" ? withTokens(deps, requester, r) : r;
 }
 
 async function lookupBare(deps: ClosuresDeps, ip: string, state: ClosuresState, deadlineAt: number): Promise<ClosuresResponse> {
@@ -541,14 +646,25 @@ export type ConfirmOutcome =
 /**
  * Redeems a confirmation token: verify the HMAC (no store), check expiry and the requester, then
  * record the token id as used with SET NX (the only store command, and only at redemption).
- * Exactly one caller gets the record; replays get nothing. The mutation, label and provenance come
- * from what the SERVER signed, never from the caller.
+ * Exactly one caller gets the record; replays get nothing. The provenance is what the server
+ * signed; the mutation and label are looked up from the server's gazetteer by the signed id.
  */
-export async function redeemConfirmation(store: SharedStore, secret: string, token: string, clientKey: string, nowMs: number): Promise<ConfirmOutcome> {
+export async function redeemConfirmation(
+  store: SharedStore,
+  secret: string,
+  token: string,
+  requester: string,
+  nowMs: number,
+  catalog: Pick<Catalog, "gazetteerById">,
+): Promise<ConfirmOutcome> {
   const payload = verifyConfirmToken(secret, token);
   if (!payload) return { status: "invalid_or_used" };
   if (payload.x <= nowMs) return { status: "expired" };
-  if (payload.c !== clientKey) return { status: "wrong_requester" };
+  if (payload.c !== requester) return { status: "wrong_requester" };
+  const p = payload.p;
+  const entry = p && typeof p.gazetteerId === "string" ? catalog.gazetteerById.get(p.gazetteerId) : undefined;
+  const mutation = entry ? mutationFor(entry) : null;
+  if (!entry || !mutation || !p.provenance || typeof p.provenance.url !== "string" || typeof p.provenance.quote !== "string") return { status: "invalid_or_used" };
   let first: boolean;
   try {
     first = await store.setIfAbsent(`cfu:${payload.j}`, "1", Math.max(1_000, payload.x - nowMs));
@@ -557,15 +673,14 @@ export async function redeemConfirmation(store: SharedStore, secret: string, tok
     return { status: "store_error" };
   }
   if (!first) return { status: "invalid_or_used" };
-  const p = payload.p;
   return {
     status: "ok",
     record: {
-      id: `tavily-${p.gazetteerId}-${payload.j.slice(0, 8)}`,
-      m: p.mutation,
+      id: `tavily-${entry.id}-${payload.j.slice(0, 8)}`,
+      m: mutation,
       origin: "tavily",
-      label: `${p.matchedName} (unverified news report)`,
-      provenance: p.provenance,
+      label: `${entry.name} (unverified news report)`,
+      provenance: { url: p.provenance.url, quote: p.provenance.quote, retrievedAt: String(p.provenance.retrievedAt ?? "") },
       confirmedAt: new Date(nowMs).toISOString(),
     },
   };

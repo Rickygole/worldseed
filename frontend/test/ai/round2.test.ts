@@ -100,8 +100,8 @@ describe("finding N1(a): the in-memory front door runs BEFORE any store command"
     expect(new Set(statuses)).toEqual(new Set([429]));
     expect(fake.commands).toBe(after); // 500 refused requests cost no store command at all
   });
-  it("a flood spread over many addresses is capped per process, so the store cannot be drained by volume", async () => {
-    const { s, fake } = upstashServer(Array.from({ length: 5 }, () => parseReply()), {}, { perIpPerMin: 100, globalPerMin: 10, closuresPerIpPerHour: 5, missionsPerIpPerDay: 50, now: () => Date.UTC(2026, 8, 26, 12) });
+  it("a flood of NEW missions spread over many addresses is capped per process, so the store cannot be drained by volume", async () => {
+    const { s, fake } = upstashServer(Array.from({ length: 12 }, () => parseReply()), {}, { perIpPerMin: 100, globalPerMin: 10, closuresPerIpPerHour: 5, missionsPerIpPerDay: 50, newMissionsPerHour: 10, newMissionsPerDay: 120, now: () => Date.UTC(2026, 8, 26, 12) });
     for (let i = 0; i < 10; i++) await handleParse(post("/api/agent/parse", parseBody(`MISSION-FG-00${i}`), `10.0.${i}.1`), s.deps).then((r) => r.text());
     const after = fake.commands;
     for (let i = 0; i < 300; i++) expect((await handleParse(post("/api/agent/parse", parseBody(`MISSION-FG-1${String(i).padStart(3, "0")}`), `10.1.${i % 250}.${i}`), s.deps)).status).toBe(429);
@@ -163,11 +163,12 @@ describe("finding N1(e)/(worst case): the process command allowance bounds what 
     expect(s.provider.calls.length).toBe(callsAtEnd);
     expect(fake.commands).toBeLessThanOrEqual(60);
   });
-  it("documented capacity: a metered instance can send at most 9,000 commands a day (279,000 a month), i.e. about 100 full missions a day", async () => {
-    const { DEFAULT_STORE_DAILY_COMMANDS } = await import("../../lib/server/store");
-    expect(DEFAULT_STORE_DAILY_COMMANDS).toBe(9_000);
-    expect(9_000 * 31).toBe(279_000);
-    process.stdout.write("worst-case burn from an unauthenticated flood: instances x 9,000 commands/day x 31 = 279,000 per instance-month (free plan: 500,000)\n");
+  it("documented capacity: a metered instance can send at most 6,000 commands a day (186,000 a month), i.e. about 60 full missions a day", async () => {
+    const { DEFAULT_STORE_DAILY_COMMANDS, DEFAULT_STORE_HOURLY_COMMANDS } = await import("../../lib/server/store");
+    expect(DEFAULT_STORE_DAILY_COMMANDS).toBe(6_000);
+    expect(DEFAULT_STORE_HOURLY_COMMANDS).toBe(2_400);
+    expect(6_000 * 31).toBe(186_000);
+    process.stdout.write("worst-case burn from an unauthenticated flood: instances x 6,000 commands/day x 31 = 186,000 per instance-month (free plan: 500,000)\n");
   });
 });
 
@@ -183,14 +184,14 @@ describe("finding N3: per-client dollar cap through the routes", () => {
     expect(calls).toBe(1);
     expect(doneOf(await readSse(await handleParse(post("/api/agent/parse", parseBody("MISSION-D-0003"), "198.51.100.5"), s.deps))).status).toBe("ok");
   });
-  it("defaults: about $0.15 per client per day, missions capped at 30k input and 6k output tokens, 8 missions an hour", () => {
-    expect(readConfig({})).toMatchObject({ ipDailyUsd: 0.15, missionInputTokens: 30_000, missionOutputTokens: 6_000, ipMissionsPerHour: 8 });
+  it("defaults: $0.20 per client per day, missions capped at 36k input and 7k output tokens, 8 missions an hour", () => {
+    expect(readConfig({})).toMatchObject({ ipDailyUsd: 0.2, missionInputTokens: 36_000, missionOutputTokens: 7_000, ipMissionsPerHour: 8 });
     expect(readConfig({ WS_IP_DAILY_USD: "0.5" }).ipDailyUsd).toBe(0.5);
   });
   it("an advertised mission (25k in, 4k out) fits inside a single client's day; the dollar cap bounds abuse", () => {
     const missionUsd = (25_000 * 1 + 4_000 * 3) / 1e6;
-    expect(missionUsd).toBeLessThan(0.15); // one mission is well inside the allowance
-    expect(Math.floor(0.15 / missionUsd)).toBeGreaterThanOrEqual(4); // and a judge can run several
+    expect(missionUsd).toBeLessThan(0.2); // one mission is well inside the allowance
+    expect(Math.floor(0.2 / missionUsd)).toBeGreaterThanOrEqual(4); // and a judge can run several
   });
 });
 

@@ -5,10 +5,9 @@ import {
   type ClosuresResponse,
   type ConfirmClosureResponse,
 } from "../agent/protocol";
-import { guardPost, json, readBody, requestIp } from "./agentService";
+import { guardPost, json, readBody, requestIp, requesterKey } from "./agentService";
 import { ipTag, logEvent } from "./log";
 import { ROLES } from "./models";
-import { ipKey } from "./ratelimit";
 import type { Runtime } from "./runtime";
 import { lookupClosures, redeemConfirmation } from "./tavily";
 
@@ -38,7 +37,10 @@ async function computeHealth(rt: Runtime): Promise<Response> {
   // total; the store is never read here, so polling health cannot cost a store command.
   const models = live ? await agent.resolver.health() : null;
   const exhausted = live ? (agent.budget.cached()?.exhausted ?? false) : false;
-  const protectionDown = live && agent.signals !== undefined && agent.signals.storeDownAt > 0 && agent.now() - agent.signals.storeDownAt < STORE_DOWN_MS;
+  // Protection is down when a store failure was seen recently OR this process's command meter has
+  // tripped (a state, not an event: it stays reported for as long as the allowance is used up).
+  const meterTripped = live && rt.meter !== undefined && rt.meter.exhausted();
+  const protectionDown = live && (meterTripped || (agent.signals !== undefined && agent.signals.storeDownAt > 0 && agent.now() - agent.signals.storeDownAt < STORE_DOWN_MS));
   const plannerUp = models !== null && models.roles.planner.model !== "unavailable";
   const reason = !plannerUp ? "planner_unavailable" : protectionDown ? "protection_unavailable" : exhausted ? "budget_exhausted" : null;
   return json(
@@ -52,7 +54,7 @@ async function computeHealth(rt: Runtime): Promise<Response> {
       protection: agent.config.protection,
       roles: Object.fromEntries(ROLES.map((r) => [r, models ? models.roles[r].model : "unavailable"])),
       fallbacks: Object.fromEntries(ROLES.map((r) => [r, models ? models.roles[r].chain.slice(1) : []])),
-      tavily: { configured: rt.search !== null },
+      tavily: { configured: rt.search !== null && rt.confirmSecret !== "" },
     },
     200,
     { "cache-control": "no-store" },
@@ -83,6 +85,7 @@ export async function handleClosures(request: Request, rt: Runtime): Promise<Res
     ip,
     rt.closures,
     deadlineAt,
+    requesterKey(request, rt.agent.config),
   );
   const status = out.status === "unavailable" && out.reason === "rate_limited" ? 429 : 200;
   return json(out, status, { "cache-control": "no-store", ...(out.status === "unavailable" && out.retryAfterS ? { "retry-after": String(out.retryAfterS) } : {}) });
@@ -103,7 +106,14 @@ export async function handleClosureConfirm(request: Request, rt: Runtime): Promi
   if (!door.ok) return respond({ status: "unavailable", reason: "rate_limited", message: "Too many confirmations. Try again later.", retryAfterS: door.retryAfterS }, 429);
   const body = await readBody(request, ConfirmClosureRequestSchema);
   if (!body.ok) return body.res;
-  const r = await redeemConfirmation(rt.store, rt.confirmSecret, body.value.token, ipKey(ip), rt.agent.now());
+  if (!rt.confirmSecret) return respond({ status: "unavailable", reason: "protection_unavailable", message: "Confirmation is unavailable right now." }, 503);
+  let catalog;
+  try {
+    catalog = await rt.agent.loadCatalog();
+  } catch {
+    return respond({ status: "unavailable", reason: "protection_unavailable", message: "Confirmation is unavailable right now." }, 503);
+  }
+  const r = await redeemConfirmation(rt.store, rt.confirmSecret, body.value.token, requesterKey(request, rt.agent.config), rt.agent.now(), catalog);
   if (r.status === "ok") return respond({ status: "ok", record: r.record }, 200);
   if (r.status === "store_error") return respond({ status: "unavailable", reason: "protection_unavailable", message: "Confirmation is unavailable right now." }, 503);
   if (r.status === "expired") return respond({ status: "unavailable", reason: "expired", message: "This confirmation has expired. Search again." }, 410);

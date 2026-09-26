@@ -16,7 +16,8 @@ import { logEvent } from "./log";
 import { MissionLedger } from "./missions";
 import { ModelResolver, buildRoleChains } from "./models";
 import { DailyBudget, FrontDoor, setIpSalt, StoreRateLimiter } from "./ratelimit";
-import { createSharedStore, sharedStoreCredentials, sharedStoreRefusal, type SharedStore } from "./store";
+import { createSharedStore, MeteredStore, sharedStoreCredentials, sharedStoreRefusal, type SharedStore } from "./store";
+import { createTurnstileVerifier } from "./turnstile";
 import { createHmac, randomBytes } from "node:crypto";
 import { createTavilyClient, type ClosuresState, type SearchClient } from "./tavily";
 import { createOpenAIClient, createTokenFactoryProvider, ProviderBackoff } from "./tokenfactory";
@@ -26,15 +27,21 @@ export interface Runtime {
   store: SharedStore;
   search: SearchClient | null;
   closures: ClosuresState;
-  /** Signs stateless closure-confirmation tokens (WS_CONFIRM_SECRET, else derived from the store token, else random per process). */
+  /**
+   * Signs stateless closure-confirmation tokens. In production (a serverless host or NODE_ENV=production)
+   * it MUST be set explicitly in WS_CONFIRM_SECRET: without it the value is "" and closure search
+   * answers "disabled". Elsewhere an unset secret is derived from the store token, else random per process.
+   */
   confirmSecret: string;
+  /** The command meter when the store is metered (health reads its `exhausted()`; never a store call). */
+  meter?: MeteredStore;
   /** Short per-process cache of the public health body, so polling cannot turn into store or provider traffic. */
   healthCache?: { at: number; body: string };
 }
 
 export function createRuntime(
   env: Record<string, string | undefined> = process.env,
-  opts: { store?: SharedStore; fetchImpl?: typeof fetch } = {},
+  opts: { store?: SharedStore; fetchImpl?: typeof fetch; turnstileFetch?: typeof fetch } = {},
 ): Runtime {
   const config = readConfig(env);
   const now = () => Date.now();
@@ -63,12 +70,13 @@ export function createRuntime(
     logEvent("warn", "ip_salt_derived", { note: "WS_IP_HASH_SALT unset; derived from the store token" });
   } else setIpSalt("");
   let confirmSecret = env.WS_CONFIRM_SECRET?.trim() ?? "";
+  const production = config.serverless || env.NODE_ENV === "production";
   if (!confirmSecret) {
-    if (creds) confirmSecret = derive("ws-confirm");
-    else {
-      confirmSecret = randomBytes(32).toString("hex");
-      logEvent("warn", "confirm_secret_random", { note: "WS_CONFIRM_SECRET unset; tokens are valid on this process only" });
-    }
+    if (production) {
+      // No fallback in production: a guessable or per-process secret would either be forgeable or break confirmations across instances.
+      logEvent("warn", "confirm_secret_missing", { note: "WS_CONFIRM_SECRET unset in production; closure search is disabled" });
+    } else if (creds) confirmSecret = derive("ws-confirm");
+    else confirmSecret = randomBytes(32).toString("hex");
   }
 
   const provider =
@@ -90,8 +98,11 @@ export function createRuntime(
         globalPerMin: config.frontDoorGlobalPerMin,
         closuresPerIpPerHour: config.ipClosuresPerHour,
         missionsPerIpPerDay: config.ipMissionsPerDay,
+        newMissionsPerHour: config.newMissionsPerHour,
+        newMissionsPerDay: config.newMissionsPerDay,
         now,
       }),
+      verifyHuman: config.turnstileSecret && config.liveAi ? createTurnstileVerifier({ secret: config.turnstileSecret, fetchImpl: opts.turnstileFetch }) : undefined,
       signals: { storeDownAt: 0 },
       loadCatalog: createCatalogLoader(),
       now,
@@ -100,6 +111,7 @@ export function createRuntime(
     search: config.tavilyKey && config.liveAi ? createTavilyClient({ apiKey: config.tavilyKey }) : null,
     closures: { inflight: null, cache: null },
     confirmSecret,
+    meter: store instanceof MeteredStore ? store : undefined,
   };
 }
 

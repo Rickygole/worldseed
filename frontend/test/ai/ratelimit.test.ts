@@ -242,11 +242,14 @@ describe("finding N1: the in-memory front door turns floods away before any stor
     clock.t += 61_000;
     expect(d.check("ai", "1.1.1.1").ok).toBe(true);
   });
-  it("caps the whole process per minute no matter how many addresses are used", () => {
-    const { d } = mk();
+  it("caps the closure and confirm routes per process per minute no matter how many addresses are used; AI routes are not counted here", () => {
+    const { d } = mk({ closuresPerIpPerHour: 1000 });
     let ok = 0;
-    for (let i = 0; i < 100; i++) if (d.check("ai", `10.0.0.${i}`).ok) ok++;
+    for (let i = 0; i < 100; i++) if (d.check("closures", `10.0.0.${i}`).ok) ok++;
     expect(ok).toBe(20);
+    let ai = 0;
+    for (let i = 0; i < 100; i++) if (d.check("ai", `10.0.1.${i}`).ok) ai++;
+    expect(ai).toBe(100); // known missions must not be starved by a global window (new missions are admitted separately)
   });
   it("holds the 'unknown' bucket to a fifth of the normal allowance", () => {
     const { d } = mk({ perIpPerMin: 10 });
@@ -263,9 +266,9 @@ describe("finding N1: the in-memory front door turns floods away before any stor
   });
   it("counts new missions per client per day", () => {
     const { d, clock } = mk();
-    for (let i = 0; i < 4; i++) expect(d.newMission("1.1.1.1").ok).toBe(true);
-    expect(d.newMission("1.1.1.1").ok).toBe(false);
+    for (let i = 0; i < 4; i++) expect(d.admitNewMission("1.1.1.1").ok).toBe(true);
+    expect(d.admitNewMission("1.1.1.1")).toMatchObject({ ok: false, reason: "ip_day" });
     clock.t += 24 * 3600_000 + 1;
-    expect(d.newMission("1.1.1.1").ok).toBe(true);
+    expect(d.admitNewMission("1.1.1.1").ok).toBe(true);
   });
 });

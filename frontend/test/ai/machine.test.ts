@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AgentApi } from "../../lib/agent/api";
-import { AgentMachine, type MachineState, type Phase } from "../../lib/agent/machine";
+import { AgentMachine, CARD_TEXT_LABEL, type MachineState, type Phase } from "../../lib/agent/machine";
 import { ProviderError, resetDowngrades } from "../../lib/server/tokenfactory";
 import type { EvaluateFn } from "../../lib/agent/evaluate";
 import { UI_MESSAGES } from "../../lib/agent/protocol";
@@ -16,20 +16,20 @@ beforeEach(() => {
 
 const b = (id: string, ...candidateIds: string[]) => ({ id, candidateIds });
 const B1234 = [b("B1", "SP-BROENING"), b("B2", "SP-EASTERN"), b("B3", "SP-HARBOR"), b("B4", "TL-DUNDALK")];
-const happyScript = (): Scripted[] => [
+const happyScript = (narrate = false): Scripted[] => [
   parseReply(),
   proposeReply(B1234),
   refineReply([b("B5", "SP-BROENING", "SP-EASTERN")], ["B1", "B2"], ["B4"]),
   refineReply([b("B6", "HZ-ESCORT", "IM-I895")], ["B5"], []),
   critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [] }),
   finalizeReply(["B5", "B6", "B3"]),
-  narrateReply(["B5", "B6", "B3"]),
+  ...(narrate ? [narrateReply(["B5", "B6", "B3"])] : []),
 ];
 
-function harness(script: Scripted[], evaluate: EvaluateFn = fakeEvaluator(), cfg = {}) {
+function harness(script: Scripted[], evaluate: EvaluateFn = fakeEvaluator(), cfg = {}, opts: { narrate?: boolean } = {}) {
   const server = makeServer(script, cfg);
   const applied: unknown[] = [];
-  const m = new AgentMachine({ api: apiFor(server), evaluate, catalog: fakeCatalog(), newMissionId: () => "mission-machine-1", onApply: (x) => void applied.push(x) });
+  const m = new AgentMachine({ api: apiFor(server), evaluate, catalog: fakeCatalog(), newMissionId: () => "mission-machine-1", narrate: opts.narrate, onApply: (x) => void applied.push(x) });
   const phases: Phase[] = [];
   m.subscribe(() => {
     const p = m.getState().phase;
@@ -51,9 +51,10 @@ describe("state machine: full AI mission through the real server handlers", () =
     expect(s.mode).toBe("ai");
     expect(s.finalists.map((f) => f.bundleId)).toEqual(["B5", "B6", "B3"]);
     expect(s.critique?.concerns[0].bundleId).toBe("B5");
-    expect(Object.keys(s.narration)).toEqual(["B5", "B6", "B3"]);
-    expect(s.models).toMatchObject({ planner: "nvidia/Nemotron-3-Ultra-550b-a55b", parser: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", critic: "nvidia/Nemotron-3-Ultra-550b-a55b", narrator: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B" });
-    expect(server.provider.calls).toHaveLength(7);
+    expect(s.narration).toEqual({}); // cards carry no model text; the narrator is off by default
+    expect(s.models).toMatchObject({ planner: "nvidia/Nemotron-3-Ultra-550b-a55b", parser: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", critic: "nvidia/Nemotron-3-Ultra-550b-a55b" });
+    expect(s.models.narrator).toBeUndefined();
+    expect(server.provider.calls).toHaveLength(6);
 
     await m.apply("B5");
     expect(m.getState().phase).toBe("applied");
@@ -76,26 +77,27 @@ describe("state machine: full AI mission through the real server handlers", () =
     expect(calls).toEqual([["B1", "B2", "B3", "B4"], ["B5"], ["B6"]]);
   });
 
-  it("shows the budget meter from server usage events and fills narration slots from simulator results", async () => {
+  it("shows the budget meter from server usage events and builds cards from application and catalog text only", async () => {
     const { m } = harness(happyScript());
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const s = m.getState();
-    expect(s.budget.inputTokens).toBe(7 * 1200);
-    expect(s.budget.outputTokens).toBe(7 * 300);
-    expect(s.budget.fraction).toBeCloseTo(Math.max((7 * 1200) / 30000, (7 * 300) / 6000));
-    // the card: application headline and result lines from the bundle's own row, plus labeled AI commentary
+    expect(s.budget.inputTokens).toBe(6 * 1200);
+    expect(s.budget.outputTokens).toBe(6 * 300);
+    expect(s.budget.fraction).toBeCloseTo(Math.max((6 * 1200) / 36000, (6 * 300) / 7000));
+    // the card: application headline and result lines from the bundle's own row, plus the catalog's own description
     const card = m.card("B5")!;
     expect(card.headline).toContain("B5:");
     expect(card.lines.join("\n")).toMatch(/\d+\.\d min \(baseline \d+\.\d min; [\d.]+ min (better|worse)\)/);
     expect(card.lines.at(-1)).toBe("Cost tier: $");
-    expect(card.commentaryLabel).toBe("AI commentary");
-    expect(card.commentary).toBe("Retimes signals on the corridor and depends on a hypothetical link.");
+    expect(card.commentaryLabel).toBe(CARD_TEXT_LABEL);
+    expect(card.commentary).toBe(fakeCatalog().byId.get("SP-BROENING")!.mechanism + " " + fakeCatalog().byId.get("SP-EASTERN")!.mechanism); // B5 = SP-BROENING + SP-EASTERN
+    expect(card.mechanismNote).toBe("");
     expect(card.lines.join(" ")).not.toContain("{{");
     expect(m.fill("Unknown {{p90.delta}} here")).toContain("n/a"); // no focus bundle, so unresolved, never a raw brace
   });
 
-  it("logs what the planner did in application words, then its commentary under an 'AI commentary' label", async () => {
+  it("logs what the planner did in application words, then its rationale selection under the unverified-rationale label", async () => {
     const { m } = harness(happyScript());
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
@@ -104,8 +106,8 @@ describe("state machine: full AI mission through the real server handlers", () =
     expect(d?.model).toBe("nvidia/Nemotron-3-Ultra-550b-a55b");
     expect(d?.sentence).toBe("Round 1: the planner proposed 4 bundles (B1, B2, B3, B4).");
     const c = log.filter((l) => l.kind === "commentary").map((l) => l.sentence);
-    expect(c).toContain("AI commentary (planner, mechanism only): Starting with a broad mix of signal and link mechanisms across types.");
-    expect(c.every((x) => x.startsWith("AI commentary ("))).toBe(true);
+    expect(c).toContain("AI rationale (unverified; not a result) (planner): The planner chose options that work through different kinds of intervention.");
+    expect(c.every((x) => x.startsWith("AI rationale (unverified; not a result)"))).toBe(true);
     // the parse line is an application template, not model text
     expect(sentences(m.getState())).toContain("Read your mission as: access lens, lower worst-case (90th percentile) travel time (you set the target next), cost tier up to $$, areas Dundalk.");
   });
@@ -117,7 +119,7 @@ describe("state machine: full AI mission through the real server handlers", () =
     const lying: AgentApi = {
       ...api,
       plan: async (req, opts) => {
-        opts?.onEvent?.({ event: "tool_call", data: { name: "propose", args: { action: "propose", commentary: "Saves twelve minutes. Nobody is isolated." }, model: "m", repaired: false } });
+        opts?.onEvent?.({ event: "tool_call", data: { name: "propose", args: { action: "propose", rationale: "Saves twelve minutes. Nobody is isolated." }, model: "m", repaired: false } });
         return api.plan(req, opts);
       },
     };
@@ -170,7 +172,7 @@ describe("state machine: fallbacks", () => {
   });
 
   it("two rejected planner outputs switch the mission to deterministic search, labeled, and it still finishes", async () => {
-    const digits = proposeReply(B1234, { commentary: "Saves 9 minutes" });
+    const digits = proposeReply(B1234, { rationale: "Saves 9 minutes" });
     const { m, server } = harness([parseReply(), digits, digits]);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
@@ -180,7 +182,7 @@ describe("state machine: fallbacks", () => {
     expect(s.degraded?.reason).toBe("output_rejected");
     const text = sentences(s);
     expect(text.filter((x) => x === "Planner output rejected; deterministic search used.")).toHaveLength(1); // logged once, not duplicated
-    expect(s.log.some((l) => l.kind === "validator" && l.errors?.some((e) => e.includes("digits")))).toBe(true);
+    expect(s.log.some((l) => l.kind === "validator" && l.errors?.some((e) => e.includes("rule 1")))).toBe(true);
     expect(s.finalists).toHaveLength(3);
     expect(s.finalists.every((f) => /^B(1[0-2]|[1-9])$/.test(f.bundleId))).toBe(true); // minted ids, same scheme as the AI path
     expect(server.provider.calls).toHaveLength(3); // parse + planner + ONE repair, then no more model calls
@@ -208,7 +210,7 @@ describe("state machine: fallbacks", () => {
   it("client-side validator rejects a tampered server response (defense in depth)", async () => {
     const api: AgentApi = {
       parse: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: JSON.parse(parseReply()) }),
-      plan: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: { action: "propose", commentary: "Trying.", mechanism_note: "Retiming acts on the detour.", bundles: [{ id: "B1", candidateIds: ["NOT-IN-CATALOG"] }] } }),
+      plan: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: { action: "propose", rationale: { kind: "cheap_first" }, bundles: [{ id: "B1", candidateIds: ["NOT-IN-CATALOG"] }] } }),
       critique: async () => { throw new Error("unexpected"); },
       narrate: async () => { throw new Error("unexpected"); },
     };
@@ -224,7 +226,7 @@ describe("state machine: fallbacks", () => {
   it("a rejected critic is skipped but the mission continues in AI mode", async () => {
     const script = happyScript();
     script[4] = "not json";
-    script.splice(5, 0, "still not json"); // critic repair also bad; then finalize, narrate follow
+    script.splice(5, 0, "still not json"); // critic repair also bad; then finalize follows
     const { m } = harness(script);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
@@ -236,7 +238,7 @@ describe("state machine: fallbacks", () => {
   });
 
   it("tops up with deterministic singles when the planner scores fewer than three bundles", async () => {
-    const { m } = harness([parseReply(), proposeReply([b("B1", "SP-BROENING")]), refineReply([]), finalizeReply(["B1", "B2", "B3"]), narrateReply(["B1", "B2", "B3"])]);
+    const { m } = harness([parseReply(), proposeReply([b("B1", "SP-BROENING")]), refineReply([]), finalizeReply(["B1", "B2", "B3"])]);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const s = m.getState();
@@ -388,15 +390,15 @@ describe("P2: a cancelled run cannot write into the next mission", () => {
   });
 });
 
-describe("finding NEW-7 (client side): what the server sends is screened again, and the log shows only the validated value", () => {
-  it("a commentary the server let through but the client screen refuses is blanked in the raw log JSON, the card and the log, and is reported", async () => {
+describe("finding NEW-7 (client side, R2-1): what the server sends is validated again, and no model text can be shown", () => {
+  it("a server that slips free text into the rationale is refused by the client: the mission switches to deterministic search and the text is nowhere in the log", async () => {
     const server = makeServer(happyScript());
     const api = apiFor(server);
     const permissive: AgentApi = {
       ...api,
       plan: async (req, opts) => {
         const out = await api.plan(req, opts);
-        if (out.status === "ok" && out.result.action === "propose") return { ...out, result: { ...out.result, commentary: "Nobody is left isolated and it is cheaper." } };
+        if (out.status === "ok" && out.result.action === "propose") return { ...out, result: { ...out.result, rationale: "Nobody is left isolated and it is cheaper." } as never };
         return out;
       },
     };
@@ -404,12 +406,25 @@ describe("finding NEW-7 (client side): what the server sends is screened again, 
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const log = m.getState().log;
-    const propose = log.find((l) => (l.raw as { action?: string } | undefined)?.action === "propose");
-    expect((propose?.raw as { commentary: string }).commentary).toBe(""); // validated value, not what the server sent
-    expect(JSON.stringify(log.map((l) => l.raw))).not.toContain("Nobody");
-    expect(log.filter((l) => l.kind === "commentary").map((l) => l.sentence).join(" ")).not.toContain("Nobody");
-    expect(log.some((l) => l.kind === "validator" && l.sentence.includes("withheld") && l.errors?.some((e) => e.includes("nobody")))).toBe(true);
-    expect(m.getState().mode).toBe("ai"); // one withheld field did not switch the mission to deterministic search
+    expect(JSON.stringify(log)).not.toContain("Nobody");
+    expect(m.getState().mode).toBe("deterministic");
+    expect(log.some((l) => l.kind === "validator" && l.errors?.some((e) => e.includes("rule 1")))).toBe(true);
+  });
+  it("extra fields a server adds are refused too (unknown keys), so text cannot ride along", async () => {
+    const server = makeServer(happyScript());
+    const api = apiFor(server);
+    const noisy: AgentApi = {
+      ...api,
+      plan: async (req, opts) => {
+        const out = await api.plan(req, opts);
+        if (out.status === "ok" && out.result.action === "propose") return { ...out, result: { ...out.result, extra: "Nobody is left isolated" } as never };
+        return out;
+      },
+    };
+    const m = new AgentMachine({ api: noisy, evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-raw-3" });
+    await m.start("cut access time");
+    await m.confirmGoal(MISSION);
+    expect(JSON.stringify(m.getState().log)).not.toContain("Nobody");
   });
 });
 
@@ -507,14 +522,14 @@ describe("P5: fallback labels say what actually happened, per role", () => {
     expect(sentences(s)).toContain(UI_MESSAGES.criticRejected);
     expect(sentences(s).filter((x) => x === UI_MESSAGES.criticRejected)).toHaveLength(1); // once, not twice
     expect(sentences(s).join(" ")).not.toContain("deterministic search used");
-    expect(Object.keys(s.narration)).toHaveLength(3); // the rest of the AI path still ran
+    expect(s.finalists).toHaveLength(3); // the rest of the AI path still ran
   });
   it("a rejected narration says finalists are shown without narration", async () => {
-    const script = happyScript();
-    const badNarr = narrateReply(["B5", "B6", "B3"]).replace("a hypothetical link", "9 hypothetical links");
+    const script = happyScript(true);
+    const badNarr = JSON.stringify({ action: "narrate", items: ["B5", "B6", "B3"].map((bundleId) => ({ bundleId, rationale: "9 hypothetical links" })) });
     script[6] = badNarr;
     script.push(badNarr);
-    const { m } = harness(script);
+    const { m } = harness(script, fakeEvaluator(), {}, { narrate: true });
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     expect(sentences(m.getState())).toContain(UI_MESSAGES.narratorRejected);
@@ -522,24 +537,28 @@ describe("P5: fallback labels say what actually happened, per role", () => {
     expect(m.getState().mode).toBe("ai");
   });
   it("a rejected planner really does switch, and only then says so", async () => {
-    const digits = proposeReply(B1234, { commentary: "Saves 9 minutes" });
+    const digits = proposeReply(B1234, { rationale: "Saves 9 minutes" });
     const { m } = harness([parseReply(), digits, digits]);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     expect(m.getState().mode).toBe("deterministic");
     expect(sentences(m.getState())).toContain(UI_MESSAGES.outputRejected);
   });
-  it("a finalist mechanism note that names a real catalog id with digits is accepted end to end (one shared allowlist)", async () => {
-    const script = happyScript();
-    script[5] = finalizeReply(["B5", "B6", "B3"], { finalists: ["B5", "B6", "B3"].map((bundleId) => ({ bundleId, mechanism_note: "Combines IM-I895 with a shuttle." })) });
-    const { m, server } = harness(script);
+  it("a finalist carries no model text: mechanismNote is empty, and the optional narrator feeds only labeled log lines", async () => {
+    const { m, server } = harness(happyScript(true), fakeEvaluator(), {}, { narrate: true });
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
-    expect(m.getState().finalists[0].mechanismNote).toContain("IM-I895");
-    expect(Object.keys(m.getState().narration)).toHaveLength(3); // the narrate route did not 400 on it
+    const st = m.getState();
+    expect(st.finalists.every((f) => f.mechanismNote === "")).toBe(true);
+    expect(st.narration).toEqual({}); // the narrator's selection never reaches a card
     expect(server.provider.calls).toHaveLength(7);
-    const narratePrompt = server.provider.calls[6].messages.map((x) => x.content).join("\n");
-    expect(narratePrompt).not.toContain("Combines IM-I895"); // the note is not re-sent into a prompt
+    const lines = st.log.filter((l) => l.kind === "commentary").map((l) => l.sentence);
+    expect(lines.filter((x) => x.includes("narrator, B")).length).toBe(3);
+    for (const id of ["B5", "B6", "B3"]) {
+      const card = m.card(id)!;
+      expect(card.mechanismNote).toBe("");
+      expect(card.commentaryLabel).toBe(CARD_TEXT_LABEL);
+    }
   });
 });
 

@@ -3,7 +3,7 @@ import type { PlanRequest } from "../../agent/protocol";
 import { CONCERN_TEXT, type BaselineRow, type EvaluationRow, type PlannerActionName } from "../../agent/tools";
 import {
   FRAMING,
-  NUMBER_RULE,
+  RATIONALE_RULE,
   candidateLines,
   evaluationTable,
   lensDescription,
@@ -15,11 +15,11 @@ export const PLAN_SCHEMA_NAME = "planner_action";
 
 const ACTION_RULES: Record<PlannerActionName, string> = {
   propose:
-    "This turn you must return action propose: between 1 and 6 bundles, each listing 1 to 3 distinct candidateIds from the catalog (the application assigns each bundle its id), a commentary sentence (at most 160 characters) saying why you chose this mix of mechanisms, and a mechanism_note sentence (at most 100 characters) describing what the mix physically does. Vary the bundles: different intervention types, different combinations.",
+    "This turn you must return action propose: a rationale, and between 1 and 6 bundles, each listing 1 to 3 distinct candidateIds from the catalog (the application assigns each bundle its id). Vary the bundles: different intervention types, different combinations.",
   refine:
-    "This turn you must return action refine: keep (ids of bundles worth keeping), drop (ids to stop considering), add (0 to 4 new bundles, each listing 1 to 3 distinct catalog candidateIds; never repeat a candidate set already evaluated; the application assigns ids) and a commentary sentence (at most 160 characters) on which mechanisms you are extending and why. Use the evaluation table to decide, but do not quote or describe its results.",
+    "This turn you must return action refine: a rationale, keep (ids of bundles worth keeping), drop (ids to stop considering) and add (0 to 4 new bundles, each listing 1 to 3 distinct catalog candidateIds; never repeat a candidate set already evaluated; the application assigns ids). Use the evaluation table to decide, but never quote or describe its results.",
   finalize:
-    "This turn you must return action finalize: exactly 3 distinct finalists chosen only from evaluated bundles listed in the table that are marked active, a commentary sentence (at most 160 characters) on why these three differ, and for each finalist a mechanism_note (at most 100 characters) naming what the bundle does and what it depends on. Do not rank them and do not recommend one.",
+    "This turn you must return action finalize: a rationale and exactly 3 distinct finalists (each just a bundleId) chosen only from evaluated bundles listed in the table that are marked active. Do not rank them and do not recommend one.",
 };
 
 export interface PlanPromptInput {
@@ -40,7 +40,7 @@ export function buildPlanMessages(i: PlanPromptInput) {
     `TASK: you search a closed catalog of hypothetical interventions for a planner. Mission lens: ${lensDescription(m.lens)}. Goal: lower ${m.goal.metric} versus the baseline, using the pGoal column (share of sampled futures meeting the goal) as the yardstick.`,
     `Round ${i.req.round} of at most 3. ${ACTION_RULES[i.action]}`,
     "You only choose IDs from the catalog below and combine 1 to 3 of them per bundle. You cannot invent interventions, parameters or data. You never score anything: the simulator does.",
-    NUMBER_RULE,
+    RATIONALE_RULE,
     `Catalog (eligible under the mission constraints):\n${candidateLines(i.eligible)}`,
     schemaBlock(i.jsonSchema),
   ].join("\n\n");

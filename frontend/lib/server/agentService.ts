@@ -82,6 +82,7 @@ import {
 } from "./ratelimit";
 import { sseResponse, type Emit } from "./sse";
 import { StoreError } from "./store";
+import type { HumanCheck } from "./turnstile";
 import {
   AttemptDenied,
   callRole,
@@ -105,6 +106,8 @@ export interface AgentDeps {
   frontDoor: FrontDoor;
   /** Process-local facts for /api/health (it never reads the store itself). */
   signals?: { storeDownAt: number };
+  /** Present only when WS_TURNSTILE_SECRET is set: verifies the mission-start token. */
+  verifyHuman?: HumanCheck;
   loadCatalog: () => Promise<Catalog>;
   now: () => number;
 }
@@ -168,6 +171,19 @@ export function guardPost(request: Request, config: Pick<ServerConfig, "allowedO
 /** The client address for this deployment (see clientIp: forged headers are ignored unless a proxy is trusted). */
 export function requestIp(request: Request, config: Pick<ServerConfig, "trustedProxyHops" | "trustForwarded">): string {
   return clientIp(request.headers, { trustedHops: config.trustedProxyHops, trustForwarded: config.trustForwarded });
+}
+
+const SESSION_ID = /^[A-Za-z0-9_-]{16,64}$/;
+
+/**
+ * Who a closure confirmation token belongs to. The browser sends an opaque, app-generated session
+ * id in `x-ws-session`; when it is present and well formed the token is bound to it, so a phone
+ * that changes network between the search and the confirmation still redeems its own token.
+ * Without the header the binding falls back to the client address bucket.
+ */
+export function requesterKey(request: Request, config: Pick<ServerConfig, "trustedProxyHops" | "trustForwarded">): string {
+  const sid = request.headers.get("x-ws-session")?.trim() ?? "";
+  return SESSION_ID.test(sid) ? ipKey(`session:${sid}`) : ipKey(requestIp(request, config));
 }
 
 /**
@@ -297,39 +313,67 @@ async function begin(
   request: Request,
   missionId: string,
   turn: { kind: string },
+  turnstileToken?: string,
 ): Promise<{ ok: true; begun: Begun } | { ok: false; res: Response }> {
   const { config, missions, limiter } = deps;
   const ip = requestIp(request, config);
   const clientKey = ipKey(ip);
   const quotaKey = `ip:${clientKey}`;
   let token: string | null = null;
+  let admitted = false;
   try {
-    if (!(await missions.isBound(missionId, ip))) {
-      // Only the hourly rule lives in the store; the daily allowance is the client's dollar cap,
-      // and a per-process daily count of new missions is checked in memory first.
-      const day = deps.frontDoor.newMission(ip);
-      if (!day.ok) {
-        const o = fallback("rate_limited", "Mission limit reached for this connection today. Use the recorded run.", "recorded_tour", day.retryAfterS);
-        return { ok: false, res: json(o, 429, { "retry-after": String(day.retryAfterS) }) };
+    // A mission this process already knows (in progress or bound earlier) is exempt from the
+    // process-wide new-mission caps. Anything else is admitted against them BEFORE any store command.
+    if (!deps.frontDoor.isKnown(missionId, clientKey)) {
+      const adm = deps.frontDoor.admitNewMission(ip);
+      if (!adm.ok) {
+        logEvent("info", "new_mission_refused", { ip: ipTag(ip), reason: adm.reason });
+        const o =
+          adm.reason === "ip_day"
+            ? fallback("rate_limited", "Mission limit reached for this connection today. Use the recorded run.", "recorded_tour", adm.retryAfterS)
+            : fallback("rate_limited", UI_MESSAGES.busy, "recorded_tour", adm.retryAfterS);
+        return { ok: false, res: json(o, 429, { "retry-after": String(adm.retryAfterS) }) };
       }
-      const rules = missionRules(config.ipMissionsPerHour, config.ipMissionsPerDay, ip).slice(0, 1);
-      const r = await limiter.consume(quotaKey, rules);
-      if (r.error) {
-        logEvent("warn", "protection_unavailable", { where: "limiter" });
-        return { ok: false, res: refuse("protection_unavailable", plannerUnavailable()) };
+      admitted = true;
+      if (await missions.isBound(missionId, ip)) {
+        // The record exists already (another instance created it): not a new mission after all.
+        deps.frontDoor.refundNewMission(ip);
+        deps.frontDoor.markKnown(missionId, clientKey);
+        admitted = false;
+      } else {
+        if (deps.verifyHuman) {
+          const v = turnstileToken === undefined && turn.kind !== "parse" ? "failed" : await deps.verifyHuman(turnstileToken, ip);
+          if (v !== "ok") {
+            logEvent("info", "verification_refused", { ip: ipTag(ip), result: v });
+            return {
+              ok: false,
+              res: refuse(
+                "verification_failed",
+                fallback("verification_failed", v === "failed" ? UI_MESSAGES.verificationFailed : UI_MESSAGES.verificationUnavailable, "retry_later", v === "failed" ? undefined : 10),
+              ),
+            };
+          }
+        }
+        const rules = missionRules(config.ipMissionsPerHour, config.ipMissionsPerDay, ip).slice(0, 1);
+        const r = await limiter.consume(quotaKey, rules);
+        if (r.error) {
+          logEvent("warn", "protection_unavailable", { where: "limiter" });
+          return { ok: false, res: refuse("protection_unavailable", plannerUnavailable()) };
+        }
+        if (!r.allowed) {
+          logEvent("info", "rate_limited", { ip: ipTag(ip), rule: r.blockedBy });
+          const o = fallback(
+            "rate_limited",
+            `Mission limit reached for this connection. Try again in about ${Math.ceil(r.retryAfterS / 60)} minutes, or use the recorded run.`,
+            "recorded_tour",
+            r.retryAfterS,
+          );
+          return { ok: false, res: json(o, 429, { "retry-after": String(r.retryAfterS) }) };
+        }
+        // Only the request that creates the record keeps its unit; a concurrent twin refunds.
+        if (!(await missions.bind(missionId, ip))) await limiter.refund(quotaKey, rules);
+        deps.frontDoor.markKnown(missionId, clientKey);
       }
-      if (!r.allowed) {
-        logEvent("info", "rate_limited", { ip: ipTag(ip), rule: r.blockedBy });
-        const o = fallback(
-          "rate_limited",
-          `Mission limit reached for this connection. Try again in about ${Math.ceil(r.retryAfterS / 60)} minutes, or use the recorded run.`,
-          "recorded_tour",
-          r.retryAfterS,
-        );
-        return { ok: false, res: json(o, 429, { "retry-after": String(r.retryAfterS) }) };
-      }
-      // Only the request that creates the record keeps its unit; a concurrent twin refunds.
-      if (!(await missions.bind(missionId, ip))) await limiter.refund(quotaKey, rules);
     }
     token = await missions.acquire(missionId, config.routeDeadlineMs + 5_000);
     if (token === null) {
@@ -359,6 +403,7 @@ async function begin(
   } catch (e) {
     if (!(e instanceof StoreError)) throw e;
     if (token !== null) await missions.release(missionId, token);
+    if (admitted) deps.frontDoor.refundNewMission(ip);
     logEvent("warn", "protection_unavailable", { where: "mission" });
     if (deps.signals) deps.signals.storeDownAt = deps.now();
     return { ok: false, res: refuse("protection_unavailable", plannerUnavailable()) };
@@ -572,20 +617,6 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
       : { ok: false, violations: [{ rule: 1, code: "not_json", path: "(root)", message: parsed.error }] };
 
     if (verdict.ok) {
-      if (verdict.withheld && verdict.withheld.length > 0) {
-        // Only the failing commentary is dropped; the rest of the answer is used.
-        emit({
-          event: "log",
-          data: {
-            kind: "validator",
-            sentence: "AI commentary was withheld because it did not pass the screen; the rest of the answer was used.",
-            code: "commentary_withheld",
-            errors: describeViolations(verdict.withheld),
-            model: res.model,
-          },
-        });
-        logEvent("info", "commentary_withheld", { role: s.role, fields: verdict.withheld.length, codes: [...new Set(verdict.withheld.map((w) => w.code))].join(",") });
-      }
       emit({ event: "tool_call", data: { name: s.toolName, args: verdict.value, model: res.model, repaired } });
       return { status: "ok", result: verdict.value, model: res.model, usage: { ...total }, repaired };
     }
@@ -610,7 +641,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
         { role: "assistant", content: res.text.slice(0, 4000) },
         {
           role: "user",
-          content: `Your previous reply was rejected by the validator:\n${errors.map((x) => `- ${x}`).join("\n")}\nReturn a corrected JSON object only, following every rule in the system message. Commentary describes mechanism in plain words: no numbers, results, comparisons or directions of change.`,
+          content: `Your previous reply was rejected by the validator:\n${errors.map((x) => `- ${x}`).join("\n")}\nReturn a corrected JSON object only, following every rule in the system message. There are no free-text fields: choose a rationale kind from the list.`,
         },
       ];
       continue;
@@ -695,7 +726,7 @@ export const handleParse: Handler = async (request, deps) => {
   if (!body.ok) return body.res;
   const pre = await preflight(deps, "parser", "parse");
   if (!pre.ok) return pre.res;
-  const b = await begin(deps, request, body.value.missionId, { kind: "parse" });
+  const b = await begin(deps, request, body.value.missionId, { kind: "parse" }, body.value.turnstileToken);
   if (!b.ok) return b.res;
   const catalog = pre.catalog;
   return streamOutcome(b.begun, async (emit) => {

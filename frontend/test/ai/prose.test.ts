@@ -7,8 +7,10 @@ const clean = (t: string, profile: ProseProfile = "card") => expect(proseIssues(
 const blocked = (t: string, profile: ProseProfile = "card") => expect(proseIssues(t, { allowedTokens: IDS, profile }), JSON.stringify(t)).not.toEqual([]);
 
 describe("the defensible claim", () => {
-  it("is exactly: numbers and outcomes are computed by the simulator; AI commentary describes mechanism only and is screened", () => {
-    expect(PROSE_CLAIM).toBe("Numbers and outcomes are computed by the simulator; AI commentary describes mechanism only and is screened.");
+  it("is exactly: numbers, outcomes and finalist cards are application-produced; AI text is labeled rationale in the decision log only, and screened", () => {
+    expect(PROSE_CLAIM).toBe(
+      "Numbers, outcomes and finalist cards are produced by the application from simulator results; AI text appears only as clearly labeled rationale in the decision log and is screened.",
+    );
   });
 });
 
@@ -323,5 +325,12 @@ describe("prose screen: allowlist charset", () => {
       expect(proseIssues(t), t).not.toEqual([]);
     }
     clean("Plain sentence, with a colon: and a semicolon; it’s fine — really.");
+  });
+});
+
+describe("test debt (round 3): the rationale profile's own allowances", () => {
+  it("guard: 'unresolved' is allowed in the rationale profile and refused as an outcome word in the card profile", () => {
+    expect(proseIssues("The shore stays unresolved.", { allowedTokens: [], profile: "rationale" })).toEqual([]);
+    expect(proseIssues("The shore stays unresolved.", { allowedTokens: [], profile: "card" }).map((i) => i.code)).toContain("outcome");
   });
 });

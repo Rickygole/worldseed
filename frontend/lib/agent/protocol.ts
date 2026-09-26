@@ -20,6 +20,11 @@ export const ParseRequestSchema = z.strictObject({
   missionId: MissionIdSchema,
   // Free text is only ever placed inside a fixed template as quoted data.
   text: z.string().trim().min(3).max(300),
+  /**
+   * Cloudflare Turnstile token from the page's widget. Sent with the mission start (this request);
+   * required by the server only when WS_TURNSTILE_SECRET is configured.
+   */
+  turnstileToken: z.string().min(1).max(2048).optional(),
 });
 export type ParseRequest = z.infer<typeof ParseRequestSchema>;
 
@@ -78,7 +83,9 @@ export type FallbackReason =
   | "output_rejected"
   | "upstream_error"
   | "catalog_unavailable"
-  | "round_limit";
+  | "round_limit"
+  /** Turnstile is enforced and the mission start carried no valid token (`next` is retry_later). */
+  | "verification_failed";
 
 export type FallbackNext = "deterministic_search" | "recorded_tour" | "retry_later";
 
@@ -106,7 +113,20 @@ export const UI_MESSAGES = {
   criticRejected: "Critic output rejected; continuing without a critique.",
   narratorRejected: "Narration rejected; finalists are shown without narration.",
   deterministicLabel: "Deterministic search (not AI)",
+  verificationFailed: "Human verification did not pass. Reload the page and try again, or use the recorded run.",
+  verificationUnavailable: "Human verification is unavailable right now. Try again shortly, or use the recorded run.",
+  busy: "Many new missions are starting right now. Try again shortly, or use the recorded run.",
 } as const;
+
+/**
+ * UI hook for the graceful budget path. True when the daily AI budget (global or this connection's)
+ * is used up: show `outcome.message` ("Daily AI budget reached; try the recorded run.") and offer
+ * the recorded run (`outcome.next === "recorded_tour"`) instead of an error. /api/health reports the
+ * same state as `degradedReason: "budget_exhausted"` once this process has seen it.
+ */
+export function isBudgetExhausted(o: Outcome<unknown>): boolean {
+  return o.status === "fallback" && o.reason === "budget_exhausted";
+}
 
 export type AgentRole = "parser" | "planner" | "critic" | "narrator" | "extractor";
 
@@ -171,6 +191,13 @@ export interface ClosureProposal {
   provenance: { url: string; quote: string; retrievedAt: string };
   /** Every proposal comes from a news snippet nobody has verified. The UI must say so next to the source link and quote. */
   verification: "unverified";
+  /**
+   * How firmly the quote states a current closure. "low" means the UI must show `reviewHint` and
+   * ask the reader to read the source before confirming (headline fragments, past-tense wording,
+   * announced-only closures, an ambiguous road name resolved to the one closable entry).
+   */
+  confidence: "high" | "low";
+  reviewHint?: string;
   startDate?: string;
   endDate?: string;
   /** Server-issued, single use, short lived. Present only when the server can honor a confirmation. */
@@ -223,7 +250,7 @@ export type ClosuresResponse =
     };
 
 /** POST /api/closures/confirm */
-export const ConfirmClosureRequestSchema = z.strictObject({ token: z.string().max(4096).regex(/^v1\.[A-Za-z0-9_-]{20,3000}\.[A-Za-z0-9_-]{20,100}$/) });
+export const ConfirmClosureRequestSchema = z.strictObject({ token: z.string().max(3200).regex(/^v1\.[A-Za-z0-9_-]{20,3000}\.[A-Za-z0-9_-]{20,100}$/) });
 export type ConfirmClosureRequest = z.infer<typeof ConfirmClosureRequestSchema>;
 
 /** The shape lib/sim/compile.ts accepts for a tavily-origin mutation (a MutationRecord). */

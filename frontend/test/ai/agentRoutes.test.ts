@@ -27,7 +27,7 @@ describe("plan route: happy path and SSE contract", () => {
     const done = doneOf(ev);
     expect(done).toMatchObject({ status: "ok", repaired: false, model: "nvidia/Nemotron-3-Ultra-550b-a55b" });
     expect(done.result.bundles).toHaveLength(2);
-    expect(ev[1].data.mission).toMatchObject({ inputTokens: 1200, outputTokens: 300, limitIn: 30000, limitOut: 6000 });
+    expect(ev[1].data.mission).toMatchObject({ inputTokens: 1200, outputTokens: 300, limitIn: 36000, limitOut: 7000 });
   });
   it("builds the prompt on the server from the catalog subset, with no numeric effects", async () => {
     const s = makeServer([proposeReply(B)]);
@@ -72,38 +72,38 @@ describe("failure mode: malformed JSON", () => {
   });
 });
 
-describe("failure mode: digits in prose", () => {
-  it("rejects digit-bearing prose, repairs once", async () => {
-    const s = makeServer([proposeReply(B, { commentary: "This cuts delay by 12 minutes." }), proposeReply(B)]);
+describe("failure mode: free text in place of a rationale selection (R2-1)", () => {
+  it("rejects a reply that carries model-written text, repairs once, and the text never reaches the outcome", async () => {
+    const s = makeServer([proposeReply(B, { rationale: "This cuts delay by 12 minutes." }), proposeReply(B)]);
     const ev = await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps));
     const log = ev.find((e) => e.event === "log")!;
-    expect(log.data.errors.join(" ")).toContain("digits");
+    expect(log.data.kind).toBe("validator");
+    expect(log.data.errors.join(" ")).toContain("rule 1");
+    expect(JSON.stringify(ev)).not.toContain("12 minutes"); // errors carry codes and paths, never the model's words
     expect(doneOf(ev)).toMatchObject({ status: "ok", repaired: true });
   });
-  it("falls back when the repair still contains digits", async () => {
-    const bad = proposeReply(B, { mechanism_note: "Gains 8 percent." });
+  it("the old text fields are refused (unknown keys), also on the second try: a fallback, not a blanked field", async () => {
+    const bad = proposeReply(B, { commentary: "Gains 8 percent.", mechanism_note: "Retimes." });
     const s = makeServer([bad, bad]);
     const ev = await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps));
     expect(doneOf(ev)).toMatchObject({ status: "fallback", reason: "output_rejected" });
+    expect(s.provider.calls).toHaveLength(2); // exactly one repair turn (guard for the one-repair rule)
+    expect(ev.some((e) => e.event === "log" && e.data.code === "commentary_withheld")).toBe(false);
   });
-  it("finding NEW-1: a commentary field that fails the vocabulary screen is withheld, not the whole answer (no repair turn, a decision-log event)", async () => {
-    const s = makeServer([proposeReply(B, { commentary: "This is cheaper and improves access." })]);
-    const ev = await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps));
-    const done = doneOf(ev);
-    expect(done).toMatchObject({ status: "ok", repaired: false });
-    expect(done.result.commentary).toBe(""); // withheld
-    expect(done.result.mechanism_note).toBe("Retiming and a connector act on the detour.");
-    expect(done.result.bundles).toHaveLength(2); // the rest of the answer was used
-    expect(s.provider.calls).toHaveLength(1);
-    const log = ev.find((e) => e.event === "log" && e.data.code === "commentary_withheld");
-    expect(log?.data).toMatchObject({ kind: "validator" });
-    expect(log?.data.errors.join(" ")).toContain('"cheaper"'); // names the dictionary word, never model text
-  });
-  it("finding NEW-1: placeholders in commentary are withheld as well", async () => {
-    const s = makeServer([proposeReply(B, { mechanism_note: "Baseline access is {{p90.baseline}} today." })]);
+  it("a valid rationale selection passes untouched, and no output field can hold a sentence", async () => {
+    const s = makeServer([proposeReply(B, { rationale: { kind: "goal_metric", focus: "SP-BROENING" } })]);
     const done = doneOf(await readSse(await handlePlan(post("/api/agent/plan", planBody()), s.deps)));
     expect(done).toMatchObject({ status: "ok", repaired: false });
-    expect(done.result.mechanism_note).toBe("");
+    expect(done.result.rationale).toEqual({ kind: "goal_metric", focus: "SP-BROENING" });
+    expect(Object.keys(done.result).sort()).toEqual(["action", "bundles", "rationale"]);
+  });
+  it("the prompt tells the model to choose a rationale kind from the fixed list and to write no sentence", async () => {
+    const s = makeServer([proposeReply(B)]);
+    await handlePlan(post("/api/agent/plan", planBody()), s.deps).then(readSse);
+    const sys = s.provider.calls[0].messages[0].content;
+    expect(sys).toContain("you never write a sentence");
+    expect(sys).toContain("spread_mechanisms");
+    expect(JSON.stringify(s.provider.calls[0].jsonSchema)).toContain("cheap_first");
   });
 });
 
@@ -293,8 +293,8 @@ describe("critique and narrate routes", () => {
     expect(ev.find((e) => e.event === "log")!.data.errors.join(" ")).toContain("unknown_bundle");
     expect(doneOf(ev)).toMatchObject({ status: "ok", repaired: true });
   });
-  it("narrate: digits reject the output (one repair), and the model is never shown a result or a direction", async () => {
-    const digits = JSON.stringify({ action: "narrate", items: ["B1", "B2", "B3"].map((bundleId) => ({ bundleId, commentary: "Cuts delay by 9 minutes." })) });
+  it("narrate: free text rejects the output (one repair), and the model is never shown a result or a direction", async () => {
+    const digits = JSON.stringify({ action: "narrate", items: ["B1", "B2", "B3"].map((bundleId) => ({ bundleId, rationale: "Cuts delay by 9 minutes." })) });
     const s = makeServer([digits, narrateReply(["B1", "B2", "B3"])]);
     const body = { missionId: MID, mission: MISSION, finalists: ["B1", "B2", "B3"].map((bundleId) => ({ bundleId })), evaluations: rows3, baseline: BASELINE };
     const ev = await readSse(await handleNarrate(post("/api/agent/narrate", body), s.deps));

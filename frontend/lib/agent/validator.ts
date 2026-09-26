@@ -7,8 +7,9 @@
  *      allowed type. Every gazetteer ID exists.
  *   3. Bundles have 1-3 unique candidates, no duplicate bundles, at most 12 evaluated per mission.
  *   4. Round <= 3, the action matches the phase, the per-mission token budget is not exceeded.
- *   5. Model prose is screened (prose.ts): plain words only, no numbers or direction words; figures
- *      appear only as {{slot}} placeholders limited to the item's own bundle or the baseline.
+ *   5. A model writes no text: its "why" is a rationale selection (kind from a fixed list, optional
+ *      catalog focus id) that the application renders (rationale.ts). Anything else is a schema
+ *      violation, so free text cannot reach a card or the log.
  *   6. finalize names exactly 3 distinct evaluated bundles and nothing unevaluated.
  *   7. On violation: one repair turn, then deterministic search. That is orchestration, done in
  *      lib/server/agentService.ts (repair) and agent/machine.ts (fallback), not here.
@@ -19,9 +20,7 @@
  */
 import { z } from "zod";
 import { candidateRejection, type Catalog, type CatalogConstraints } from "./catalog";
-import { proseIssues, type ProseProfile } from "./prose";
 import {
-  BUNDLE_ID_RE,
   CritiqueSchema,
   expectedAction,
   MAX_EVALUATED_BUNDLES,
@@ -52,12 +51,7 @@ export interface Violation {
   message: string;
 }
 
-/**
- * `withheld` lists commentary fields that failed the screen and were blanked (their text replaced
- * by ""), with the reason for each. A withheld field never rejects the output; structural
- * violations, and digits in a text field, still do.
- */
-export type ValidationResult<T> = { ok: true; value: T; withheld?: Violation[] } | { ok: false; violations: Violation[] };
+export type ValidationResult<T> = { ok: true; value: T } | { ok: false; violations: Violation[] };
 
 export interface KnownBundle {
   id: string;
@@ -128,55 +122,6 @@ export function checkTokenBudget(b: TokenBudget | undefined): Violation[] {
     out.push(v(4, "token_budget", "(budget)", "per-mission output token budget exceeded"));
   }
   return out;
-}
-
-export function checkProse(path: string, text: string, allowedTokens: readonly string[], profile: ProseProfile = "card"): Violation[] {
-  return proseIssues(text, { allowedTokens, profile }).map((i) => v(5, i.code, path, i.message));
-}
-
-/** Rejections of commentary since this process started, by code (for the smoke script and diagnostics). */
-const screenCounts: Record<string, number> = {};
-export function screenStats(): Record<string, number> {
-  return { ...screenCounts };
-}
-
-/**
- * Collects the screen's verdicts for one output. A commentary field that fails only on vocabulary
- * is blanked and reported in `soft` (the output survives without it); digits in a text field are
- * `hard` and reject the whole output.
- */
-class Screen {
-  hard: Violation[] = [];
-  soft: Violation[] = [];
-
-  commentary(path: string, text: string, tokens: readonly string[], profile: ProseProfile): string {
-    const issues = proseIssues(text, { allowedTokens: tokens, profile });
-    if (issues.length === 0) return text;
-    let hard = false;
-    for (const i of issues) {
-      const viol = v(5, i.code, path, i.message);
-      screenCounts[i.code] = (screenCounts[i.code] ?? 0) + 1;
-      if (i.code === "digits") {
-        hard = true;
-        this.hard.push(viol);
-      } else this.soft.push(viol);
-    }
-    return hard ? text : "";
-  }
-}
-
-/**
- * The identifiers a prose field may contain even though they hold digits: exact catalog IDs and
- * application-minted bundle IDs (B1..B12). One builder is used by the client validators and by the
- * server re-checks, so a sentence accepted in one place is accepted in the other. A bundle ID that
- * does not have the minted shape is never whitelisted.
- */
-export function allowedProseTokens(catalog: Catalog, bundleIds: Iterable<string> = []): string[] {
-  return [...catalog.byId.keys(), ...[...bundleIds].filter((id) => BUNDLE_ID_RE.test(id))];
-}
-
-function proseTokens(ctx: { catalog: Catalog; known?: readonly KnownBundle[] }, extra: readonly string[] = []): string[] {
-  return allowedProseTokens(ctx.catalog, [...(ctx.known ?? []).map((b) => b.id), ...extra]);
 }
 
 /** Rule 2 for a single candidate. */
@@ -259,7 +204,7 @@ export function validatePlannerOutput(raw: unknown, ctx: PlannerContext): Valida
   }
   const checked = checkPlannerAction(action, ctx);
   violations.push(...checked.violations);
-  return violations.length ? { ok: false, violations } : { ok: true, value: checked.action, withheld: checked.withheld };
+  return violations.length ? { ok: false, violations } : { ok: true, value: checked.action };
 }
 
 /**
@@ -279,38 +224,22 @@ export function validateMintedPlannerOutput(raw: unknown, ctx: PlannerContext): 
   });
   const checked = checkPlannerAction(action, ctx);
   violations.push(...checked.violations);
-  return violations.length ? { ok: false, violations } : { ok: true, value: checked.action, withheld: checked.withheld };
+  return violations.length ? { ok: false, violations } : { ok: true, value: checked.action };
 }
 
 interface PlannerChecked {
-  /** Structural violations plus hard prose violations (digits): any of these rejects the output. */
   violations: Violation[];
-  /** Commentary fields that were blanked, and why. */
-  withheld: Violation[];
-  /** The action with withheld commentary blanked. */
   action: PlannerAction;
 }
 
 function checkPlannerAction(action: PlannerAction, ctx: PlannerContext): PlannerChecked {
-  const fresh = action.action === "propose" ? action.bundles : action.action === "refine" ? action.add : [];
-  const tokens = allowedProseTokens(ctx.catalog, [...ctx.known.map((b) => b.id), ...fresh.map((b) => b.id)]);
-  const screen = new Screen();
-  const commentary = screen.commentary("commentary", action.commentary, tokens, "rationale");
-  let out: Violation[];
-  let value: PlannerAction;
-  if (action.action === "propose") {
-    const note = screen.commentary("mechanism_note", action.mechanism_note, tokens, "rationale");
-    out = validatePropose(action, ctx);
-    value = { ...action, commentary, mechanism_note: note };
-  } else if (action.action === "refine") {
-    out = validateRefine(action, ctx);
-    value = { ...action, commentary };
-  } else {
-    const finalists = action.finalists.map((f, i) => ({ ...f, mechanism_note: screen.commentary(`finalists.${i}.mechanism_note`, f.mechanism_note, tokens, "card") }));
-    out = validateFinalize(action, ctx);
-    value = { ...action, commentary, finalists: finalists as FinalizeAction["finalists"] };
-  }
-  return { violations: [...out, ...screen.hard], withheld: screen.soft, action: value };
+  const out: Violation[] = [];
+  const focus = action.rationale.focus;
+  if (focus !== undefined) out.push(...checkCandidate(ctx.catalog, constraintsOf(ctx.mission), focus, "rationale.focus"));
+  if (action.action === "propose") out.push(...validatePropose(action, ctx));
+  else if (action.action === "refine") out.push(...validateRefine(action, ctx));
+  else out.push(...validateFinalize(action, ctx));
+  return { violations: out, action };
 }
 
 function validatePropose(a: ProposeAction, ctx: PlannerContext): Violation[] {
@@ -425,20 +354,17 @@ export function validateNarrationOutput(raw: unknown, ctx: NarrationContext): Va
   if (!parsed.ok) return { ok: false, violations: [...violations, ...parsed.violations] };
   const n = parsed.value;
   const allowed = new Set(ctx.finalistIds);
-  const tokens = proseTokens(ctx, ctx.finalistIds);
   const seen = new Set<string>();
-  const screen = new Screen();
-  const items = n.items.map((it, i) => {
+  n.items.forEach((it, i) => {
     if (!allowed.has(it.bundleId)) violations.push(v(6, "unknown_bundle", `items.${i}.bundleId`, "bundle is not a finalist"));
     if (seen.has(it.bundleId)) violations.push(v(6, "duplicate_finalist", `items.${i}.bundleId`, "bundle is narrated twice"));
     seen.add(it.bundleId);
-    // Commentary has no placeholders at all, so a card cannot quote another bundle's figures (or its own):
-    // every figure on a card comes from the application's own template.
-    return { ...it, commentary: screen.commentary(`items.${i}.commentary`, it.commentary, tokens, "card") };
+    if (it.rationale.focus !== undefined && !ctx.catalog.byId.has(it.rationale.focus)) {
+      violations.push(v(2, "unknown_candidate", `items.${i}.rationale.focus`, "candidateId is not in the catalog"));
+    }
   });
   if (seen.size !== allowed.size) violations.push(v(6, "missing_finalist", "items", "every finalist must be narrated exactly once"));
-  violations.push(...screen.hard);
-  return violations.length ? { ok: false, violations } : { ok: true, value: { ...n, items }, withheld: screen.soft };
+  return violations.length ? { ok: false, violations } : { ok: true, value: n };
 }
 
 /** Human-readable list for logs and the repair prompt. */

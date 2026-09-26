@@ -11,22 +11,51 @@
  * The output is written so it can be pasted into docs/FEEDBACK_NOTES.md.
  *
  * --measure-screen [--base http://localhost:3000] [--n 10]
- *   Measures how much real-model commentary passes the app's screen. It calls a RUNNING app's own
- *   routes (start it yourself with a real NEBIUS_API_KEY in its environment; this script never reads
- *   or prints the key), runs N synthetic missions (propose, finalize, narrate: about three model
- *   calls each), and prints, per text field, how often the commentary passed, was withheld by the
- *   screen (with the rejection codes), or made the whole answer fall back. Synthetic evaluation
- *   numbers are used only to build valid requests; they are not results. Give the app room for the
- *   run, for example: WS_IP_MISSIONS_PER_HOUR=100 WS_FRONT_DOOR_PER_IP_PER_MIN=300 WS_IP_DAILY_USD=5.
+ *   Measures how often the REAL model returns a valid rationale selection (the app's only model
+ *   output that reaches a reader is a rationale KIND from a fixed list; see lib/agent/rationale.ts).
+ *   It calls a RUNNING app's own routes (this script never reads or prints the key), runs N
+ *   synthetic missions (propose, finalize, narrate: about three model calls each) and prints how
+ *   many answers were valid first time, needed the one repair turn, or fell back to deterministic
+ *   search, plus the rationale kinds the model chose. Synthetic evaluation numbers are used only to
+ *   build valid requests; they are not results.
+ *
+ *   WARNING: --measure-screen SPENDS REAL MODEL CREDIT (about 3 x N provider calls) through the app's own key.
+ *   Point it ONLY at a LOCAL app (localhost) that you started YOURSELF WITHOUT store credentials
+ *   (no UPSTASH_* / KV_* variables), so it cannot burn the shared store's command allowance or
+ *   share limits with real visitors. It refuses a non-local --base. Give the local app room for the
+ *   run, for example: WS_IP_MISSIONS_PER_HOUR=100 WS_FRONT_DOOR_PER_IP_PER_MIN=300 WS_IP_DAILY_USD=5
+ *   WS_IP_MISSIONS_PER_DAY=100 WS_NEW_MISSIONS_PER_HOUR=100 (start it with npm run dev or npm start).
+ *
+ * --help
+ *   Prints this text.
  */
 import OpenAI from "openai";
+
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL(import.meta.url), "utf8");
+  console.log(src.slice(src.indexOf("/**") + 3, src.indexOf("*/")).replace(/^ \* ?/gm, "").trim());
+  console.log("\nBy default (no flag) it lists models and makes one tiny structured call per role model: a few cents of real credit.");
+  process.exit(0);
+}
 
 if (process.argv.includes("--measure-screen")) {
   const arg = (name, dflt) => {
     const i = process.argv.indexOf(name);
     return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : dflt;
   };
-  await measureScreen(arg("--base", "http://localhost:3000").replace(/\/+$/, ""), Math.max(1, Number(arg("--n", "10")) || 10));
+  const base = arg("--base", "http://localhost:3000").replace(/\/+$/, "");
+  let host = "";
+  try {
+    host = new URL(base).hostname;
+  } catch {
+    /* refused below */
+  }
+  if (!["localhost", "127.0.0.1", "[::1]", "::1"].includes(host)) {
+    console.error("--measure-screen spends real model credit and must target a LOCAL app (localhost) started without store credentials. Refusing.");
+    process.exit(2);
+  }
+  await measureScreen(base, Math.max(1, Number(arg("--n", "10")) || 10));
   process.exit(0);
 }
 
@@ -42,20 +71,11 @@ async function measureScreen(base, n) {
   }
   const mission = { lens: "access", goal: { metric: "p90", op: "<=", targetDelta: 300 }, constraints: { maxCostTier: "$$$", types: [], areas: [] } };
   const baseline = { p50S: 600, p90S: 1500, pctWithin: 40, isolatedCount: 6, equityGapS: 240 };
-  const stats = new Map(); // field -> { total, passed, withheld, codes: Map }
-  const note = (field, ok, codes = []) => {
-    const s = stats.get(field) ?? { total: 0, passed: 0, withheld: 0, codes: new Map() };
-    s.total++;
-    if (ok) s.passed++;
-    else {
-      s.withheld++;
-      for (const c of codes) s.codes.set(c, (s.codes.get(c) ?? 0) + 1);
-    }
-    stats.set(field, s);
-  };
   let calls = 0;
+  let firstTime = 0;
   let repaired = 0;
   let fallbacks = 0;
+  const kinds = new Map();
   const post = async (path, body) => {
     calls++;
     const res = await fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", accept: "text/event-stream" }, body: JSON.stringify(body) });
@@ -64,28 +84,23 @@ async function measureScreen(base, n) {
     const done = events.find((e) => e.event === "done")?.data ?? (res.headers.get("content-type")?.includes("json") ? JSON.parse(text) : null);
     return { events, done, status: res.status };
   };
-  const audit = (fields, r) => {
+  const audit = (r) => {
     if (r.done?.status !== "ok") {
       fallbacks++;
       console.log(`  fallback: ${r.done?.reason ?? r.status} (${r.done?.message ?? ""})`);
       return false;
     }
     if (r.done.repaired) repaired++;
-    const withheld = new Map();
-    for (const e of r.events.filter((x) => x.event === "log" && x.data?.code === "commentary_withheld")) {
-      for (const line of e.data.errors ?? []) {
-        const m = /rule 5 \((\w+)\) at ([\w.]+):/.exec(line);
-        if (m) withheld.set(m[2], [...(withheld.get(m[2]) ?? []), m[1]]);
-      }
-    }
-    for (const f of fields) note(f, !withheld.has(f), withheld.get(f) ?? []);
+    else firstTime++;
+    const kind = r.done.result?.rationale?.kind ?? r.done.result?.items?.map((i) => i.rationale?.kind).join("+");
+    if (kind) kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
     return true;
   };
-  console.log(`Measuring the commentary screen against ${base} with ${n} synthetic missions (never prints the key).`);
+  console.log(`Measuring rationale-selection validity against ${base} with ${n} synthetic missions (spends real credit; never prints the key).`);
   for (let i = 1; i <= n; i++) {
     const missionId = `measure-${Date.now().toString(36)}-${i}`;
     const propose = await post("/api/agent/plan", { missionId, mission, phase: "search", round: 1, bundles: [], evaluations: [], dropped: [] });
-    if (!audit(["commentary", "mechanism_note"], propose)) continue;
+    if (!audit(propose)) continue;
     const bundles = propose.done.result.bundles;
     const rows = bundles.slice(0, 3).map((b, k) => ({ bundleId: b.id, candidateIds: b.candidateIds, p50S: 500 + k, p90S: 1300 + 10 * k, pctWithin: 50, isolatedCount: 3, equityGapS: 200, pGoal: 0.4, costTier: "$$$" }));
     if (rows.length < 3) {
@@ -93,19 +108,16 @@ async function measureScreen(base, n) {
       continue;
     }
     const fin = await post("/api/agent/plan", { missionId, mission, phase: "finalize", round: 1, bundles: bundles.slice(0, 3).map((b) => ({ id: b.id, candidateIds: b.candidateIds })), evaluations: rows, baseline, dropped: [] });
-    if (audit(["commentary", "finalists.0.mechanism_note", "finalists.1.mechanism_note", "finalists.2.mechanism_note"], fin)) {
+    if (audit(fin)) {
       const nar = await post("/api/agent/narrate", { missionId, mission, finalists: fin.done.result.finalists.map((f) => ({ bundleId: f.bundleId })), evaluations: rows, baseline });
-      audit(["items.0.commentary", "items.1.commentary", "items.2.commentary"], nar);
+      audit(nar);
     }
   }
-  console.log(`\nProvider-backed calls made through the app: ${calls}; answers that needed a repair turn: ${repaired}; whole answers that fell back: ${fallbacks}`);
-  console.log("Per-field acceptance (passed / total; withheld reasons by code):");
-  for (const [field, s] of [...stats].sort()) {
-    const codes = [...s.codes].map(([c, k]) => `${c}=${k}`).join(", ");
-    console.log(`  ${field.padEnd(30)} ${s.passed}/${s.total} = ${((100 * s.passed) / Math.max(1, s.total)).toFixed(0)}%${codes ? `   withheld by: ${codes}` : ""}`);
-  }
-  const all = [...stats.values()].reduce((a, s) => ({ t: a.t + s.total, p: a.p + s.passed }), { t: 0, p: 0 });
-  console.log(`Overall commentary acceptance: ${all.p}/${all.t} = ${((100 * all.p) / Math.max(1, all.t)).toFixed(0)}%`);
+  const total = firstTime + repaired + fallbacks;
+  console.log(`\nProvider-backed answers: ${total} (${calls} routes called). Valid first time: ${firstTime}, valid after the one repair turn: ${repaired}, fell back to deterministic search: ${fallbacks}.`);
+  console.log(`Valid selection rate: ${total ? (((firstTime + repaired) / total) * 100).toFixed(0) : 0}% (first time ${total ? ((firstTime / total) * 100).toFixed(0) : 0}%).`);
+  console.log(`Rationale kinds chosen: ${[...kinds].map(([k, c]) => `${k}=${c}`).join(", ") || "none"}`);
+  console.log("No model-written sentence reaches a reader in this design, so there is no text to screen or blank.");
 }
 
 const DEFAULTS = {
