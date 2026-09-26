@@ -52,7 +52,7 @@
 :root {
   color-scheme: dark;
   --ws-topbar: 56px;
-  --ws-ribbon: 96px;
+  --ws-ribbon: 112px;
   --ws-footer: 32px;
   --ws-left: 300px;
   --ws-right: 360px;
@@ -192,10 +192,44 @@ body {
   outline-offset: 2px;
 }
 
-/* MapLibre: hide its own attribution control; the footer carries it. */
-.maplibregl-ctrl-bottom-right,
-.maplibregl-ctrl-bottom-left {
-  display: none;
+/*
+ * MapLibre attribution stays ON (OSM and OpenFreeMap terms). It sits just above the footer, to the right of
+ * the left panel, in the app's dark styling.
+ */
+/*
+ * react-map-gl puts the map under the deck.gl canvas with z-index -1, which would also bury the attribution
+ * control under the terrain. Keep only the map canvas underneath; the controls then stack above the deck canvas.
+ */
+.ws-map .maplibregl-map {
+  z-index: auto !important;
+}
+.ws-map .maplibregl-canvas-container {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+.ws-map .maplibregl-ctrl-bottom-right {
+  right: auto;
+  left: 16px;
+  bottom: 36px;
+}
+.ws-map[data-left-open="true"] .maplibregl-ctrl-bottom-right {
+  left: calc(var(--ws-left) + 24px);
+}
+.ws-map .maplibregl-ctrl.maplibregl-ctrl-attrib {
+  margin: 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgb(10 14 20 / 0.82);
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.ws-map .maplibregl-ctrl-attrib a {
+  color: var(--color-muted);
+}
+.ws-map .maplibregl-ctrl-attrib a:hover {
+  color: var(--color-text);
 }
 
 /* deck.gl tooltip */
@@ -203,10 +237,65 @@ body {
   font-family: var(--font-jetbrains), monospace !important;
 }
 
+/* Loading skeleton: a soft shimmer; static under reduced motion. */
+.skeleton {
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-surface-2) 0%, var(--color-border) 50%, var(--color-surface-2) 100%);
+  background-size: 200% 100%;
+  animation: ws-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes ws-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.progress-indeterminate {
+  position: relative;
+  overflow: hidden;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+.progress-indeterminate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--color-ok);
+  animation: ws-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes ws-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* Below the designed minimum width the app still renders; the page scrolls instead of clipping. */
+@media (max-width: 1023px) {
+  html,
+  body {
+    overflow: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
+  }
+  .skeleton,
+  .progress-indeterminate::after {
+    animation: none;
+  }
+  .progress-indeterminate::after {
+    width: 100%;
+    opacity: 0.5;
   }
 }

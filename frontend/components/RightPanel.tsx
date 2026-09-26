@@ -1,21 +1,26 @@
 "use client";
 
-import { Circle, PanelRightClose, Sparkles } from "lucide-react";
+import { GitFork, ListChecks, PanelRightClose, Sparkles, Trophy } from "lucide-react";
 import { useApp, type BudgetTier } from "@/lib/store";
 
+/**
+ * Planner panel. Part 2 wires these sections to the agent machine; until then each one is an honest empty
+ * state that says what will appear and why it is not here yet. No sample content.
+ */
+
 const EXAMPLES = [
-  "Get every block group back within 8 minutes",
-  "Halve the equity gap",
-  "Cheapest fix for the south shore",
+  "Restore cross-harbor job access for the worst-hit block groups",
+  "Halve the residents losing more than 10% of cross-harbor jobs",
+  "Cheapest option that helps low-wage workers most",
 ];
 
 const TIERS: { id: BudgetTier; label: string; hint: string }[] = [
-  { id: "low", label: "$", hint: "Low budget" },
-  { id: "med", label: "$$", hint: "Medium budget" },
-  { id: "high", label: "$$$", hint: "High budget" },
+  { id: "low", label: "$", hint: "Low relative cost tier" },
+  { id: "med", label: "$$", hint: "Medium relative cost tier" },
+  { id: "high", label: "$$$", hint: "High relative cost tier" },
 ];
 
-const STEPS = ["Read the goal", "Propose interventions", "Simulate each on the network", "Verify and rank"];
+export const PLANNER_UNAVAILABLE_REASON = "AI planner setup in progress. Explore scenarios by hand meanwhile.";
 
 function Mission() {
   const goal = useApp((s) => s.goal);
@@ -24,10 +29,12 @@ function Mission() {
   const setBudget = useApp((s) => s.setBudget);
 
   return (
-    <section className="p-4" aria-label="Mission">
-      <h2 className="label mb-2">Mission</h2>
+    <section className="p-4" aria-labelledby="mission-h">
+      <h2 id="mission-h" className="label mb-2">
+        Mission
+      </h2>
       <label htmlFor="goal" className="sr-only">
-        Goal
+        Goal, in plain language
       </label>
       <textarea
         id="goal"
@@ -39,15 +46,17 @@ function Mission() {
       />
       <div className="mt-2 flex flex-wrap gap-2">
         {EXAMPLES.map((ex) => (
-          <button key={ex} className="chip text-muted hover:text-text" onClick={() => setGoal(ex)}>
+          <button key={ex} className="chip h-auto min-h-7 whitespace-normal py-1 text-left text-muted hover:text-text" onClick={() => setGoal(ex)}>
             {ex}
           </button>
         ))}
       </div>
 
       <div className="mt-4 flex items-center justify-between">
-        <span className="label">Budget tier</span>
-        <div role="radiogroup" aria-label="Budget tier" className="flex rounded-ctl border border-border p-1">
+        <span className="label" id="budget-label">
+          Cost tier
+        </span>
+        <div role="radiogroup" aria-labelledby="budget-label" className="flex rounded-ctl border border-border p-1">
           {TIERS.map((t) => (
             <button
               key={t.id}
@@ -56,11 +65,7 @@ function Mission() {
               title={t.hint}
               onClick={() => setBudget(t.id)}
               className="num h-6 min-w-10 rounded px-2 text-xs"
-              style={
-                budget === t.id
-                  ? { background: "var(--color-border)", color: "var(--color-text)" }
-                  : { color: "var(--color-muted)" }
-              }
+              style={budget === t.id ? { background: "var(--color-border)", color: "var(--color-text)" } : { color: "var(--color-muted)" }}
             >
               {t.label}
             </button>
@@ -68,72 +73,36 @@ function Mission() {
         </div>
       </div>
 
-      <button
-        className="btn btn-primary mt-4 w-full"
-        disabled
-        title="Stub. The search agent arrives with the real simulator."
-      >
+      <button className="btn btn-primary mt-4 w-full" disabled aria-describedby="find-reason">
         <Sparkles size={16} aria-hidden />
         Find a better future
       </button>
-      <p className="mt-2 text-xs text-muted">Stub: the search agent is not wired up yet.</p>
+      <p id="find-reason" className="mt-2 text-xs text-muted">
+        {PLANNER_UNAVAILABLE_REASON}
+      </p>
     </section>
   );
 }
 
-function DecisionLog() {
+function EmptySection({
+  id,
+  title,
+  icon: Icon,
+  children,
+}: {
+  id: string;
+  title: string;
+  icon: typeof ListChecks;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="border-t border-border p-4" aria-label="Decision log">
-      <h2 className="label mb-2">Decision log</h2>
-      <ol className="relative space-y-3">
-        {STEPS.map((s, i) => (
-          <li key={s} className="flex items-start gap-2">
-            <span className="relative flex flex-col items-center">
-              <Circle size={14} className="mt-0.5 text-muted" aria-hidden />
-              {i < STEPS.length - 1 && <span className="absolute top-5 h-5 w-px bg-border" aria-hidden />}
-            </span>
-            <span className="flex-1 text-sm">{s}</span>
-            <span className="num text-xs text-muted">pending</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function Futures() {
-  return (
-    <section className="border-t border-border p-4" aria-label="Futures">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="label">Futures</h2>
-        <span className="chip h-6 px-2 text-future" style={{ borderColor: "rgb(167 139 250 / 0.5)" }}>
-          not run
-        </span>
-      </div>
-
-      <div className="rounded-ctl border border-dashed border-border p-2">
-        <p className="label mb-2">Fan</p>
-        <div className="flex h-16 items-center justify-center text-xs text-muted">Outcome fan chart slot</div>
-      </div>
-      <div className="mt-2 rounded-ctl border border-dashed border-border p-2">
-        <p className="label mb-2">Job grid</p>
-        <div className="grid grid-cols-8 gap-1" aria-hidden>
-          {Array.from({ length: 16 }).map((_, i) => (
-            <span key={i} className="h-4 rounded-sm bg-surface-2" />
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {["A", "B", "C"].map((k) => (
-          <div key={k} className="card flex items-center justify-between p-3">
-            <div>
-              <div className="text-sm font-medium">Finalist {k}</div>
-              <div className="text-xs text-muted">Awaiting search</div>
-            </div>
-            <span className="num text-xs text-muted">--</span>
-          </div>
-        ))}
+    <section className="border-t border-border p-4" aria-labelledby={id}>
+      <h2 id={id} className="label mb-2">
+        {title}
+      </h2>
+      <div className="flex gap-3 rounded-ctl border border-dashed border-border p-3">
+        <Icon size={16} className="mt-0.5 shrink-0 text-muted" aria-hidden />
+        <p className="text-xs leading-4 text-muted">{children}</p>
       </div>
     </section>
   );
@@ -145,14 +114,21 @@ export default function RightPanel() {
     <div className="panel flex h-full flex-col overflow-hidden" style={{ width: "var(--ws-right)" }}>
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <span className="text-sm font-medium">Planner</span>
-        <button className="btn-icon" aria-label="Collapse right panel" onClick={() => setRightOpen(false)}>
-          <PanelRightClose size={16} />
+        <button className="btn-icon" aria-label="Collapse planner panel" onClick={() => setRightOpen(false)}>
+          <PanelRightClose size={16} aria-hidden />
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Mission />
-        <DecisionLog />
-        <Futures />
+        <EmptySection id="decision-h" title="Decision log" icon={ListChecks}>
+          No planner run yet. Each step the planner takes will be listed here, with every number filled in from the simulator.
+        </EmptySection>
+        <EmptySection id="futures-h" title="Futures" icon={GitFork}>
+          Not run. Candidate options will be tested across many simulated stress futures, computed in your browser.
+        </EmptySection>
+        <EmptySection id="finalists-h" title="Finalists" icon={Trophy}>
+          The three best options, with their trade-offs, appear here after a planner run.
+        </EmptySection>
       </div>
     </div>
   );

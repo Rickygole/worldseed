@@ -17,7 +17,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "WorldSeed - Key Bridge Region",
   description:
-    "Don't predict the future. Simulate it. A counterfactual decision engine for emergency-response planning in the Key Bridge region of Baltimore.",
+    "Don't predict the future. Simulate it. A counterfactual planning simulator for the Key Bridge region of Baltimore: remove a road link and see who is affected, computed in your browser on historical open data.",
 };
 
 export const viewport: Viewport = {

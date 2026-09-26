@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search } from "lucide-react";
 import { useApp } from "@/lib/store";
+import { useDialog } from "@/lib/ui/useDialog";
 
 interface Cmd {
   id: string;
@@ -21,6 +22,7 @@ export default function CommandBar() {
 
 function CommandBarInner() {
   const setOpen = useApp((s) => s.setCommandOpen);
+  const ref = useDialog<HTMLDivElement>(true, () => setOpen(false));
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const cmds = useMemo<Cmd[]>(() => {
@@ -29,11 +31,15 @@ function CommandBarInner() {
       { id: "remove", label: "Remove Key Bridge link", run: () => void s.removeBridge() },
       { id: "restore", label: "Restore Key Bridge link", run: () => void s.restoreBridge() },
       { id: "reset", label: "Reset world", hint: "R", run: () => void s.resetWorld() },
+      { id: "lens-x", label: "Lens: Cross-harbor access", run: () => void s.setLens("xharbor") },
+      { id: "lens-a", label: "Lens: Regional access", run: () => void s.setLens("access") },
+      { id: "lens-e", label: "Lens: First response (EMS)", run: () => void s.setLens("ems") },
       { id: "present", label: "Toggle presentation mode", hint: "P", run: () => s.togglePresentation() },
       { id: "orbit", label: "Toggle camera orbit", run: () => s.toggleOrbit() },
-      { id: "assume", label: "Open assumptions", run: () => s.setAssumptionsOpen(true) },
+      { id: "assume", label: "Open data and assumptions", run: () => s.setAssumptionsOpen(true) },
+      { id: "about", label: "About and intended use", run: () => s.setAboutOpen(true) },
       { id: "intro", label: "Replay intro", run: () => s.setIntroOpen(true) },
-      { id: "find", label: "Find a better future (not wired up yet)", disabled: true, run: () => {} },
+      { id: "find", label: "Find a better future (AI planner setup in progress)", disabled: true, run: () => {} },
     ];
   }, []);
 
@@ -57,11 +63,11 @@ function CommandBarInner() {
           transition={{ duration: 0.15 }}
           onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
         >
-          <div role="dialog" aria-label="Command bar" className="panel w-[560px] overflow-hidden">
+          <div ref={ref} role="dialog" aria-modal="true" aria-label="Command bar" className="panel w-[560px] overflow-hidden">
             <div className="flex items-center gap-2 border-b border-border px-4">
               <Search size={16} className="text-muted" aria-hidden />
               <input
-                autoFocus
+                data-autofocus
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value);

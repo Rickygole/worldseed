@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useApp } from "@/lib/store";
+import { useDialog } from "@/lib/ui/useDialog";
 
 export const INTRO_SEEN_KEY = "worldseed.intro.seen";
 
@@ -13,17 +14,17 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { lead: "March 26, 2024.", headline: "Baltimore lost the Key Bridge in seconds." },
+  { lead: "March 26, 2024.", headline: "The Francis Scott Key Bridge fell into the Patapsco River." },
   {
-    body: "The Francis Scott Key Bridge carried I-695 across the Patapsco River at the mouth of Baltimore's harbor. Losing it changed how the region moves, and how help reaches people.",
+    body: "It carried I-695 across the mouth of Baltimore's harbor. WorldSeed asks a planning question: when a link like that is gone, who is affected, and by how much?",
   },
   {
-    body: "For emergency response, minutes are the unit that matters. When a road link disappears, some places stay close to help. Others quietly become far.",
+    body: "It models the region's roads as they were on March 1, 2024 (OpenStreetMap), with Census population and jobs data. Remove the bridge, and every number is recomputed on that network, in your browser.",
   },
   {
-    body: "WorldSeed does not predict the future. It simulates it: remove a link, watch response times change, then search for the intervention that fixes it. In this early build, the numbers are demo data.",
+    body: "The answer is uneven. Across the whole region the change is small; for some neighborhoods it is not. WorldSeed shows both, side by side, with every assumption open to inspection.",
   },
-  { headline: "In memory of the six construction workers who died.", body: "This is a planning tool, not live dispatch." },
+  { headline: "In memory of the six construction workers who died.", body: "Planning simulation, not dispatch." },
 ];
 
 export default function IntroOverlay() {
@@ -52,11 +53,11 @@ export default function IntroOverlay() {
 function IntroContent({ onClose }: { onClose: () => void }) {
   const reduced = !!useReducedMotion();
   const [step, setStep] = useState(0);
+  const ref = useDialog<HTMLDivElement>(true, onClose);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") setStep((s) => Math.min(STEPS.length - 1, s + 1));
+      if (e.key === "ArrowRight") setStep((s) => Math.min(STEPS.length - 1, s + 1));
       else if (e.key === "ArrowLeft") setStep((s) => Math.max(0, s - 1));
     };
     window.addEventListener("keydown", onKey);
@@ -71,6 +72,7 @@ function IntroContent({ onClose }: { onClose: () => void }) {
       {(
         <motion.div
           key="intro"
+          ref={ref}
           role="dialog"
           aria-modal="true"
           aria-label="Introduction"
@@ -130,7 +132,7 @@ function IntroContent({ onClose }: { onClose: () => void }) {
                 <button className="btn" onClick={() => setStep((v) => Math.max(0, v - 1))} disabled={step === 0}>
                   Back
                 </button>
-                <button className="btn" onClick={() => (last ? onClose() : setStep((v) => v + 1))}>
+                <button className="btn" data-autofocus onClick={() => (last ? onClose() : setStep((v) => v + 1))}>
                   {last ? "Enter the map" : "Next"}
                 </button>
               </div>
