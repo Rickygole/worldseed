@@ -8,7 +8,8 @@ const catalog = fakeCatalog();
 describe("greedy deterministic search", () => {
   it("orders candidates round-robin across types, cheapest first, and respects mission filters", () => {
     const ids = orderedCandidates(catalog, MISSION).map((c) => c.id);
-    expect(ids.slice(0, 4)).toEqual(["HZ-ESCORT", "IM-I895", "SP-BROENING", "TL-DUNDALK"]);
+    expect(ids.slice(0, 4)).toEqual(["IM-CANTON", "SP-BROENING", "TL-DUNDALK", "IM-I895"]);
+    expect(ids).not.toContain("HZ-ESCORT"); // a freight option is not an access option
     expect(ids).not.toContain("PP-EAST"); // ems-only
     const cheap = orderedCandidates(catalog, { ...MISSION, constraints: { ...MISSION.constraints, maxCostTier: "$" } }).map((c) => c.id);
     expect(cheap.every((id) => catalog.byId.get(id)!.costTier === "$")).toBe(true);

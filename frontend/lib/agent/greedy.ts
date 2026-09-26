@@ -20,6 +20,7 @@ import { pickDeterministicStress, type DeterministicStressResult } from "./criti
 import { exhaustiveSearch, type DeterministicEvaluateFn, type ExhaustiveEntry, type ExhaustiveResult } from "./exhaustive";
 import type { EvaluateFn } from "./evaluate";
 import type { BundleSpec, ConfirmedMission, EvaluationRow, GoalMetric } from "./tools";
+import { displayedGoal, displayedPGoal } from "./slots";
 import { MAX_BUNDLE_SIZE, MAX_EVALUATED_BUNDLES, MAX_ROUNDS, mintBundleIds } from "./tools";
 import { bundleKey, constraintsOf } from "./validator";
 
@@ -60,13 +61,21 @@ function goalValue(metric: GoalMetric, row: EvaluationRow): number {
   }
 }
 
-/** Best first: higher pGoal, then a lower goal metric, then a cheaper tier, then id. */
+/**
+ * Best first. Values are compared as DISPLAYED (pGoal in whole percent, times in tenths of a
+ * minute, counts whole), so what the reader sees is what ties. Ties prefer the SMALLER bundle
+ * (fewer options), then the lower cost tier, then the candidate ids in a fixed order, then the
+ * bundle id. So an option that adds nothing visible never outranks the bundle without it.
+ */
 export function rankRows(rows: readonly EvaluationRow[], mission: ConfirmedMission): EvaluationRow[] {
+  const metric = mission.goal.metric;
   return [...rows].sort(
     (a, b) =>
-      (b.pGoal ?? -1) - (a.pGoal ?? -1) ||
-      goalValue(mission.goal.metric, a) - goalValue(mission.goal.metric, b) ||
+      displayedPGoal(b.pGoal) - displayedPGoal(a.pGoal) ||
+      displayedGoal(metric, goalValue(metric, a)) - displayedGoal(metric, goalValue(metric, b)) ||
+      a.candidateIds.length - b.candidateIds.length ||
       COST_TIER_RANK[a.costTier] - COST_TIER_RANK[b.costTier] ||
+      [...a.candidateIds].sort().join("+").localeCompare([...b.candidateIds].sort().join("+")) ||
       a.bundleId.localeCompare(b.bundleId),
   );
 }

@@ -12,6 +12,8 @@
  * baseline. A slot that names a different bundle, or a bundle that has no row, is "n/a".
  */
 import { parseSlot } from "./prose";
+import type { Lens } from "./catalog";
+import { FREIGHT_LONG_DETOUR_S, FREIGHT_TRIPS } from "./lenses";
 import type { BaselineRow, EvaluationRow } from "./tools";
 
 export interface SlotContext {
@@ -51,6 +53,25 @@ function shown(metric: string, n: number): number {
   return Math.round(n);
 }
 
+/**
+ * A freight time level. Freight times are ADDED time versus the pre-collapse network in the same
+ * future, so the sign carries meaning: a value that displays as negative is faster than the
+ * pre-collapse network, and the sentence says so (computed from the sign, not invented).
+ */
+export function freightLevel(metric: string, n: number): string {
+  if (metric === "isolated") return `${Math.round(n)} of ${FREIGHT_TRIPS} trips`;
+  const v = shown(metric, n);
+  return v < 0 ? `${Math.abs(v).toFixed(1)} min faster than the pre-collapse network` : `${v.toFixed(1)} min`;
+}
+
+/** The displayed (rounded) value of a goal metric: what the reader sees, and therefore what can tie. */
+export function displayedGoal(goal: string, n: number): number {
+  return shown(slotMetric(goal), n);
+}
+
+/** pGoal as displayed: whole percent; null (not computed) sorts below every number. */
+export const displayedPGoal = (p: number | null): number => (p === null ? -1 : Math.round(p * 100));
+
 function level(metric: string, n: number): string {
   const v = shown(metric, n);
   if (metric === "p50" || metric === "p90" || metric === "equityGap") return `${v.toFixed(1)} min`;
@@ -64,14 +85,14 @@ function level(metric: string, n: number): string {
  * `level`), so the text can never contradict itself: two figures that display as equal are "no
  * change", and "0.1 min better" only ever appears next to figures that differ by 0.1 min.
  */
-function change(metric: string, cur: number, base: number): string {
+function change(metric: string, cur: number, base: number, lens: Lens = "access"): string {
   const d = Math.round((shown(metric, cur) - shown(metric, base)) * 10) / 10;
   if (d === 0) return "no change";
   const size = Math.abs(d);
   let text: string;
   if (metric === "p50" || metric === "p90" || metric === "equityGap") text = `${size.toFixed(1)} min`;
   else if (metric === "pctWithin") text = `${size.toFixed(1)} points`;
-  else text = `${size} ${size === 1 ? "group" : "groups"}`;
+  else text = `${size} ${lens === "freight" ? (size === 1 ? "trip" : "trips") : size === 1 ? "group" : "groups"}`;
   const improved = LOWER_IS_BETTER[metric] ? d < 0 : d > 0;
   return `${text} ${improved ? "better" : "worse"}`;
 }
@@ -113,7 +134,8 @@ export function fillSlots(text: string, resolve: (slot: string) => string | unde
  * computed from the real sign ("1.7 min worse"). No model text is involved, so a card cannot
  * state a result the simulator did not produce.
  */
-export function cardLines(row: EvaluationRow, baseline: BaselineRow | undefined, lens: "access" | "ems"): string[] {
+export function cardLines(row: EvaluationRow, baseline: BaselineRow | undefined, lens: Lens): string[] {
+  if (lens === "freight") return freightCardLines(row, baseline);
   const travel = lens === "access" ? "Cross-harbor travel time" : "Station-to-neighborhood travel time";
   const line = (label: string, metric: string): string => {
     const cur = value(metric, row);
@@ -135,6 +157,13 @@ export function cardLines(row: EvaluationRow, baseline: BaselineRow | undefined,
 
 /* ------------------------------- stress tests ------------------------------ */
 
+const FREIGHT_NOUN: Record<string, string> = {
+  p50: "typical hazmat cross-harbor detour",
+  p90: "slow-end hazmat detour",
+  isolated: "long-detour trip",
+  equityGap: "equity-gap",
+};
+
 const METRIC_NOUN: Record<string, string> = {
   p50: "median travel-time",
   p90: "worst-case (90th percentile) travel-time",
@@ -151,11 +180,12 @@ function benefit(metric: string, baseline: number, value: number): number {
   return Math.round((shown(metric, baseline) - shown(metric, value)) * 10) / 10;
 }
 
-function benefitText(metric: string, b: number): string {
+function benefitText(metric: string, b: number, lens: Lens = "access"): string {
   const sign = b < 0 ? "minus " : "";
   const n = Math.abs(b);
   if (metric === "p50" || metric === "p90" || metric === "equityGap") return `${sign}${n.toFixed(1)} min`;
-  return `${sign}${Math.round(n)} ${Math.round(n) === 1 ? "group" : "groups"}`;
+  const unit = lens === "freight" ? (Math.round(n) === 1 ? "trip" : "trips") : Math.round(n) === 1 ? "group" : "groups";
+  return `${sign}${Math.round(n)} ${unit}`;
 }
 
 /**
@@ -171,25 +201,26 @@ export function stressBenefitLine(
   bundleId: string,
   normal: { baseline?: BaselineRow; row: EvaluationRow },
   stressed: { baseline?: BaselineRow; row: EvaluationRow },
+  lens: Lens = "access",
 ): string {
   const metric = slotMetric(goal);
-  const noun = METRIC_NOUN[metric] ?? "goal-metric";
+  const noun = (lens === "freight" ? FREIGHT_NOUN : METRIC_NOUN)[metric] ?? "goal-metric";
   const cur = value(metric, stressed.row);
   if (typeof cur !== "number") return `${bundleId} was not scored on the ${noun} measure under this stress.`;
   const nb = normal.baseline ? value(metric, normal.baseline) : undefined;
   const sb = stressed.baseline ? value(metric, stressed.baseline) : undefined;
   const nv = value(metric, normal.row);
   if (typeof nb !== "number" || typeof sb !== "number" || typeof nv !== "number") {
-    return `Under this stress ${bundleId} scores ${level(metric, cur)} on the ${noun} measure (no stressed baseline was available, so its benefit is not stated).`;
+    return `Under this stress ${bundleId} scores ${lens === "freight" ? freightLevel(metric, cur) : level(metric, cur)} on the ${noun} measure (no stressed baseline was available, so its benefit is not stated).`;
   }
   const before = benefit(metric, nb, nv);
   const after = benefit(metric, sb, cur);
   const d = Math.round((after - before) * 10) / 10;
-  if (d === 0) return `Under this stress ${bundleId} keeps all of its ${noun} benefit (${benefitText(metric, after)}).`;
-  const size = benefitText(metric, Math.abs(d));
+  if (d === 0) return `Under this stress ${bundleId} keeps all of its ${noun} benefit (${benefitText(metric, after, lens)}).`;
+  const size = benefitText(metric, Math.abs(d), lens);
   return d < 0
-    ? `Under this stress ${bundleId} loses ${size} of its ${noun} benefit (from ${benefitText(metric, before)} to ${benefitText(metric, after)}).`
-    : `Under this stress ${bundleId} gains ${size} on its ${noun} benefit (from ${benefitText(metric, before)} to ${benefitText(metric, after)}).`;
+    ? `Under this stress ${bundleId} loses ${size} of its ${noun} benefit (from ${benefitText(metric, before, lens)} to ${benefitText(metric, after, lens)}).`
+    : `Under this stress ${bundleId} gains ${size} on its ${noun} benefit (from ${benefitText(metric, before, lens)} to ${benefitText(metric, after, lens)}).`;
 }
 
 /** How much WORSE a bundle's own goal metric is under a stress than without it (positive = worse), unrounded. Used to pick the stress that hurts the leaders most. */
@@ -198,4 +229,36 @@ export function benefitLoss(goal: string, normalRow: EvaluationRow, stressedRow:
   const a = value(metric, normalRow);
   const b = value(metric, stressedRow);
   return typeof a === "number" && typeof b === "number" ? b - a : 0;
+}
+
+/**
+ * Result lines for a freight finalist card. The row's numbers mean, over the 24 cross-harbor
+ * hazmat-truck trips, the added time versus the pre-collapse network in the same future: median
+ * (p50S), 90th percentile (p90S) and the number of trips with more than five minutes added
+ * (isolatedCount). The equity gap and the share within the goal do not apply and are not shown.
+ */
+function freightCardLines(row: EvaluationRow, baseline: BaselineRow | undefined): string[] {
+  const line = (label: string, metric: string): string => {
+    const cur = value(metric, row);
+    if (typeof cur !== "number") return `${label}: not computed`;
+    const base = baseline ? value(metric, baseline) : undefined;
+    const unit = (n: number) => freightLevel(metric, n);
+    if (typeof base !== "number") return `${label}: ${unit(cur)}`;
+    return `${label}: ${unit(cur)} (baseline ${unit(base)}; ${change(metric, cur, base, "freight")})`;
+  };
+  return [
+    line("Typical hazmat cross-harbor detour (median added time)", "p50"),
+    line("Slow-end hazmat detour (90th percentile added time)", "p90"),
+    line(`Trips with long detours (more than ${FREIGHT_LONG_DETOUR_S / 60} minutes added)`, "isolated"),
+    row.pGoal === null ? "Chance of meeting the goal: not computed" : `Chance of meeting the goal: ${level("pGoal", row.pGoal)} of sampled futures`,
+    `Cost tier: ${row.costTier}`,
+  ];
+}
+
+/**
+ * The figures a card shows for a bundle (its result lines without the cost tier). Two bundles
+ * whose figure lines are identical cannot be told apart by what is displayed.
+ */
+export function figureLines(row: EvaluationRow, baseline: BaselineRow | undefined, lens: Lens): string[] {
+  return cardLines(row, baseline, lens).filter((l) => !l.startsWith("Cost tier:"));
 }

@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 
 /** The eligible access-lens candidates of the fake catalog, and a scoring world with a hidden synergy. */
-const OPT = ["HZ-ESCORT", "SP-EASTERN", "TL-LONG"]; // three weak singles that are excellent together
+const OPT = ["IM-CANTON", "SP-EASTERN", "TL-LONG"]; // three weak singles that are excellent together
 const score = (ids: readonly string[]): number => {
   const w = ids.reduce((n, id) => n + (id.length % 4), 0); // small per-candidate effect
   const synergy = OPT.every((o) => ids.includes(o)) ? 700 : 0;

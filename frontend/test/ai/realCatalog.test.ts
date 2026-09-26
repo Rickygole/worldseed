@@ -36,6 +36,6 @@ describe.skipIf(!haveTraced)("finding 4: the default loader finds the catalog th
     const catalog = await createCatalogLoader()();
     expect(catalog.candidates.length).toBeGreaterThan(0);
     expect(catalog.gazetteer.length).toBeGreaterThan(0);
-    for (const c of catalog.candidates) expect(c.lens.every((l) => l === "access" || l === "ems")).toBe(true);
+    for (const c of catalog.candidates) expect(c.lens.every((l) => l === "access" || l === "ems" || l === "freight")).toBe(true); // "xharbor" and other newer tags are dropped
   });
 });

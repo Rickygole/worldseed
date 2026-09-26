@@ -7,11 +7,13 @@
  * goal metric, the rank of any bundle you ask about, and how many evaluations it took. It is
  * cancellable through an AbortSignal and never calls a model.
  *
- * Ranking is by the goal metric alone, lower first (every goal metric is lower-is-better); ties
- * break by cost tier, then by the candidate list. Ties share the better rank: a bundle's rank is
- * one more than the number of bundles strictly better than it. pGoal is not used: a deterministic
+ * Ranking is by the goal metric alone, lower first (every goal metric is lower-is-better), compared
+ * as DISPLAYED (tenths of a minute, whole counts). Ties prefer the smaller bundle, then the lower
+ * cost tier, then the candidate ids in a fixed order. Ties share the better rank: a bundle's rank
+ * is one more than the number of bundles strictly better than it. pGoal is not used: a deterministic
  * run has no futures.
  */
+import { displayedGoal } from "./slots";
 import { COST_TIER_RANK, eligibleCandidates, type Catalog, type CostTier } from "./catalog";
 import type { BaselineRow, BundleSpec, ConfirmedMission, GoalMetric } from "./tools";
 import { bundleKey, constraintsOf } from "./validator";
@@ -80,6 +82,11 @@ function metricOf(metric: GoalMetric, r: DeterministicRow): number {
   }
 }
 
+/** Metrics that may be negative: the equity gap, and p50 and p90 for a freight mission (a freight option can beat the pre-collapse trip times). */
+function signedMetric(m: ConfirmedMission): boolean {
+  return m.goal.metric === "equityGap" || (m.lens === "freight" && (m.goal.metric === "p50" || m.goal.metric === "p90"));
+}
+
 const abortError = (): Error => new DOMException("The exhaustive check was cancelled.", "AbortError");
 
 export async function exhaustiveSearch(opts: {
@@ -106,17 +113,27 @@ export async function exhaustiveSearch(opts: {
       const b = want.get(r.bundleId);
       const v = metricOf(opts.mission.goal.metric, r);
       // Same acceptance rules as the machine: a row must be for a bundle we asked about, once, with the same candidates and a usable number.
-      if (!b || seen.has(r.bundleId) || bundleKey(b.candidateIds) !== bundleKey(r.candidateIds) || !Number.isFinite(v) || (v < 0 && opts.mission.goal.metric !== "equityGap")) continue; // the equity gap is signed; times and counts are not
+      if (!b || seen.has(r.bundleId) || bundleKey(b.candidateIds) !== bundleKey(r.candidateIds) || !Number.isFinite(v) || (v < 0 && !signedMetric(opts.mission))) continue; // the equity gap is signed, and so are freight times; other times and all counts are not
       seen.add(r.bundleId);
       scored.push({ candidateIds: b.candidateIds, costTier: tierOf(opts.catalog, b.candidateIds), value: v });
     }
     done += batch.length;
     opts.onProgress?.(done, all.length);
   }
-  scored.sort((a, b) => a.value - b.value || COST_TIER_RANK[a.costTier] - COST_TIER_RANK[b.costTier] || a.candidateIds.join("+").localeCompare(b.candidateIds.join("+")));
-  // Ties share the better rank: one more than the number of bundles strictly better.
+  // Values are compared as DISPLAYED (times in tenths of a minute, counts whole): what the reader sees is what ties.
+  // Ties prefer the smaller bundle, then the lower cost tier, then the candidate ids in a fixed order.
+  const shown = (v: number) => displayedGoal(opts.mission.goal.metric, v);
+  const key = (e: { candidateIds: string[] }) => [...e.candidateIds].sort().join("+");
+  scored.sort(
+    (a, b) =>
+      shown(a.value) - shown(b.value) ||
+      a.candidateIds.length - b.candidateIds.length ||
+      COST_TIER_RANK[a.costTier] - COST_TIER_RANK[b.costTier] ||
+      key(a).localeCompare(key(b)),
+  );
+  // Displayed ties share the better rank: one more than the number of bundles strictly better.
   const ranked: ExhaustiveEntry[] = [];
-  scored.forEach((s, i) => ranked.push({ ...s, rank: i > 0 && scored[i - 1].value === s.value ? ranked[i - 1].rank : i + 1 }));
+  scored.forEach((s, i) => ranked.push({ ...s, rank: i > 0 && shown(scored[i - 1].value) === shown(s.value) ? ranked[i - 1].rank : i + 1 }));
   return { ranked, optimum: ranked[0] ?? null, evaluations: scored.length, enumerated: all.length };
 }
 

@@ -3,7 +3,8 @@
  * never sends prompt text. The catalog subset shows IDs, titles, types and cost tiers, and no
  * numeric effects, so the model reasons about mechanisms and has no figures to repeat.
  */
-import type { CandidatePromptView } from "../../agent/catalog";
+import type { CandidatePromptView, Lens } from "../../agent/catalog";
+import { lensSentence } from "../../agent/lenses";
 import { RATIONALE_KINDS } from "../../agent/rationale";
 import type { BaselineRow, EvaluationRow } from "../../agent/tools";
 import type { ChatMessage } from "../tokenfactory";
@@ -26,8 +27,8 @@ export const RATIONALE_RULE = [
 ].join(" ");
 
 /** One stress test's results as the simulator computed them, labeled by the application. */
-export function stressTable(label: string, rows: readonly EvaluationRow[], baseline?: BaselineRow): string {
-  return `Stress test "${label}" (computed by the simulator; the label is written by the application):\n${evaluationTable(rows, baseline)}`;
+export function stressTable(label: string, rows: readonly EvaluationRow[], baseline?: BaselineRow, lens: Lens = "access"): string {
+  return `Stress test "${label}" (computed by the simulator; the label is written by the application):\n${evaluationTable(rows, baseline, [], lens)}`;
 }
 
 /** The optional reasoning field, described once for every role that may use it. */
@@ -44,7 +45,8 @@ export function candidateLines(views: readonly CandidatePromptView[]): string {
 const min = (s: number) => (s / 60).toFixed(1);
 
 /** The compact `evaluation` tool message: simulator results the model may read but never repeat. */
-export function evaluationTable(rows: readonly EvaluationRow[], baseline?: BaselineRow, dropped: readonly string[] = []): string {
+export function evaluationTable(rows: readonly EvaluationRow[], baseline?: BaselineRow, dropped: readonly string[] = [], lens: Lens = "access"): string {
+  if (lens === "freight") return freightTable(rows, baseline, dropped);
   const head = "bundle | candidates | p50 min | p90 min | within pct | isolated groups | equity gap min | pGoal | cost | status";
   const lines = rows.map(
     (r) =>
@@ -64,10 +66,19 @@ export function fenceUserText(text: string): string {
   return `"""\n${clean}\n"""`;
 }
 
-export function lensDescription(lens: "access" | "ems"): string {
-  return lens === "access"
-    ? "access lens: modeled cross-harbor travel time from neighborhoods to job-weighted destinations"
-    : "resilience-check lens: modeled travel time from fire and EMS stations to neighborhoods";
+export function lensDescription(lens: Lens): string {
+  return lensSentence(lens);
+}
+
+/** Freight table: added minutes per hazmat trip versus the pre-collapse network, and the count of long detours. The equity gap and share-within-goal columns do not apply. */
+function freightTable(rows: readonly EvaluationRow[], baseline: BaselineRow | undefined, dropped: readonly string[]): string {
+  const head = "bundle | candidates | typical added min | slow-end added min | trips with long detours (of 24) | pGoal | cost | status";
+  const lines = rows.map(
+    (r) =>
+      `${r.bundleId} | ${r.candidateIds.join("+")} | ${min(r.p50S)} | ${min(r.p90S)} | ${r.isolatedCount} | ${r.pGoal === null ? "n/a" : Math.round(r.pGoal * 100) + "%"} | ${r.costTier} | ${dropped.includes(r.bundleId) ? "dropped" : "active"}`,
+  );
+  const base = baseline ? `\nbaseline (no intervention): typical ${min(baseline.p50S)} min, slow end ${min(baseline.p90S)} min, trips with long detours ${baseline.isolatedCount}` : "";
+  return `${head}\n${lines.join("\n")}${base}`;
 }
 
 export function messages(system: string, user: string): ChatMessage[] {

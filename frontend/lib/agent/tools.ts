@@ -9,7 +9,8 @@
  * figure is an application template filled from simulator numbers with the real sign.
  */
 import { z } from "zod";
-import { CostTierSchema, ID_RE, LensSchema, CandidateTypeSchema } from "./catalog";
+import { CostTierSchema, ID_RE, LensSchema, CandidateTypeSchema, type Lens } from "./catalog";
+import { metricOffered } from "./lenses";
 import { makeRationaleSchema } from "./rationale";
 import { StressSpecSchema } from "./stress";
 
@@ -158,6 +159,10 @@ export const GOAL_METRICS = ["p50", "p90", "isolatedCount", "equityGap"] as cons
 export const GoalMetricSchema = z.enum(GOAL_METRICS);
 export type GoalMetric = z.infer<typeof GoalMetricSchema>;
 
+/** The goal metric must be one the lens offers (the equity gap is not offered for freight). */
+const metricFitsLens = (m: { lens: Lens; goal: { metric: GoalMetric } }): boolean => metricOffered(m.lens, m.goal.metric);
+const METRIC_LENS_MESSAGE = "goal metric is not offered for this lens";
+
 export const ParsedMissionSchema = z.strictObject({
   lens: LensSchema,
   goal: z.strictObject({
@@ -171,7 +176,7 @@ export const ParsedMissionSchema = z.strictObject({
     types: z.array(CandidateTypeSchema).max(5),
     areas: z.array(GazetteerIdSchema).max(8),
   }),
-});
+}).refine(metricFitsLens, { message: METRIC_LENS_MESSAGE, path: ["goal", "metric"] });
 export type ParsedMission = z.infer<typeof ParsedMissionSchema>;
 
 /** A mission the user has confirmed, including the chip-picker target. */
@@ -187,17 +192,25 @@ export const ConfirmedMissionSchema = z.strictObject({
     types: z.array(CandidateTypeSchema).max(5),
     areas: z.array(GazetteerIdSchema).max(8),
   }),
-});
+}).refine(metricFitsLens, { message: METRIC_LENS_MESSAGE, path: ["goal", "metric"] });
 export type ConfirmedMission = z.infer<typeof ConfirmedMissionSchema>;
 
 /* ---------------------------- evaluation ---------------------------- */
 
+/**
+ * Times are non-negative for the access and ems lenses. For the freight lens they are SIGNED: a
+ * freight option can beat the pre-collapse trip times, so the added detour can be negative. The
+ * `...ForLens` factories below pick the right bound; request schemas accept signed values and then
+ * check them against the mission's lens (`rowSignsFitLens`).
+ */
+const timeS = (signed: boolean) => z.number().finite().min(signed ? -1e7 : 0).max(1e7);
+
 /** One row of the `evaluation` tool message the client builds from simulator results. */
-export const EvaluationRowSchema = z.strictObject({
+const evaluationRowShape = (signed: boolean) => ({
   bundleId: BundleIdSchema,
   candidateIds: z.array(CandidateIdSchema).min(1).max(MAX_BUNDLE_SIZE),
-  p50S: z.number().finite().min(0).max(1e7),
-  p90S: z.number().finite().min(0).max(1e7),
+  p50S: timeS(signed),
+  p90S: timeS(signed),
   pctWithin: z.number().finite().min(0).max(100),
   isolatedCount: z.number().int().min(0).max(100_000),
   // Signed: the equity gap is a difference between groups and can be negative.
@@ -205,6 +218,9 @@ export const EvaluationRowSchema = z.strictObject({
   pGoal: z.number().finite().min(0).max(1).nullable(),
   costTier: CostTierSchema,
 });
+export const EvaluationRowSchema = z.strictObject(evaluationRowShape(false));
+/** The same row with signed p50S and p90S (freight only). */
+export const SignedEvaluationRowSchema = z.strictObject(evaluationRowShape(true));
 export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
 
 /**
@@ -213,21 +229,34 @@ export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
  * accepts; it never uses an aggregate the evaluator claims for a batch.
  */
 export const MAX_FUTURES_PER_ROW = 100_000;
-export const EvaluatedRowSchema = EvaluationRowSchema.extend({
+const evaluatedExtras = {
   futures: z.number().int().min(1).max(MAX_FUTURES_PER_ROW),
   /** Echo of the stress label when the row was scored under a stress. Informational: the machine uses its own label. */
   stressLabel: z.string().max(160).optional(),
-});
+};
+export const EvaluatedRowSchema = EvaluationRowSchema.extend(evaluatedExtras);
+export const SignedEvaluatedRowSchema = SignedEvaluationRowSchema.extend(evaluatedExtras);
 export type EvaluatedRow = z.infer<typeof EvaluatedRowSchema>;
 
-export const BaselineRowSchema = z.strictObject({
-  p50S: z.number().finite().min(0).max(1e7),
-  p90S: z.number().finite().min(0).max(1e7),
+const baselineShape = (signed: boolean) => ({
+  p50S: timeS(signed),
+  p90S: timeS(signed),
   pctWithin: z.number().finite().min(0).max(100),
   isolatedCount: z.number().int().min(0).max(100_000),
   equityGapS: z.number().finite().min(-1e7).max(1e7),
 });
+export const BaselineRowSchema = z.strictObject(baselineShape(false));
+export const SignedBaselineRowSchema = z.strictObject(baselineShape(true));
 export type BaselineRow = z.infer<typeof BaselineRowSchema>;
+
+/** The row and baseline schemas for a lens: signed p50S and p90S for freight, non-negative otherwise. isolatedCount is a count and never negative. */
+export const evaluatedRowSchemaFor = (lens: Lens) => (lens === "freight" ? SignedEvaluatedRowSchema : EvaluatedRowSchema);
+export const baselineRowSchemaFor = (lens: Lens) => (lens === "freight" ? SignedBaselineRowSchema : BaselineRowSchema);
+
+/** True when every p50S and p90S is allowed for the lens (negative times only for freight). */
+export function rowSignsFitLens(lens: Lens, rows: readonly { p50S: number; p90S: number }[]): boolean {
+  return lens === "freight" || rows.every((r) => r.p50S >= 0 && r.p90S >= 0);
+}
 
 /* ------------------------- Tavily extraction ------------------------ */
 

@@ -36,7 +36,7 @@ const script = (): Scripted[] => [
   critiqueReply({ concerns: [{ bundleId: "B1", kind: "worst_case" }], stress: HARBOR }),
   refineReply([b("B5", "SP-BROENING", "SP-EASTERN")], ["B1", "B2"], ["B4"]),
   critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [], stress: FORT }),
-  refineReply([b("B6", "HZ-ESCORT", "IM-I895")], ["B5"], []),
+  refineReply([b("B6", "IM-CANTON", "IM-I895")], ["B5"], []),
   finalizeReply(["B5", "B6", "B3"]),
 ];
 const sentences = (s: MachineState) => s.log.map((l) => l.sentence);

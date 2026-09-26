@@ -25,6 +25,7 @@ export const RATIONALE_KINDS = [
   "mix_of_types",
   "respond_to_stress",
   "avoid_single_point",
+  "address_freight_detours",
 ] as const;
 export type RationaleKind = (typeof RATIONALE_KINDS)[number];
 
@@ -39,6 +40,7 @@ export const RATIONALE_TEXT: Record<RationaleKind, string> = {
   extend_kept: "The planner built on the bundles it kept.",
   mix_of_types: "The planner picked finalists of different intervention types.",
   respond_to_stress: "The planner weighed the stress test result first.",
+  address_freight_detours: "The planner weighed the hazmat cross-harbor detours first.",
   avoid_single_point: "The planner favored options that rely on different links.",
 };
 

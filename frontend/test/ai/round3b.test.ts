@@ -46,7 +46,7 @@ describe("R2-1 (integrity): finalist cards carry application and catalog text on
     critiqueReply({ concerns: [{ bundleId: "B1", kind: "worst_case" }], stress: { kind: "close_link", linkId: "L-HARBORTUNNEL" } }),
     refineReply([b("B5", "SP-BROENING", "SP-EASTERN")], ["B1", "B2"], ["B4"]),
     critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [], stress: { kind: "close_link", linkId: "L-FORTMCHENRY" } }),
-    refineReply([b("B6", "HZ-ESCORT", "IM-I895")], ["B5"], []),
+    refineReply([b("B6", "IM-CANTON", "IM-I895")], ["B5"], []),
     finalizeReply(["B5", "B6", "B3"]),
   ];
   async function run() {

@@ -9,7 +9,7 @@ import { z } from "zod";
 
 export const ID_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
-export const LensSchema = z.enum(["access", "ems"]);
+export const LensSchema = z.enum(["access", "ems", "freight"]);
 export type Lens = z.infer<typeof LensSchema>;
 
 export const CostTierSchema = z.enum(["$", "$$", "$$$"]);
@@ -51,6 +51,15 @@ export const CandidateSchema = z.looseObject({
   assumptions: z.array(z.string()).default([]),
   sources: z.array(z.unknown()).default([]),
   notes: z.string().default(""),
+  /**
+   * Optional, tolerant: what the catalog's own metadata says this candidate helps beyond its lens
+   * tags (for example ["freight"], as candidate_effects.json records for measured effects). Unknown
+   * or malformed values are ignored.
+   */
+  helps: z
+    .unknown()
+    .optional()
+    .transform((h) => (Array.isArray(h) ? h.filter((x): x is string => typeof x === "string").slice(0, 8) : [])),
   /**
    * Pipeline-authored description of what the intervention does, shown on finalist cards. Static
    * data, never model output. Text with digits, markup or an implausible length is dropped.
@@ -144,9 +153,21 @@ export interface CatalogConstraints {
   types: readonly CandidateType[];
 }
 
-/** Why a candidate is not usable under the mission, or null when it is. */
+/**
+ * Why a candidate is not usable under the mission, or null when it is.
+ *
+ * Lens rules: an access or ems mission takes the candidates tagged with that lens, and never a
+ * hazmat window (a freight option). A freight mission takes the candidates tagged freight plus any
+ * whose own metadata says they help freight (`helps`), and never EMS staging (prepos_site).
+ */
 export function candidateRejection(c: Candidate, k: CatalogConstraints): string | null {
-  if (!c.lens.includes(k.lens)) return `is not available for the ${k.lens} lens`;
+  if (k.lens === "freight") {
+    if (c.type === "prepos_site") return "is EMS staging, which does not apply to the freight lens";
+    if (!c.lens.includes("freight") && !c.helps.includes("freight")) return "is not available for the freight lens";
+  } else {
+    if (c.type === "hazmat_window") return `is a freight option, not available for the ${k.lens} lens`;
+    if (!c.lens.includes(k.lens)) return `is not available for the ${k.lens} lens`;
+  }
   if (COST_TIER_RANK[c.costTier] > COST_TIER_RANK[k.maxCostTier]) {
     return `costs more than the allowed tier ${k.maxCostTier}`;
   }

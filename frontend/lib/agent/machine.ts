@@ -22,7 +22,7 @@
  * continues with the deterministic search (labeled non-AI), and each switch is a decision-log entry.
  */
 import type { AgentApi } from "./api";
-import { bundleCostTier, type Catalog } from "./catalog";
+import { bundleCostTier, COST_TIER_RANK, type Catalog } from "./catalog";
 import type { EvaluateFn } from "./evaluate";
 import { pickDeterministicStress } from "./critic";
 import { exhaustiveSearch, type DeterministicEvaluateFn, type ExhaustiveResult } from "./exhaustive";
@@ -39,14 +39,15 @@ import {
   type PlanRequest,
 } from "./protocol";
 import { rationaleLogSentence, renderRationale, type Rationale } from "./rationale";
+import { metricLabel } from "./lenses";
 import { REASONING_LABEL, reasoningWithheldSentence, screenReasoning, type ReasoningEntry } from "./reasoning";
-import { cardLines, fillSlots, makeSlotResolver, stressBenefitLine } from "./slots";
+import { cardLines, figureLines, fillSlots, makeSlotResolver, stressBenefitLine } from "./slots";
 import { stressContext, stressLabel, type StressSpec } from "./stress";
 import {
-  BaselineRowSchema,
+  baselineRowSchemaFor,
   CONCERN_TEXT,
   ConfirmedMissionSchema,
-  EvaluatedRowSchema,
+  evaluatedRowSchemaFor,
   MAX_EVALUATED_BUNDLES,
   MAX_FUTURES_PER_ROW,
   MAX_ROUNDS,
@@ -149,6 +150,8 @@ export interface FinalistCard {
   mechanismNote: string;
   /** How a deterministic search chose it ("" for AI choices). */
   note: string;
+  /** Set when this finalist shows exactly the same figures as an earlier one ("B2 matches B1 on every displayed figure; the smaller bundle is listed first."); otherwise "". */
+  tieNote: string;
   /** Application sentences, from real stress-test rows, saying how this bundle held up ("Harbor Tunnel closed: Under this stress B2 loses ..."). Empty when it was not stress-tested. */
   stressLines: string[];
 }
@@ -580,7 +583,7 @@ export class AgentMachine {
     let futures = 0;
     const refused = { unknown_bundle: 0, duplicate_row: 0, candidate_mismatch: 0, malformed_row: 0 };
     for (const raw of batch.rows) {
-      const parsed = EvaluatedRowSchema.safeParse(raw);
+      const parsed = evaluatedRowSchemaFor(mission.lens).safeParse(raw);
       if (!parsed.success) {
         refused.malformed_row++;
         continue;
@@ -602,7 +605,7 @@ export class AgentMachine {
     }
     const refusedTotal = Object.values(refused).reduce((a, b) => a + b, 0);
     run.rowsRefused += refusedTotal;
-    const baseline = batch.baseline ? BaselineRowSchema.safeParse(batch.baseline) : undefined;
+    const baseline = batch.baseline ? baselineRowSchemaFor(mission.lens).safeParse(batch.baseline) : undefined;
 
     this.set({
       rows: [...this.state.rows, ...accepted],
@@ -766,7 +769,7 @@ export class AgentMachine {
     let futures = 0;
     let refused = 0;
     for (const raw of batch.rows) {
-      const parsed = EvaluatedRowSchema.safeParse(raw);
+      const parsed = evaluatedRowSchemaFor(mission.lens).safeParse(raw);
       if (!parsed.success) {
         refused++;
         continue;
@@ -788,7 +791,7 @@ export class AgentMachine {
       this.log("validator", `The simulator returned no usable rows under the stress "${label}"; the search continues without it.`, { errors: ["stress_rows_refused"] });
       return;
     }
-    const base = batch.baseline ? BaselineRowSchema.safeParse(batch.baseline) : undefined;
+    const base = batch.baseline ? baselineRowSchemaFor(mission.lens).safeParse(batch.baseline) : undefined;
     const result: StressResult = { id: `S${this.state.stresses.length + 1}`, spec, label, source, model, baseline: base?.success ? base.data : undefined, rows: accepted };
     this.set({
       stresses: [...this.state.stresses, result],
@@ -808,7 +811,7 @@ export class AgentMachine {
     const out: { bundleId: string; text: string }[] = [];
     for (const r of st.rows) {
       const normal = byId.get(r.bundleId);
-      if (normal) out.push({ bundleId: r.bundleId, text: stressBenefitLine(mission.goal.metric, r.bundleId, { baseline: this.state.baseline, row: normal }, { baseline: st.baseline, row: r }) });
+      if (normal) out.push({ bundleId: r.bundleId, text: stressBenefitLine(mission.goal.metric, r.bundleId, { baseline: this.state.baseline, row: normal }, { baseline: st.baseline, row: r }, mission.lens) });
     }
     return out;
   }
@@ -831,7 +834,63 @@ export class AgentMachine {
       finalists = greedyFinalists(this.state.rows, mission, excluded, { diverse: this.state.screened !== undefined }).map((f) => this.toFinalist(f.bundleId, f.note));
       this.log("decision", `Deterministic search (not AI) ranked ${finalists.length} finalists by the goal metric.`);
     }
+    finalists = this.orderTies(finalists, mission);
     this.set({ finalists });
+    for (let i = 1; i < finalists.length; i++) {
+      const t = this.tieWith(finalists, i);
+      if (t) this.log("decision", t);
+    }
+  }
+
+  /** The figure lines of a finalist as displayed (no cost tier), or null when it has no row. */
+  private figuresOf(f: Finalist): string | null {
+    const row = this.state.rows.find((r) => r.bundleId === f.bundleId);
+    return row ? figureLines(row, this.state.baseline, this.state.mission?.lens ?? "access").join("\n") : null;
+  }
+
+  /**
+   * Finalists that show identical figures cannot be told apart by what the reader sees. Within each
+   * such group the smaller bundle is listed first, then the lower cost tier, then a fixed candidate
+   * order; the groups keep the positions they had, so distinguishable finalists are never reordered.
+   */
+  private orderTies(fs: Finalist[], mission: ConfirmedMission): Finalist[] {
+    void mission;
+    const groups = new Map<string, number[]>();
+    fs.forEach((f, i) => {
+      const sig = this.figuresOf(f);
+      if (sig !== null) groups.set(sig, [...(groups.get(sig) ?? []), i]);
+    });
+    const out = [...fs];
+    for (const idx of groups.values()) {
+      if (idx.length < 2) continue;
+      const sorted = idx
+        .map((i) => fs[i])
+        .sort(
+          (a, b) =>
+            a.candidateIds.length - b.candidateIds.length ||
+            COST_TIER_RANK[a.costTier as keyof typeof COST_TIER_RANK] - COST_TIER_RANK[b.costTier as keyof typeof COST_TIER_RANK] ||
+            [...a.candidateIds].sort().join("+").localeCompare([...b.candidateIds].sort().join("+")),
+        );
+      idx.forEach((pos, k) => (out[pos] = sorted[k]));
+    }
+    return out;
+  }
+
+  /** The application's sentence when finalist `i` shows the same figures as an earlier one ("" when it does not). */
+  private tieWith(fs: readonly Finalist[], i: number): string {
+    const sig = this.figuresOf(fs[i]);
+    if (sig === null) return "";
+    const j = fs.findIndex((x, k) => k < i && this.figuresOf(x) === sig);
+    if (j < 0) return "";
+    const a = fs[j];
+    const b = fs[i];
+    const why =
+      a.candidateIds.length !== b.candidateIds.length
+        ? "the smaller bundle is listed first."
+        : a.costTier !== b.costTier
+          ? "the lower cost tier is listed first."
+          : "they are listed in a fixed order.";
+    return `${b.bundleId} matches ${a.bundleId} on every displayed figure; ${why}`;
   }
 
   /* ------------------------------- planner ------------------------------- */
@@ -945,7 +1004,7 @@ export class AgentMachine {
 
   /** "Read your mission as ...": an application template over the validated fields (no model text). */
   private describeParsed(p: ParsedMission): string {
-    const metric = { p50: "median travel time", p90: "worst-case (90th percentile) travel time", isolatedCount: "isolated groups", equityGap: "the equity gap" }[p.goal.metric];
+    const metric = metricLabel(p.lens, p.goal.metric);
     const areas = p.constraints.areas.map((id) => this.deps.catalog.gazetteerById.get(id)?.name ?? id);
     const types = p.constraints.types.length > 0 ? `, types ${p.constraints.types.join(", ")}` : "";
     return `Read your mission as: ${p.lens} lens, lower ${metric} (you set the target next), cost tier up to ${p.constraints.maxCostTier}${types}${areas.length > 0 ? `, areas ${areas.join(", ")}` : ""}.`;
@@ -970,6 +1029,7 @@ export class AgentMachine {
       commentaryLabel: CARD_TEXT_LABEL,
       mechanismNote: "",
       note: f.note,
+      tieNote: this.tieWith(this.state.finalists, this.state.finalists.indexOf(f)),
       stressLines: this.state.stresses.flatMap((st) => this.stressLines(this.state.mission as ConfirmedMission, st).filter((l) => l.bundleId === bundleId).map((l) => `${st.label}: ${l.text}`)),
     };
   }

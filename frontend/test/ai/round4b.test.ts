@@ -342,7 +342,10 @@ describe("R4-5: the exhaustive-search check", () => {
     expect(res.ranked.filter((e) => e.rank === 1).length).toBe(4); // all four 3-bundles tie at zero isolated groups
     expect(res.ranked.find((e) => e.value === 4)!.rank).toBe(5); // the next value ranks after the four that beat it
     const p50 = await exhaustiveSearch({ catalog: cat, mission: { ...MISSION, goal: { ...MISSION.goal, metric: "p50" } }, evaluate: evaluator() });
-    expect(p50.optimum?.value).toBe(700 - (3 + 4 + 2)); // C-B, C-C, C-D
+    // C-B, C-C, C-D scores 691 s; a smaller bundle at 692 s displays the same (11.5 min) and wins the tie, so the optimum is within one second of it
+    expect(p50.optimum!.value).toBeLessThanOrEqual(692);
+    expect(p50.optimum!.value).toBeGreaterThanOrEqual(691);
+    expect(p50.optimum!.rank).toBe(1);
   });
 
   it("ignores rows it did not ask for, duplicates, mismatched candidates and unusable numbers (same acceptance rules as the machine)", async () => {

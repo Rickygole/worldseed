@@ -67,7 +67,7 @@ describe("finding P1.3: bundle IDs are minted by the application, never chosen b
     expect(mintBundleIds([], 3)).toEqual(["B1", "B2", "B3"]);
     expect(mintBundleIds(["B1", "B3"], 3)).toEqual(["B2", "B4", "B5"]);
     expect(mintBundleIds(Array.from({ length: 12 }, (_, i) => `B${i + 1}`), 1)).toEqual([]);
-    const r = validatePlannerOutput(refine({ add: [{ candidateIds: ["HZ-ESCORT"] }] }), ctx({ round: 2, known: known(["B1", "B2"]) }));
+    const r = validatePlannerOutput(refine({ add: [{ candidateIds: ["IM-CANTON"] }] }), ctx({ round: 2, known: known(["B1", "B2"]) }));
     expect(r.ok && r.value.action === "refine" ? r.value.add[0].id : null).toBe("B3");
   });
   it("the client accepts only the IDs it would mint itself (minted form)", () => {
@@ -146,9 +146,9 @@ describe("validator rule 3: the explicit per-mission cap (ctx.maxEvaluated)", ()
     const k: KnownBundle[] = known(["B1", "B2"]);
     const p = validatePlannerOutput(propose(), ctx({ known: k, maxEvaluated: 3 })); // 2 known + 2 new > 3
     expect(fails(p).some((v) => v.code === "too_many_bundles" && v.path === "bundles")).toBe(true);
-    const r = validatePlannerOutput(refine({ add: [{ candidateIds: ["HZ-ESCORT"] }, { candidateIds: ["IM-I895"] }] }), ctx({ round: 2, known: k, maxEvaluated: 3 }));
+    const r = validatePlannerOutput(refine({ add: [{ candidateIds: ["IM-CANTON"] }, { candidateIds: ["IM-I895"] }] }), ctx({ round: 2, known: k, maxEvaluated: 3 }));
     expect(fails(r).some((v) => v.code === "too_many_bundles" && v.path === "add")).toBe(true);
-    const one: KnownBundle[] = [{ id: "B1", candidateIds: ["HZ-ESCORT"], evaluated: true }];
+    const one: KnownBundle[] = [{ id: "B1", candidateIds: ["IM-CANTON"], evaluated: true }];
     expect(validatePlannerOutput(propose(), ctx({ known: one, maxEvaluated: 3 })).ok).toBe(true); // 1 + 2 = 3 fits
   });
 });

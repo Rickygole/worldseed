@@ -46,7 +46,9 @@ export const FAKE_CANDIDATES = [
   cand("TL-DUNDALK", "temp_link", ["access"], "$$", "Temporary connector, fake"),
   cand("PP-EAST", "prepos_site", ["ems"], "$", "Pre-positioned unit, fake east site"),
   cand("PP-WEST", "prepos_site", ["ems"], "$$", "Pre-positioned unit, fake west site"),
-  cand("HZ-ESCORT", "hazmat_window", ["access"], "$", "Escorted hazmat window, fake"),
+  cand("HZ-ESCORT", "hazmat_window", ["freight"], "$$", "Escorted hazmat window, fake tunnel"),
+  cand("HZ-ESCORT-EAST", "hazmat_window", ["freight"], "$", "Escorted hazmat window, fake east tunnel"),
+  cand("IM-CANTON", "incident_mgmt", ["access", "ems"], "$", "Incident management, fake Canton corridor"),
   cand("IM-I895", "incident_mgmt", ["access", "ems"], "$", "Incident management, fake tunnel corridor"),
   cand("TL-LONG", "temp_link", ["access"], "$$$", "Long temporary link, fake"),
 ];

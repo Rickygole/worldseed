@@ -5,12 +5,13 @@
 import { z } from "zod";
 import { StressSpecSchema } from "./stress";
 import {
-  BaselineRowSchema,
   BundleIdSchema,
   CandidateIdSchema,
   CONCERN_KINDS,
   ConfirmedMissionSchema,
-  EvaluationRowSchema,
+  rowSignsFitLens,
+  SignedBaselineRowSchema,
+  SignedEvaluationRowSchema,
 } from "./tools";
 
 export const MissionIdSchema = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/);
@@ -42,11 +43,29 @@ const CritiqueContextSchema = z.strictObject({
  * One stress test and the simulator's results under it. The spec is a member of the closed set
  * (stress.ts); the label is written by the server from the spec, never accepted from the client.
  */
+/**
+ * Requests accept signed times, then this check applies the lens rule: negative p50S or p90S are
+ * valid only for a freight mission. The message is fixed text (it never echoes the value).
+ */
+function checkRowSigns(
+  req: { mission: { lens: "access" | "ems" | "freight" }; evaluations: { p50S: number; p90S: number }[]; baseline?: { p50S: number; p90S: number }; stresses: { baseline?: { p50S: number; p90S: number }; evaluations: { p50S: number; p90S: number }[] }[] },
+  ctx: z.RefinementCtx,
+): void {
+  const lens = req.mission.lens;
+  const bad = (path: (string | number)[]) => ctx.addIssue({ code: "custom", message: "a negative time is only valid for the freight lens", path });
+  if (!rowSignsFitLens(lens, req.evaluations)) bad(["evaluations"]);
+  if (req.baseline && !rowSignsFitLens(lens, [req.baseline])) bad(["baseline"]);
+  req.stresses.forEach((st, i) => {
+    if (!rowSignsFitLens(lens, st.evaluations)) bad(["stresses", i, "evaluations"]);
+    if (st.baseline && !rowSignsFitLens(lens, [st.baseline])) bad(["stresses", i, "baseline"]);
+  });
+}
+
 export const StressResultSchema = z.strictObject({
   stress: StressSpecSchema,
   /** The no-intervention baseline under the same stress, when the simulator provides one. */
-  baseline: BaselineRowSchema.optional(),
-  evaluations: z.array(EvaluationRowSchema).min(1).max(12),
+  baseline: SignedBaselineRowSchema.optional(),
+  evaluations: z.array(SignedEvaluationRowSchema).min(1).max(12),
 });
 export type StressResultRequest = z.infer<typeof StressResultSchema>;
 
@@ -56,25 +75,25 @@ export const PlanRequestSchema = z.strictObject({
   phase: z.enum(["search", "finalize"]),
   round: z.number().int().min(1).max(3),
   bundles: z.array(BundleRefSchema).max(12),
-  evaluations: z.array(EvaluationRowSchema).max(12),
-  baseline: BaselineRowSchema.optional(),
+  evaluations: z.array(SignedEvaluationRowSchema).max(12),
+  baseline: SignedBaselineRowSchema.optional(),
   dropped: z.array(BundleIdSchema).max(12).default([]),
   critique: CritiqueContextSchema.optional(),
   /** Stress tests run so far, each with the simulator's results for the leading bundles. */
   stresses: z.array(StressResultSchema).max(3).default([]),
-});
+}).superRefine(checkRowSigns);
 export type PlanRequest = z.infer<typeof PlanRequestSchema>;
 
 export const CritiqueRequestSchema = z.strictObject({
   missionId: MissionIdSchema,
   mission: ConfirmedMissionSchema,
   round: z.number().int().min(1).max(3),
-  evaluations: z.array(EvaluationRowSchema).min(1).max(12),
-  baseline: BaselineRowSchema.optional(),
+  evaluations: z.array(SignedEvaluationRowSchema).min(1).max(12),
+  baseline: SignedBaselineRowSchema.optional(),
   dropped: z.array(BundleIdSchema).max(12).default([]),
   /** Stress tests already run (the critic may not repeat one). */
   stresses: z.array(StressResultSchema).max(3).default([]),
-});
+}).superRefine(checkRowSigns);
 export type CritiqueRequest = z.infer<typeof CritiqueRequestSchema>;
 
 export const ClosuresRequestSchema = z.strictObject({});

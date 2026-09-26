@@ -25,7 +25,7 @@ export function buildCritiqueMessages(i: {
     `Candidates used in the bundles:\n${candidateLines(i.used)}`,
     schemaBlock(i.jsonSchema),
   ].join("\n\n");
-  const done = (i.stresses ?? []).map((st) => stressTable(stressLabel(st.stress), st.evaluations, st.baseline));
-  const user = `Simulator results (evaluation tool message):\n${evaluationTable(i.rows, i.baseline, i.req.dropped)}${done.length ? `\n\nStress tests already run (choose a different one):\n${done.join("\n\n")}` : ""}\n\nReturn your critique action now.`;
+  const done = (i.stresses ?? []).map((st) => stressTable(stressLabel(st.stress), st.evaluations, st.baseline, i.req.mission.lens));
+  const user = `Simulator results (evaluation tool message):\n${evaluationTable(i.rows, i.baseline, i.req.dropped, i.req.mission.lens)}${done.length ? `\n\nStress tests already run (choose a different one):\n${done.join("\n\n")}` : ""}\n\nReturn your critique action now.`;
   return messages(system, user);
 }
