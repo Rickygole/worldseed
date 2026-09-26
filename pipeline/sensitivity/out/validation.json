@@ -1,0 +1,152 @@
+{
+ "accessDate": "2026-09-26",
+ "named": [
+  {
+   "from": "Dundalk",
+   "to": "Ferndale",
+   "modelBaselineMin": 16.050679203122854,
+   "modelBridgeRemovedMin": 17.228033451239266,
+   "modelAddedMin": 1.1773542481164136,
+   "osrmCurrentMin": 22.41166666666667,
+   "osrmKm": 21.026400000000002,
+   "osrmRouteMinDistToBridgeSiteM": 4424.4748237272715
+  },
+  {
+   "from": "Ferndale",
+   "to": "Dundalk",
+   "modelBaselineMin": 16.261454142133395,
+   "modelBridgeRemovedMin": 16.324584348003068,
+   "modelAddedMin": 0.06313020586967469,
+   "osrmCurrentMin": 20.73,
+   "osrmKm": 19.7461,
+   "osrmRouteMinDistToBridgeSiteM": 4416.659000224087
+  },
+  {
+   "from": "Dundalk",
+   "to": "Curtis Bay",
+   "modelBaselineMin": 13.262074237068495,
+   "modelBridgeRemovedMin": 13.262074237068495,
+   "modelAddedMin": 0.0,
+   "osrmCurrentMin": 17.709999999999997,
+   "osrmKm": 13.6938,
+   "osrmRouteMinDistToBridgeSiteM": 4424.4748237272715
+  },
+  {
+   "from": "Sparrows Point",
+   "to": "Curtis Bay",
+   "modelBaselineMin": 17.33922075678905,
+   "modelBridgeRemovedMin": 22.835876428584257,
+   "modelAddedMin": 5.496655671795209,
+   "osrmCurrentMin": 29.206666666666667,
+   "osrmKm": 22.0597,
+   "osrmRouteMinDistToBridgeSiteM": 4540.242347968048
+  },
+  {
+   "from": "Dundalk",
+   "to": "Hawkins Point",
+   "modelBaselineMin": 8.951537396510442,
+   "modelBridgeRemovedMin": 19.077754937609036,
+   "modelAddedMin": 10.126217541098594,
+   "osrmCurrentMin": 25.071666666666665,
+   "osrmKm": 18.2937,
+   "osrmRouteMinDistToBridgeSiteM": 2717.352912916245
+  },
+  {
+   "from": "Edgemere",
+   "to": "Hawkins Point",
+   "modelBaselineMin": 12.115084072947502,
+   "modelBridgeRemovedMin": 26.45585428327322,
+   "modelAddedMin": 14.340770210325719,
+   "osrmCurrentMin": 33.31333333333333,
+   "osrmKm": 27.8444,
+   "osrmRouteMinDistToBridgeSiteM": 2717.352912916245
+  },
+  {
+   "from": "Essex",
+   "to": "Glen Burnie",
+   "modelBaselineMin": 22.03179802397887,
+   "modelBridgeRemovedMin": 22.03179802397887,
+   "modelAddedMin": 0.0,
+   "osrmCurrentMin": 27.958333333333332,
+   "osrmKm": 25.9731,
+   "osrmRouteMinDistToBridgeSiteM": 5164.0320299353025
+  },
+  {
+   "from": "Sparrows Point",
+   "to": "Brooklyn Park",
+   "modelBaselineMin": 18.24983849649628,
+   "modelBridgeRemovedMin": 22.558586547275386,
+   "modelAddedMin": 4.308748050779104,
+   "osrmCurrentMin": 29.376666666666665,
+   "osrmKm": 22.8632,
+   "osrmRouteMinDistToBridgeSiteM": 4540.242347968048
+  }
+ ],
+ "randomPairs": {
+  "n": 4997,
+  "nUsed(osrm>120s)": 4991,
+  "bridgeRemovedVsOsrm_all": {
+   "n": 4991,
+   "medianRatioModelOverOsrm": 0.776566497533855,
+   "p10Ratio": 0.703236695905268,
+   "p90Ratio": 0.840796418044095,
+   "within20pct": 0.2971348427168904,
+   "within10pct": 0.025646163093568423,
+   "spearman": 0.9825107996662613,
+   "pearson": 0.9838636513769967,
+   "medianAbsErrS": 298.4099663734437
+  },
+  "baselineVsOsrm_all": {
+   "n": 4991,
+   "medianRatioModelOverOsrm": 0.7724518576385423,
+   "p10Ratio": 0.6920969238533456,
+   "p90Ratio": 0.8386950837062052,
+   "within20pct": 0.27689841715087155,
+   "within10pct": 0.025646163093568423,
+   "spearman": 0.9780097581825714,
+   "pearson": 0.9754217954767299,
+   "medianAbsErrS": 298.9598819851876
+  },
+  "bridgeRemovedVsOsrm_crossHarbor": {
+   "n": 2412,
+   "medianRatioModelOverOsrm": 0.784100594542668,
+   "p10Ratio": 0.7275078152490793,
+   "p90Ratio": 0.8375225774442139,
+   "within20pct": 0.34991708126036486,
+   "within10pct": 0.010364842454394693,
+   "spearman": 0.9729818607390653,
+   "pearson": 0.9752845947029662,
+   "medianAbsErrS": 346.17261977195733
+  },
+  "bridgeRemovedVsOsrm_sameShore": {
+   "n": 2529,
+   "medianRatioModelOverOsrm": 0.7631087646802975,
+   "p10Ratio": 0.688137245711877,
+   "p90Ratio": 0.8473219184634051,
+   "within20pct": 0.24713325425069196,
+   "within10pct": 0.04033214709371293,
+   "spearman": 0.9806119646929067,
+   "pearson": 0.9815738266311755,
+   "medianAbsErrS": 242.32912752628317
+  },
+  "bridgeAffectedPairs(model +>60s)": {
+   "n": 197,
+   "shareCloserToBridgeRemoved": 1.0,
+   "medianAbsErrBridgeRemovedS": 432.4383166074754,
+   "medianAbsErrBaselineS": 722.2772969931366,
+   "medianModelAddedS": 285.3005924075842,
+   "medianOsrmMinusModelBaselineS": 722.2772969931366
+  },
+  "unaffectedPairs(|model diff|<1s)": {
+   "n": 4768,
+   "medianRatioModelOverOsrm": 0.7747721774055273,
+   "p10Ratio": 0.7020320676216377,
+   "p90Ratio": 0.840700280946156,
+   "within20pct": 0.2860738255033557,
+   "within10pct": 0.026845637583892617,
+   "spearman": 0.9808321919566978,
+   "pearson": 0.9817718731579973,
+   "medianAbsErrS": 291.1695413455367
+  }
+ }
+}

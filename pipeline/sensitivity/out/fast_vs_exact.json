@@ -1,0 +1,1141 @@
+{
+ "worlds": {
+  "keybridge_removed": {
+   "exact": {
+    "popLossGt10pct": 19705.46902464237,
+    "popLossGt25pct": 11622.72793707531,
+    "lowWageLossGt10pct": 1370.6049826226954,
+    "lowWageLossGt25pct": 788.7631933205121,
+    "popMeanLossPct": 1.4972298531964363,
+    "lowWageMeanLossPct": 1.4379262723875874,
+    "equityGapLossPct": -0.0593035808088489,
+    "popMeanAddedS": 13.628969121943069,
+    "addedP50S": 0.19046330684113855,
+    "addedP90S": 26.55609755727278,
+    "addedP99S": 261.50804870229035,
+    "popCovered": 1056262.768038513,
+    "lowWageCovered": 75444.14518300658
+   },
+   "variants": [
+    {
+     "K": 16,
+     "anchorsTotal": 32,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 12.85898813129975,
+      "popWeightedMeanAbs": 12.001759846258201,
+      "max": 23.297703999689702,
+      "p99": 21.857350028899308
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 13.194330391965394,
+      "popWeightedMeanAbs": 12.042861241621251,
+      "max": 23.297703999689702,
+      "p99": 21.857350028899308
+     },
+     "addedTimeErrS": {
+      "meanAbs": 1.4797253965813693,
+      "popWeightedMeanAbs": 0.9320665371782609,
+      "max": 12.138272723879027,
+      "p99": 10.727049873132728
+     },
+     "baselineJobsErr": {
+      "meanAbs": 2253.211137367717,
+      "popWeightedMeanAbs": 1826.7134746409167,
+      "max": 25278.919451946917,
+      "p99": 12949.113531968951
+     },
+     "lossErrPP": {
+      "meanAbs": 1.0594334938537604,
+      "popWeightedMeanAbs": 0.37708696906249584,
+      "max": 100.0,
+      "p99": 12.509227568619554
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 17549.008200170472,
+       "exact": 19705.46902464237,
+       "relErrPct": -10.9434635723472
+      },
+      "popLossGt25pct": {
+       "fast": 9636.120865425095,
+       "exact": 11622.72793707531,
+       "relErrPct": -17.092433741937143
+      },
+      "lowWageLossGt10pct": {
+       "fast": 1233.5602656783885,
+       "exact": 1370.6049826226954,
+       "relErrPct": -9.998848587436736
+      },
+      "lowWageLossGt25pct": {
+       "fast": 655.6623090400244,
+       "exact": 788.7631933205121,
+       "relErrPct": -16.874631753563886
+      },
+      "popMeanLossPct": {
+       "fast": 1.3949195370842633,
+       "exact": 1.4972298531964363,
+       "relErrPct": -6.833307250303
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.339145097888432,
+       "exact": 1.4379262723875874,
+       "relErrPct": -6.869696756784016
+      },
+      "popMeanAddedS": {
+       "fast": 12.89308069905427,
+       "exact": 13.628969121943069,
+       "relErrPct": -5.3994430268683775
+      },
+      "addedP50S": {
+       "fast": 0.0,
+       "exact": 0.19046330684113855,
+       "relErrPct": -100.0
+      },
+      "addedP90S": {
+       "fast": 25.95757516633762,
+       "exact": 26.55609755727278,
+       "relErrPct": -2.253804007325788
+      },
+      "addedP99S": {
+       "fast": 261.11568324057885,
+       "exact": 261.50804870229035,
+       "relErrPct": -0.15003953555486893
+      }
+     },
+     "top10Overlap": 7,
+     "worstBgSame": true,
+     "spearmanBg": 0.8195558353152951,
+     "spearmanN": 319
+    },
+    {
+     "K": 32,
+     "anchorsTotal": 64,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 4.292040784928668,
+      "popWeightedMeanAbs": 4.609380366318656,
+      "max": 9.616460613291224,
+      "p99": 8.381214418873121
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 4.203746716904067,
+      "popWeightedMeanAbs": 4.678404478524271,
+      "max": 9.616460613291224,
+      "p99": 8.418890646981385
+     },
+     "addedTimeErrS": {
+      "meanAbs": 0.8745983952477387,
+      "popWeightedMeanAbs": 0.5857968821284772,
+      "max": 4.56153790389385,
+      "p99": 4.492677921542281
+     },
+     "baselineJobsErr": {
+      "meanAbs": 1736.1250172426212,
+      "popWeightedMeanAbs": 1359.224824960041,
+      "max": 17391.540068947477,
+      "p99": 10532.815633653889
+     },
+     "lossErrPP": {
+      "meanAbs": 0.6434249372470329,
+      "popWeightedMeanAbs": 0.26162730353521974,
+      "max": 90.77512375989234,
+      "p99": 8.406987286673287
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 21398.761775212362,
+       "exact": 19705.46902464237,
+       "relErrPct": 8.593009120729223
+      },
+      "popLossGt25pct": {
+       "fast": 10291.974894067273,
+       "exact": 11622.72793707531,
+       "relErrPct": -11.449575781285137
+      },
+      "lowWageLossGt10pct": {
+       "fast": 1505.2699405014864,
+       "exact": 1370.6049826226954,
+       "relErrPct": 9.825220219257158
+      },
+      "lowWageLossGt25pct": {
+       "fast": 700.253311262175,
+       "exact": 788.7631933205121,
+       "relErrPct": -11.221350439252975
+      },
+      "popMeanLossPct": {
+       "fast": 1.3832925944579446,
+       "exact": 1.4972298531964363,
+       "relErrPct": -7.609870888911752
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.3295994665784219,
+       "exact": 1.4379262723875874,
+       "relErrPct": -7.533543818578092
+      },
+      "popMeanAddedS": {
+       "fast": 13.047280488533417,
+       "exact": 13.628969121943069,
+       "relErrPct": -4.268031046259502
+      },
+      "addedP50S": {
+       "fast": 0.13327222425004948,
+       "exact": 0.19046330684113855,
+       "relErrPct": -30.02734938272964
+      },
+      "addedP90S": {
+       "fast": 25.800485542055185,
+       "exact": 26.55609755727278,
+       "relErrPct": -2.845342820374819
+      },
+      "addedP99S": {
+       "fast": 261.868306235476,
+       "exact": 261.50804870229035,
+       "relErrPct": 0.13776154690969822
+      }
+     },
+     "top10Overlap": 8,
+     "worstBgSame": true,
+     "spearmanBg": 0.935933428894846,
+     "spearmanN": 319
+    },
+    {
+     "K": 64,
+     "anchorsTotal": 128,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 1.6983012116237632,
+      "popWeightedMeanAbs": 1.6408998227488063,
+      "max": 4.868629962921204,
+      "p99": 3.845158692027553
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 1.4233210333049207,
+      "popWeightedMeanAbs": 1.47320806053347,
+      "max": 4.963409741786563,
+      "p99": 3.952550915718006
+     },
+     "addedTimeErrS": {
+      "meanAbs": 0.41746437983235446,
+      "popWeightedMeanAbs": 0.27699534022653993,
+      "max": 3.4715000754570156,
+      "p99": 2.085507725886373
+     },
+     "baselineJobsErr": {
+      "meanAbs": 1073.4089767931569,
+      "popWeightedMeanAbs": 810.230995486128,
+      "max": 15135.288979224933,
+      "p99": 8707.751454662675
+     },
+     "lossErrPP": {
+      "meanAbs": 0.43900470237901784,
+      "popWeightedMeanAbs": 0.1466931411514616,
+      "max": 71.12958524501771,
+      "p99": 6.9857584806632085
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 20059.784970670007,
+       "exact": 19705.46902464237,
+       "relErrPct": 1.7980589326980878
+      },
+      "popLossGt25pct": {
+       "fast": 11427.923144194297,
+       "exact": 11622.72793707531,
+       "relErrPct": -1.6760677350074138
+      },
+      "lowWageLossGt10pct": {
+       "fast": 1376.542920270731,
+       "exact": 1370.6049826226954,
+       "relErrPct": 0.43323479217718397
+      },
+      "lowWageLossGt25pct": {
+       "fast": 774.6584849469655,
+       "exact": 788.7631933205121,
+       "relErrPct": -1.7882056988700268
+      },
+      "popMeanLossPct": {
+       "fast": 1.4494983658468859,
+       "exact": 1.4972298531964363,
+       "relErrPct": -3.1879866172617732
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.3872711016824546,
+       "exact": 1.4379262723875874,
+       "relErrPct": -3.5227933224297403
+      },
+      "popMeanAddedS": {
+       "fast": 13.589543603570863,
+       "exact": 13.628969121943069,
+       "relErrPct": -0.2892773328595277
+      },
+      "addedP50S": {
+       "fast": 0.14532177843011596,
+       "exact": 0.19046330684113855,
+       "relErrPct": -23.700905523326966
+      },
+      "addedP90S": {
+       "fast": 27.31498866955758,
+       "exact": 26.55609755727278,
+       "relErrPct": 2.8576906326244655
+      },
+      "addedP99S": {
+       "fast": 258.36933778137586,
+       "exact": 261.50804870229035,
+       "relErrPct": -1.2002349206802876
+      }
+     },
+     "top10Overlap": 10,
+     "worstBgSame": true,
+     "spearmanBg": 0.989199739752765,
+     "spearmanN": 319
+    },
+    {
+     "K": 128,
+     "anchorsTotal": 256,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 1.8298252419390122,
+      "popWeightedMeanAbs": 1.4516645855307933,
+      "max": 4.0913419772242605,
+      "p99": 3.8965686743015024
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 1.7978418689294244,
+      "popWeightedMeanAbs": 1.424254956015063,
+      "max": 3.980759963300102,
+      "p99": 3.790443338430412
+     },
+     "addedTimeErrS": {
+      "meanAbs": 0.14103870310167868,
+      "popWeightedMeanAbs": 0.08660233857318256,
+      "max": 0.958112359275674,
+      "p99": 0.6596523142372916
+     },
+     "baselineJobsErr": {
+      "meanAbs": 622.5047887904999,
+      "popWeightedMeanAbs": 473.87150812961534,
+      "max": 12739.591842108057,
+      "p99": 4867.899553456645
+     },
+     "lossErrPP": {
+      "meanAbs": 0.17935115890097697,
+      "popWeightedMeanAbs": 0.07616338094314438,
+      "max": 35.116332842908115,
+      "p99": 1.9557835107307247
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 19609.88564275112,
+       "exact": 19705.46902464237,
+       "relErrPct": -0.48506017173060023
+      },
+      "popLossGt25pct": {
+       "fast": 11232.81106218975,
+       "exact": 11622.72793707531,
+       "relErrPct": -3.3547793340474197
+      },
+      "lowWageLossGt10pct": {
+       "fast": 1359.2661966837768,
+       "exact": 1370.6049826226954,
+       "relErrPct": -0.827283286043623
+      },
+      "lowWageLossGt25pct": {
+       "fast": 762.2323640398972,
+       "exact": 788.7631933205121,
+       "relErrPct": -3.3635987968614667
+      },
+      "popMeanLossPct": {
+       "fast": 1.4876398517493523,
+       "exact": 1.4972298531964363,
+       "relErrPct": -0.6405163126162794
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.4296129102720767,
+       "exact": 1.4379262723875874,
+       "relErrPct": -0.5781493999485021
+      },
+      "popMeanAddedS": {
+       "fast": 13.656267722501353,
+       "exact": 13.628969121943069,
+       "relErrPct": 0.20029835209129931
+      },
+      "addedP50S": {
+       "fast": 0.1849191269016046,
+       "exact": 0.19046330684113855,
+       "relErrPct": -2.9108913582804763
+      },
+      "addedP90S": {
+       "fast": 26.42335813225486,
+       "exact": 26.55609755727278,
+       "relErrPct": -0.49984537348396474
+      },
+      "addedP99S": {
+       "fast": 262.2013817557888,
+       "exact": 261.50804870229035,
+       "relErrPct": 0.2651287625520693
+      }
+     },
+     "top10Overlap": 10,
+     "worstBgSame": true,
+     "spearmanBg": 0.9964123587863014,
+     "spearmanN": 319
+    }
+   ]
+  },
+  "harbor_tunnel_closed": {
+   "exact": {
+    "popLossGt10pct": 63272.318377243006,
+    "popLossGt25pct": 4933.806655110442,
+    "lowWageLossGt10pct": 4848.751665562231,
+    "lowWageLossGt25pct": 377.1286361206585,
+    "popMeanLossPct": 1.7643255509938387,
+    "lowWageMeanLossPct": 1.8688237853594016,
+    "equityGapLossPct": 0.10449823436556294,
+    "popMeanAddedS": 23.899745987951885,
+    "addedP50S": 6.04342585305676,
+    "addedP90S": 60.27057913559747,
+    "addedP99S": 182.79872141690612,
+    "popCovered": 1056262.768038513,
+    "lowWageCovered": 75444.14518300658
+   },
+   "variants": [
+    {
+     "K": 16,
+     "anchorsTotal": 32,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 12.85898813129975,
+      "popWeightedMeanAbs": 12.001759846258201,
+      "max": 23.297703999689702,
+      "p99": 21.857350028899308
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 7.775193697757988,
+      "popWeightedMeanAbs": 8.65341098636343,
+      "max": 23.297703999689702,
+      "p99": 21.857350028899308
+     },
+     "addedTimeErrS": {
+      "meanAbs": 5.38153667835932,
+      "popWeightedMeanAbs": 3.817950329357232,
+      "max": 13.983924030650542,
+      "p99": 13.561124879277713
+     },
+     "baselineJobsErr": {
+      "meanAbs": 2253.211137367717,
+      "popWeightedMeanAbs": 1826.7134746409167,
+      "max": 25278.919451946917,
+      "p99": 12949.113531968951
+     },
+     "lossErrPP": {
+      "meanAbs": 0.9347080926250264,
+      "popWeightedMeanAbs": 0.4754546991912684,
+      "max": 29.998803006973507,
+      "p99": 17.67108452671384
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 64971.66524597444,
+       "exact": 63272.318377243006,
+       "relErrPct": 2.6857667180765654
+      },
+      "popLossGt25pct": {
+       "fast": 4650.380404652678,
+       "exact": 4933.806655110442,
+       "relErrPct": -5.744575543190178
+      },
+      "lowWageLossGt10pct": {
+       "fast": 4952.198436108782,
+       "exact": 4848.751665562231,
+       "relErrPct": 2.133472235364642
+      },
+      "lowWageLossGt25pct": {
+       "fast": 359.54446479569015,
+       "exact": 377.1286361206585,
+       "relErrPct": -4.662645485065331
+      },
+      "popMeanLossPct": {
+       "fast": 1.8341594045511358,
+       "exact": 1.7643255509938387,
+       "relErrPct": 3.9581047566850547
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.9139967452995466,
+       "exact": 1.8688237853594016,
+       "relErrPct": 2.417186697538609
+      },
+      "popMeanAddedS": {
+       "fast": 26.4110771242225,
+       "exact": 23.899745987951885,
+       "relErrPct": 10.507773335903249
+      },
+      "addedP50S": {
+       "fast": 12.33741025612585,
+       "exact": 6.04342585305676,
+       "relErrPct": 104.14596879492773
+      },
+      "addedP90S": {
+       "fast": 57.36181530036242,
+       "exact": 60.27057913559747,
+       "relErrPct": -4.826175352805018
+      },
+      "addedP99S": {
+       "fast": 184.2777894197102,
+       "exact": 182.79872141690612,
+       "relErrPct": 0.8091238228252084
+      }
+     },
+     "top10Overlap": 8,
+     "worstBgSame": true,
+     "spearmanBg": 0.9357294024357237,
+     "spearmanN": 421
+    },
+    {
+     "K": 32,
+     "anchorsTotal": 64,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 4.292040784928668,
+      "popWeightedMeanAbs": 4.609380366318656,
+      "max": 9.616460613291224,
+      "p99": 8.381214418873121
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 5.671164019098368,
+      "popWeightedMeanAbs": 5.502210360455938,
+      "max": 12.981666288052452,
+      "p99": 11.567748221034542
+     },
+     "addedTimeErrS": {
+      "meanAbs": 2.3502266756727863,
+      "popWeightedMeanAbs": 1.8818412380571143,
+      "max": 6.281056201084766,
+      "p99": 5.721851180160229
+     },
+     "baselineJobsErr": {
+      "meanAbs": 1736.1250172426212,
+      "popWeightedMeanAbs": 1359.224824960041,
+      "max": 17391.540068947477,
+      "p99": 10532.815633653889
+     },
+     "lossErrPP": {
+      "meanAbs": 0.660427223921111,
+      "popWeightedMeanAbs": 0.34237888538903194,
+      "max": 18.973467335005623,
+      "p99": 9.910150995530026
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 68778.3126666561,
+       "exact": 63272.318377243006,
+       "relErrPct": 8.702058705333338
+      },
+      "popLossGt25pct": {
+       "fast": 2866.9017650500173,
+       "exact": 4933.806655110442,
+       "relErrPct": -41.892701407736
+      },
+      "lowWageLossGt10pct": {
+       "fast": 5252.870029960832,
+       "exact": 4848.751665562231,
+       "relErrPct": 8.334482610623484
+      },
+      "lowWageLossGt25pct": {
+       "fast": 204.47300843785342,
+       "exact": 377.1286361206585,
+       "relErrPct": -45.78162757907507
+      },
+      "popMeanLossPct": {
+       "fast": 1.84362998475762,
+       "exact": 1.7643255509938387,
+       "relErrPct": 4.4948866562131595
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.936480832049795,
+       "exact": 1.8688237853594016,
+       "relErrPct": 3.6203010267970237
+      },
+      "popMeanAddedS": {
+       "fast": 25.56176301673783,
+       "exact": 23.899745987951885,
+       "relErrPct": 6.954120054764545
+      },
+      "addedP50S": {
+       "fast": 8.348534118092857,
+       "exact": 6.04342585305676,
+       "relErrPct": 38.14240996884533
+      },
+      "addedP90S": {
+       "fast": 63.030687947570414,
+       "exact": 60.27057913559747,
+       "relErrPct": 4.579529268771765
+      },
+      "addedP99S": {
+       "fast": 185.89877313929287,
+       "exact": 182.79872141690612,
+       "relErrPct": 1.6958826070323063
+      }
+     },
+     "top10Overlap": 8,
+     "worstBgSame": true,
+     "spearmanBg": 0.9579022385004385,
+     "spearmanN": 421
+    },
+    {
+     "K": 64,
+     "anchorsTotal": 128,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 1.6983012116237632,
+      "popWeightedMeanAbs": 1.6408998227488063,
+      "max": 4.868629962921204,
+      "p99": 3.845158692027553
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 1.6167104289347118,
+      "popWeightedMeanAbs": 1.566693500412084,
+      "max": 4.552528633231759,
+      "p99": 4.016201661281002
+     },
+     "addedTimeErrS": {
+      "meanAbs": 0.48207753665993747,
+      "popWeightedMeanAbs": 0.3858072159810378,
+      "max": 2.69059598367312,
+      "p99": 1.6451523079147137
+     },
+     "baselineJobsErr": {
+      "meanAbs": 1073.4089767931569,
+      "popWeightedMeanAbs": 810.230995486128,
+      "max": 15135.288979224933,
+      "p99": 8707.751454662675
+     },
+     "lossErrPP": {
+      "meanAbs": 0.4106920549794537,
+      "popWeightedMeanAbs": 0.20428539991766378,
+      "max": 22.64818156787922,
+      "p99": 7.367340824719318
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 64689.369546146714,
+       "exact": 63272.318377243006,
+       "relErrPct": 2.2396068379460177
+      },
+      "popLossGt25pct": {
+       "fast": 5920.899565877044,
+       "exact": 4933.806655110442,
+       "relErrPct": 20.006720566242088
+      },
+      "lowWageLossGt10pct": {
+       "fast": 4944.507157164931,
+       "exact": 4848.751665562231,
+       "relErrPct": 1.9748483363830394
+      },
+      "lowWageLossGt25pct": {
+       "fast": 454.01027643571433,
+       "exact": 377.1286361206585,
+       "relErrPct": 20.38605211895348
+      },
+      "popMeanLossPct": {
+       "fast": 1.728160185536886,
+       "exact": 1.7643255509938387,
+       "relErrPct": -2.0498124870764856
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.831531779845137,
+       "exact": 1.8688237853594016,
+       "relErrPct": -1.9954800343625179
+      },
+      "popMeanAddedS": {
+       "fast": 23.83240764607858,
+       "exact": 23.899745987951885,
+       "relErrPct": -0.2817533789156279
+      },
+      "addedP50S": {
+       "fast": 5.692048383498786,
+       "exact": 6.04342585305676,
+       "relErrPct": -5.8142099878705
+      },
+      "addedP90S": {
+       "fast": 58.98432856244017,
+       "exact": 60.27057913559747,
+       "relErrPct": -2.134126785580548
+      },
+      "addedP99S": {
+       "fast": 181.7446815529961,
+       "exact": 182.79872141690612,
+       "relErrPct": -0.576612273729249
+      }
+     },
+     "top10Overlap": 10,
+     "worstBgSame": true,
+     "spearmanBg": 0.9791248177046543,
+     "spearmanN": 421
+    },
+    {
+     "K": 128,
+     "anchorsTotal": 256,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 1.8298252419390122,
+      "popWeightedMeanAbs": 1.4516645855307933,
+      "max": 4.0913419772242605,
+      "p99": 3.8965686743015024
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 1.4439438322389464,
+      "popWeightedMeanAbs": 1.186285476841593,
+      "max": 2.9992764916017904,
+      "p99": 2.8018584458673104
+     },
+     "addedTimeErrS": {
+      "meanAbs": 0.47391206547250264,
+      "popWeightedMeanAbs": 0.40823781756267336,
+      "max": 1.3913250614082244,
+      "p99": 1.3044032622391273
+     },
+     "baselineJobsErr": {
+      "meanAbs": 622.5047887904999,
+      "popWeightedMeanAbs": 473.87150812961534,
+      "max": 12739.591842108057,
+      "p99": 4867.899553456645
+     },
+     "lossErrPP": {
+      "meanAbs": 0.24904931473042102,
+      "popWeightedMeanAbs": 0.148202487727895,
+      "max": 18.953464310111478,
+      "p99": 3.5025995575575766
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 66984.43661473843,
+       "exact": 63272.318377243006,
+       "relErrPct": 5.866891450638789
+      },
+      "popLossGt25pct": {
+       "fast": 7460.349639119231,
+       "exact": 4933.806655110442,
+       "relErrPct": 51.208795978897825
+      },
+      "lowWageLossGt10pct": {
+       "fast": 5163.099436789591,
+       "exact": 4848.751665562231,
+       "relErrPct": 6.483066011814609
+      },
+      "lowWageLossGt25pct": {
+       "fast": 578.6567212332302,
+       "exact": 377.1286361206585,
+       "relErrPct": 53.43749209436719
+      },
+      "popMeanLossPct": {
+       "fast": 1.797118301770859,
+       "exact": 1.7643255509938387,
+       "relErrPct": 1.858656457055119
+      },
+      "lowWageMeanLossPct": {
+       "fast": 1.9010974525351667,
+       "exact": 1.8688237853594016,
+       "relErrPct": 1.7269507927179184
+      },
+      "popMeanAddedS": {
+       "fast": 24.29442999240777,
+       "exact": 23.899745987951885,
+       "relErrPct": 1.6514150596196764
+      },
+      "addedP50S": {
+       "fast": 6.188608761107844,
+       "exact": 6.04342585305676,
+       "relErrPct": 2.402327944135352
+      },
+      "addedP90S": {
+       "fast": 60.98276036685115,
+       "exact": 60.27057913559747,
+       "relErrPct": 1.1816399335593086
+      },
+      "addedP99S": {
+       "fast": 183.60166742082356,
+       "exact": 182.79872141690612,
+       "relErrPct": 0.4392514333216635
+      }
+     },
+     "top10Overlap": 10,
+     "worstBgSame": true,
+     "spearmanBg": 0.9900772213036232,
+     "spearmanN": 421
+    }
+   ]
+  },
+  "keybridge_and_harbor_tunnel_closed": {
+   "exact": {
+    "popLossGt10pct": 145875.84742005414,
+    "popLossGt25pct": 39604.23558190896,
+    "lowWageLossGt10pct": 10659.357655522515,
+    "lowWageLossGt25pct": 2908.011469877194,
+    "popMeanLossPct": 4.674157089481833,
+    "lowWageMeanLossPct": 4.716746070942172,
+    "equityGapLossPct": 0.04258898146033907,
+    "popMeanAddedS": 49.84774952237554,
+    "addedP50S": 25.450927282768134,
+    "addedP90S": 134.77614555305422,
+    "addedP99S": 305.0020432818362,
+    "popCovered": 1056262.768038513,
+    "lowWageCovered": 75444.14518300658
+   },
+   "variants": [
+    {
+     "K": 16,
+     "anchorsTotal": 32,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 12.85898813129975,
+      "popWeightedMeanAbs": 12.001759846258201,
+      "max": 23.297703999689702,
+      "p99": 21.857350028899308
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 7.807073143782964,
+      "popWeightedMeanAbs": 8.311641359733523,
+      "max": 23.297703999689702,
+      "p99": 21.857350028899308
+     },
+     "addedTimeErrS": {
+      "meanAbs": 5.412990654431597,
+      "popWeightedMeanAbs": 3.998141319422866,
+      "max": 12.533580268926016,
+      "p99": 12.245856560809216
+     },
+     "baselineJobsErr": {
+      "meanAbs": 2253.211137367717,
+      "popWeightedMeanAbs": 1826.7134746409167,
+      "max": 25278.919451946917,
+      "p99": 12949.113531968951
+     },
+     "lossErrPP": {
+      "meanAbs": 1.279179958539518,
+      "popWeightedMeanAbs": 0.6410548871635243,
+      "max": 100.0,
+      "p99": 12.150253783540913
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 159905.64738048427,
+       "exact": 145875.84742005414,
+       "relErrPct": 9.617630477258432
+      },
+      "popLossGt25pct": {
+       "fast": 40016.62978202442,
+       "exact": 39604.23558190896,
+       "relErrPct": 1.041288119960182
+      },
+      "lowWageLossGt10pct": {
+       "fast": 11647.00080038824,
+       "exact": 10659.357655522515,
+       "relErrPct": 9.265503389447073
+      },
+      "lowWageLossGt25pct": {
+       "fast": 2915.9920483885944,
+       "exact": 2908.011469877194,
+       "relErrPct": 0.2744342171297376
+      },
+      "popMeanLossPct": {
+       "fast": 4.744410639534359,
+       "exact": 4.674157089481833,
+       "relErrPct": 1.5030207309595145
+      },
+      "lowWageMeanLossPct": {
+       "fast": 4.757254901335308,
+       "exact": 4.716746070942172,
+       "relErrPct": 0.8588300023758766
+      },
+      "popMeanAddedS": {
+       "fast": 51.827307548852126,
+       "exact": 49.84774952237554,
+       "relErrPct": 3.9712084205286047
+      },
+      "addedP50S": {
+       "fast": 34.711288881210294,
+       "exact": 25.450927282768134,
+       "relErrPct": 36.385163870677516
+      },
+      "addedP90S": {
+       "fast": 131.68548566515847,
+       "exact": 134.77614555305422,
+       "relErrPct": -2.293180202782341
+      },
+      "addedP99S": {
+       "fast": 301.89262117243925,
+       "exact": 305.0020432818362,
+       "relErrPct": -1.019475829059846
+      }
+     },
+     "top10Overlap": 10,
+     "worstBgSame": true,
+     "spearmanBg": 0.9887602224312262,
+     "spearmanN": 440
+    },
+    {
+     "K": 32,
+     "anchorsTotal": 64,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 4.292040784928668,
+      "popWeightedMeanAbs": 4.609380366318656,
+      "max": 9.616460613291224,
+      "p99": 8.381214418873121
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 6.131806835749631,
+      "popWeightedMeanAbs": 5.943332898277957,
+      "max": 11.877013469814642,
+      "p99": 11.358170558286384
+     },
+     "addedTimeErrS": {
+      "meanAbs": 2.0122932103656708,
+      "popWeightedMeanAbs": 1.5425446592381349,
+      "max": 4.912245548786473,
+      "p99": 4.678618343241851
+     },
+     "baselineJobsErr": {
+      "meanAbs": 1736.1250172426212,
+      "popWeightedMeanAbs": 1359.224824960041,
+      "max": 17391.540068947477,
+      "p99": 10532.815633653889
+     },
+     "lossErrPP": {
+      "meanAbs": 0.9737278941157002,
+      "popWeightedMeanAbs": 0.46521555053332336,
+      "max": 90.77512375989234,
+      "p99": 12.80522123807005
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 151774.8356636964,
+       "exact": 145875.84742005414,
+       "relErrPct": 4.043841628323808
+      },
+      "popLossGt25pct": {
+       "fast": 35860.19701797108,
+       "exact": 39604.23558190896,
+       "relErrPct": -9.453631685920339
+      },
+      "lowWageLossGt10pct": {
+       "fast": 11051.469451837256,
+       "exact": 10659.357655522515,
+       "relErrPct": 3.6785687185530547
+      },
+      "lowWageLossGt25pct": {
+       "fast": 2589.8186818419636,
+       "exact": 2908.011469877194,
+       "relErrPct": -10.941937173606398
+      },
+      "popMeanLossPct": {
+       "fast": 4.64694299652081,
+       "exact": 4.674157089481833,
+       "relErrPct": -0.5822246116259588
+      },
+      "lowWageMeanLossPct": {
+       "fast": 4.673047902762758,
+       "exact": 4.716746070942172,
+       "relErrPct": -0.9264473330167
+      },
+      "popMeanAddedS": {
+       "fast": 50.98670700519783,
+       "exact": 49.84774952237554,
+       "relErrPct": 2.2848724240018825
+      },
+      "addedP50S": {
+       "fast": 28.94620409430297,
+       "exact": 25.450927282768134,
+       "relErrPct": 13.73339671557412
+      },
+      "addedP90S": {
+       "fast": 133.9474298358689,
+       "exact": 134.77614555305422,
+       "relErrPct": -0.6148830817090833
+      },
+      "addedP99S": {
+       "fast": 305.00383769516543,
+       "exact": 305.0020432818362,
+       "relErrPct": 0.0005883282977015014
+      }
+     },
+     "top10Overlap": 10,
+     "worstBgSame": true,
+     "spearmanBg": 0.993931850001775,
+     "spearmanN": 440
+    },
+    {
+     "K": 64,
+     "anchorsTotal": 128,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 1.6983012116237632,
+      "popWeightedMeanAbs": 1.6408998227488063,
+      "max": 4.868629962921204,
+      "p99": 3.845158692027553
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 1.8562304554372608,
+      "popWeightedMeanAbs": 1.8508071681466505,
+      "max": 4.7487713017935675,
+      "p99": 4.543403333034348
+     },
+     "addedTimeErrS": {
+      "meanAbs": 1.175989186188404,
+      "popWeightedMeanAbs": 0.9237183518565545,
+      "max": 4.207312420482822,
+      "p99": 3.98168895985905
+     },
+     "baselineJobsErr": {
+      "meanAbs": 1073.4089767931569,
+      "popWeightedMeanAbs": 810.230995486128,
+      "max": 15135.288979224933,
+      "p99": 8707.751454662675
+     },
+     "lossErrPP": {
+      "meanAbs": 0.6418370786485159,
+      "popWeightedMeanAbs": 0.3197907712125671,
+      "max": 71.12958524501771,
+      "p99": 8.223520945300514
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 145123.52649814135,
+       "exact": 145875.84742005414,
+       "relErrPct": -0.5157268562399175
+      },
+      "popLossGt25pct": {
+       "fast": 33438.95300451352,
+       "exact": 39604.23558190896,
+       "relErrPct": -15.567230339907667
+      },
+      "lowWageLossGt10pct": {
+       "fast": 10602.147543557556,
+       "exact": 10659.357655522515,
+       "relErrPct": -0.5367125657456451
+      },
+      "lowWageLossGt25pct": {
+       "fast": 2415.0134423960553,
+       "exact": 2908.011469877194,
+       "relErrPct": -16.95309776415559
+      },
+      "popMeanLossPct": {
+       "fast": 4.560381390808264,
+       "exact": 4.674157089481833,
+       "relErrPct": -2.4341436647389414
+      },
+      "lowWageMeanLossPct": {
+       "fast": 4.601368778136561,
+       "exact": 4.716746070942172,
+       "relErrPct": -2.4461205049048584
+      },
+      "popMeanAddedS": {
+       "fast": 49.624492861745274,
+       "exact": 49.84774952237554,
+       "relErrPct": -0.4478771113429092
+      },
+      "addedP50S": {
+       "fast": 25.556662095004185,
+       "exact": 25.450927282768134,
+       "relErrPct": 0.4154458148471374
+      },
+      "addedP90S": {
+       "fast": 131.7914732952363,
+       "exact": 134.77614555305422,
+       "relErrPct": -2.2145404482153075
+      },
+      "addedP99S": {
+       "fast": 301.1275200158959,
+       "exact": 305.0020432818362,
+       "relErrPct": -1.2703269867474498
+      }
+     },
+     "top10Overlap": 9,
+     "worstBgSame": true,
+     "spearmanBg": 0.9965506020175723,
+     "spearmanN": 440
+    },
+    {
+     "K": 128,
+     "anchorsTotal": 256,
+     "baselineMeanTimeErrS": {
+      "meanAbs": 1.8298252419390122,
+      "popWeightedMeanAbs": 1.4516645855307933,
+      "max": 4.0913419772242605,
+      "p99": 3.8965686743015024
+     },
+     "worldMeanTimeErrS": {
+      "meanAbs": 1.3153022506193406,
+      "popWeightedMeanAbs": 1.106065910149033,
+      "max": 2.89044166854967,
+      "p99": 2.715301075510904
+     },
+     "addedTimeErrS": {
+      "meanAbs": 0.6308057806247485,
+      "popWeightedMeanAbs": 0.5088308360825393,
+      "max": 1.4362879313259782,
+      "p99": 1.2720609661162607
+     },
+     "baselineJobsErr": {
+      "meanAbs": 622.5047887904999,
+      "popWeightedMeanAbs": 473.87150812961534,
+      "max": 12739.591842108057,
+      "p99": 4867.899553456645
+     },
+     "lossErrPP": {
+      "meanAbs": 0.3547326272409173,
+      "popWeightedMeanAbs": 0.19697052645010704,
+      "max": 35.116332842908115,
+      "p99": 3.869382005955962
+     },
+     "headline": {
+      "popLossGt10pct": {
+       "fast": 146307.1760681445,
+       "exact": 145875.84742005414,
+       "relErrPct": 0.29568201708425335
+      },
+      "popLossGt25pct": {
+       "fast": 32491.161398575292,
+       "exact": 39604.23558190896,
+       "relErrPct": -17.960387516184973
+      },
+      "lowWageLossGt10pct": {
+       "fast": 10667.464158635688,
+       "exact": 10659.357655522515,
+       "relErrPct": 0.07605057804747073
+      },
+      "lowWageLossGt25pct": {
+       "fast": 2360.441663812482,
+       "exact": 2908.011469877194,
+       "relErrPct": -18.829698979414133
+      },
+      "popMeanLossPct": {
+       "fast": 4.701532796254829,
+       "exact": 4.674157089481833,
+       "relErrPct": 0.5856822149730156
+      },
+      "lowWageMeanLossPct": {
+       "fast": 4.745596827771154,
+       "exact": 4.716746070942172,
+       "relErrPct": 0.6116665259281007
+      },
+      "popMeanAddedS": {
+       "fast": 50.3565715954169,
+       "exact": 49.84774952237554,
+       "relErrPct": 1.0207523467292479
+      },
+      "addedP50S": {
+       "fast": 26.297354207847775,
+       "exact": 25.450927282768134,
+       "relErrPct": 3.3257213604658054
+      },
+      "addedP90S": {
+       "fast": 135.6324846207799,
+       "exact": 134.77614555305422,
+       "relErrPct": 0.6353788084765943
+      },
+      "addedP99S": {
+       "fast": 305.98527584291605,
+       "exact": 305.0020432818362,
+       "relErrPct": 0.3223691718587274
+      }
+     },
+     "top10Overlap": 10,
+     "worstBgSame": true,
+     "spearmanBg": 0.9986994673620121,
+     "spearmanN": 440
+    }
+   ]
+  }
+ }
+}

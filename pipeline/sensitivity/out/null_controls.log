@@ -1,0 +1,96 @@
+candidate pools 2530 1019 13792
+  null remote cul-de-sac (dead-end no km  14.2 xhAdd 0.0000 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (6s)
+  null remote cul-de-sac (dead-end no km  18.2 xhAdd 0.0000 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (8s)
+  null remote cul-de-sac (dead-end no km  17.8 xhAdd 0.0000 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (10s)
+  null remote cul-de-sac (dead-end no km  20.1 xhAdd 0.0000 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (12s)
+  null remote cul-de-sac (dead-end no km  12.2 xhAdd 0.0000 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (14s)
+  null remote cul-de-sac (dead-end no km  16.3 xhAdd 1.2144 lossGt10 49 reg 0.2626 emsD 0.00/0.00 hexes xh 4150 (16s)
+  null remote cul-de-sac (dead-end no km  15.3 xhAdd 0.1985 lossGt10 35 reg 0.2061 emsD 0.00/0.00 hexes xh 1 (17s)
+  null remote cul-de-sac (dead-end no km  21.3 xhAdd 1.6331 lossGt10 34 reg 0.1907 emsD 0.00/0.00 hexes xh 3808 (19s)
+  null remote cul-de-sac (dead-end no km  13.2 xhAdd 3.8790 lossGt10 104 reg 0.5961 emsD 0.00/0.00 hexes xh 4148 (21s)
+  null remote rural edge (both ends j km  13.5 xhAdd 0.0001 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (23s)
+  null remote rural edge (both ends j km  12.1 xhAdd 0.0007 lossGt10 0 reg 0.0007 emsD 0.00/0.00 hexes xh 1 (25s)
+  null remote rural edge (both ends j km  12.8 xhAdd 0.1700 lossGt10 0 reg 0.0002 emsD 0.11/0.08 hexes xh 0 (27s)
+  null remote rural edge (both ends j km  16.6 xhAdd 0.0000 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (29s)
+  null remote rural edge (both ends j km  12.4 xhAdd 0.0000 lossGt10 0 reg 0.0000 emsD 0.00/0.00 hexes xh 0 (31s)
+  null remote rural edge (both ends j km  12.0 xhAdd 0.0000 lossGt10 0 reg 0.0066 emsD 0.00/0.00 hexes xh 0 (34s)
+  closure Key Bridge (I-695) {'popLossGt10': 19705.47, 'xhMeanAddedS': 13.63, 'regMeanAddedS': 2.95}
+  closure Harbor Tunnel (I-895) {'popLossGt10': 63272.32, 'xhMeanAddedS': 23.9, 'regMeanAddedS': 14.49}
+  closure Fort McHenry Tunnel (I-95) {'popLossGt10': 5206.57, 'xhMeanAddedS': 2.07, 'regMeanAddedS': 3.44}
+  closure Both tunnels {'popLossGt10': 151675.71, 'xhMeanAddedS': 48.77, 'regMeanAddedS': 35.09}
+  closure Bridge + both tunnels {'popLossGt10': 311086.26, 'xhMeanAddedS': 105.36, 'regMeanAddedS': 56.61}
+  monotonicity min benefits {'xharborTimeSavedS': 0, 'accessTimeSavedS': 0, 'emsP90SavedS': 0, 'emsPctWithinGain': 0, 'xharborJobsGain': 0}
+  random cut 0/200 (44s)
+  random cut 20/200 (83s)
+  random cut 40/200 (125s)
+  random cut 60/200 (176s)
+  random cut 80/200 (229s)
+  random cut 100/200 (288s)
+  random cut 120/200 (346s)
+  random cut 140/200 (439s)
+  random cut 160/200 (493s)
+  random cut 180/200 (571s)
+done 655 s; wrote out/null_controls.json
+{
+ "n": 199,
+ "popLossGt10": {
+  "keybridge": 19705.46902464237,
+  "percentileOfKeyBridge": 78.14070351758794,
+  "randomMedian": 8023.975138895563,
+  "randomP90": 52818.49274380354,
+  "randomP99": 151675.71442722186,
+  "randomMax": 151675.71442722186,
+  "fractionZeroOrTiny": 0.27638190954773867,
+  "nBiggerThanKeyBridge": 42
+ },
+ "popLossGt25": {
+  "keybridge": 11622.72793707531,
+  "percentileOfKeyBridge": 91.70854271356784,
+  "randomMedian": 319.7794701308012,
+  "randomP90": 7458.506035757376,
+  "randomP99": 71083.34858411702,
+  "randomMax": 71083.34858411702,
+  "fractionZeroOrTiny": 0.4271356783919598,
+  "nBiggerThanKeyBridge": 15
+ },
+ "xhPopMeanLossPct": {
+  "keybridge": 1.4972298531964363,
+  "percentileOfKeyBridge": 86.68341708542714,
+  "randomMedian": 0.6286092198240034,
+  "randomP90": 1.7645317176288853,
+  "randomP99": 5.048569232376413,
+  "randomMax": 5.048569232376413,
+  "fractionZeroOrTiny": 1.0,
+  "nBiggerThanKeyBridge": 25
+ },
+ "xhMeanAddedS": {
+  "keybridge": 13.628969121943069,
+  "percentileOfKeyBridge": 67.08542713567839,
+  "randomMedian": 8.120669757045183,
+  "randomP90": 32.23763019517987,
+  "randomP99": 49.738970061654136,
+  "randomMax": 72.73838909111,
+  "fractionZeroOrTiny": 0.10552763819095477,
+  "nBiggerThanKeyBridge": 64
+ },
+ "regMeanAddedS": {
+  "keybridge": 2.9457681370469593,
+  "percentileOfKeyBridge": 36.4321608040201,
+  "randomMedian": 5.5707550324586945,
+  "randomP90": 15.987560394663578,
+  "randomP99": 35.09197850039022,
+  "randomMax": 35.09197850039022,
+  "fractionZeroOrTiny": 0.12562814070351758,
+  "nBiggerThanKeyBridge": 125
+ },
+ "emsDP90S": {
+  "keybridge": 0.0,
+  "percentileOfKeyBridge": 41.959798994974875,
+  "randomMedian": 0.0,
+  "randomP90": 0.008599460124969482,
+  "randomP99": 0.2489767187833787,
+  "randomMax": 0.2599632143974304,
+  "fractionZeroOrTiny": 1.0,
+  "nBiggerThanKeyBridge": 32
+ }
+}

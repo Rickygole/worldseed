@@ -1,0 +1,41 @@
+{
+ "rows": [
+  {
+   "proxy": "free-flow (reference)",
+   "baselineMin": 16.050679203122854,
+   "bridgeRemovedMin": 17.228033451239266,
+   "addedMin": 1.177354248116412
+  },
+  {
+   "proxy": "tunnels x1.25 after closure only (diversion)",
+   "baselineMin": 16.050679203122854,
+   "bridgeRemovedMin": 17.648706621925037,
+   "addedMin": 1.5980274188021824
+  },
+  {
+   "proxy": "tunnels x1.5 after closure only (diversion)",
+   "baselineMin": 16.050679203122854,
+   "bridgeRemovedMin": 18.069379792610803,
+   "addedMin": 2.018700589487949
+  },
+  {
+   "proxy": "all speeds x0.8, both worlds",
+   "baselineMin": 19.959664765310784,
+   "bridgeRemovedMin": 21.4313575754563,
+   "addedMin": 1.471692810145516
+  },
+  {
+   "proxy": "all speeds x0.8 and tunnels x1.5 after closure",
+   "baselineMin": 19.959664765310784,
+   "bridgeRemovedMin": 22.48304050217072,
+   "addedMin": 2.5233757368599363
+  },
+  {
+   "proxy": "bridge AND both tunnels closed (limit of any tunnel slowdown)",
+   "baselineMin": 16.050679203122854,
+   "bridgeRemovedMin": 25.41791513611873,
+   "addedMin": 9.367235932995875
+  }
+ ],
+ "note": "hex-to-hex free-flow minutes incl. snap time; the last row bounds what any tunnel congestion multiplier could add for this pair"
+}

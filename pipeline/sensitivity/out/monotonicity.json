@@ -1,0 +1,14 @@
+{
+ "candidates": 16,
+ "contextsChecked": 32,
+ "minBenefit": {
+  "xharborTimeSavedS": 0.0,
+  "xharborJobsGain": 0.0,
+  "accessTimeSavedS": 0.0,
+  "emsP90SavedS": 0.0,
+  "emsPctWithinGain": 0.0
+ },
+ "negativeBenefits": [],
+ "prunedCandidates": 10,
+ "file": "data/snapshot/candidate_effects.json"
+}

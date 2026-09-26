@@ -1,0 +1,55 @@
+0 16
+25 114
+50 169
+75 230
+100 360
+125 502
+150 684
+175 806
+{
+ "popLossGt10": {
+  "keybridge": 19705.46902464237,
+  "percentileOfKeyBridge": 96.98492462311557,
+  "randomMedian": 0.0,
+  "randomP90": 11702.409990251064,
+  "randomMax": 59390.34581834229,
+  "nBigger": 6,
+  "shareZero": 0.5577889447236181
+ },
+ "popLossGt25": {
+  "keybridge": 11622.72793707531,
+  "percentileOfKeyBridge": 100.0,
+  "randomMedian": 0.0,
+  "randomP90": 1883.8283322835396,
+  "randomMax": 9481.264883598313,
+  "nBigger": 0,
+  "shareZero": 0.7537688442211056
+ },
+ "xhPopMeanLossPct": {
+  "keybridge": 1.4972298531964363,
+  "percentileOfKeyBridge": 100.0,
+  "randomMedian": 0.10129994318963512,
+  "randomP90": 0.5959651647697874,
+  "randomMax": 1.4276122755055611,
+  "nBigger": 0,
+  "shareZero": 0.05527638190954774
+ },
+ "xhMeanAddedS": {
+  "keybridge": 13.628969121943069,
+  "percentileOfKeyBridge": 97.98994974874371,
+  "randomMedian": 1.5570009330446137,
+  "randomP90": 8.5243525246338,
+  "randomMax": 16.25873096701443,
+  "nBigger": 4,
+  "shareZero": 0.02512562814070352
+ },
+ "regMeanAddedS": {
+  "keybridge": 2.9457681370469593,
+  "percentileOfKeyBridge": 81.4070351758794,
+  "randomMedian": 1.0542137578880526,
+  "randomP90": 4.11689969844116,
+  "randomMax": 10.583538993389785,
+  "nBigger": 37,
+  "shareZero": 0.1407035175879397
+ }
+}

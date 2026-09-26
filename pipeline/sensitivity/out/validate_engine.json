@@ -1,0 +1,75 @@
+{
+ "baseline": {
+  "xharMeanTimeMaxAbsErrS": 0.004999675177259633,
+  "xharJobsHexesDiffering": 0,
+  "xharJobsDiffOutsideBoundaryRule": 0,
+  "accessMaxAbsErrS": 0.004999890286057962,
+  "emsMaxAbsErrS": 0.004999403953547699,
+  "emsUnreachableMatch": true
+ },
+ "keybridge_removed": {
+  "xharMeanTimeMaxAbsErrS": 0.004998352823804453,
+  "xharJobsHexesDiffering": 0,
+  "xharJobsDiffOutsideBoundaryRule": 0,
+  "accessMaxAbsErrS": 0.004999890286057962,
+  "emsMaxAbsErrS": 0.004999403953547699,
+  "emsUnreachableMatch": true
+ },
+ "headlineVsGolden": {
+  "popLossGt10pct": {
+   "study": 19705.46902464237,
+   "golden": 19705.46902464237
+  },
+  "popLossGt25pct": {
+   "study": 11622.72793707531,
+   "golden": 11622.72793707531
+  },
+  "lowWageLossGt10pct": {
+   "study": 1370.6049826226954,
+   "golden": 1370.6049826226954
+  },
+  "lowWageLossGt25pct": {
+   "study": 788.7631933205121,
+   "golden": 788.7631933205121
+  },
+  "popMeanLossPct": {
+   "study": 1.4972298531964363,
+   "golden": 1.4972298531964363
+  },
+  "lowWageMeanLossPct": {
+   "study": 1.4379262723875874,
+   "golden": 1.4379262723875874
+  },
+  "equityGapLossPct": {
+   "study": -0.0593035808088489,
+   "golden": -0.0593035808088489
+  },
+  "popMeanAddedS": {
+   "study": 13.628969121943069,
+   "golden": 13.628969121943054
+  },
+  "addedP50S": {
+   "study": 0.19046330684113855,
+   "golden": 0.19046330684113855
+  },
+  "addedP90S": {
+   "study": 26.55609755727278,
+   "golden": 26.55609755727255
+  },
+  "addedP99S": {
+   "study": 261.50804870229035,
+   "golden": 261.5080487022906
+  },
+  "popCovered": {
+   "study": 1056262.768038513,
+   "golden": 1056262.768038513
+  },
+  "lowWageCovered": {
+   "study": 75444.14518300658,
+   "golden": 75444.14518300658
+  }
+ },
+ "top10MatchesGolden": true,
+ "regionalPopAddedStudy": 2.9457681370469593,
+ "regionalPopAddedGolden": 2.9457681370469593
+}

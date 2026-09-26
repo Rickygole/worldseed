@@ -1,0 +1,272 @@
+{
+ "comparisons": 6,
+ "columnsPerComparison": 11,
+ "allAgree": true,
+ "rows": [
+  {
+   "world": "keybridge_removed",
+   "K": 32,
+   "ts": {
+    "meanErrAvg": 4.2,
+    "meanErrMax": 10.0,
+    "addedErrAvg": 0.9,
+    "lossErrAvgPP": 0.64,
+    "meanAddedRelPct": -4.3,
+    "addedP90RelPct": -2.8,
+    "meanLossRelPct": -7.6,
+    "pop10RelPct": 8.6,
+    "pop25RelPct": -11.4,
+    "lw10RelPct": 9.8,
+    "top10": 8
+   },
+   "python": {
+    "meanErrAvg": 4.203746716904067,
+    "meanErrMax": 9.616460613291224,
+    "addedErrAvg": 0.8745983952477387,
+    "lossErrAvgPP": 0.6434249372470329,
+    "meanAddedRelPct": -4.268031046259502,
+    "addedP90RelPct": -2.845342820374819,
+    "meanLossRelPct": -7.609870888911752,
+    "pop10RelPct": 8.593009120729223,
+    "pop25RelPct": -11.449575781285137,
+    "lw10RelPct": 9.825220219257158,
+    "top10": 8
+   },
+   "agree": {
+    "meanErrAvg": true,
+    "meanErrMax": true,
+    "addedErrAvg": true,
+    "lossErrAvgPP": true,
+    "meanAddedRelPct": true,
+    "addedP90RelPct": true,
+    "meanLossRelPct": true,
+    "pop10RelPct": true,
+    "pop25RelPct": true,
+    "lw10RelPct": true,
+    "top10": true
+   },
+   "allAgree": true
+  },
+  {
+   "world": "keybridge_removed",
+   "K": 64,
+   "ts": {
+    "meanErrAvg": 1.4,
+    "meanErrMax": 5.0,
+    "addedErrAvg": 0.4,
+    "lossErrAvgPP": 0.44,
+    "meanAddedRelPct": -0.3,
+    "addedP90RelPct": 2.9,
+    "meanLossRelPct": -3.2,
+    "pop10RelPct": 1.8,
+    "pop25RelPct": -1.7,
+    "lw10RelPct": 0.4,
+    "top10": 10
+   },
+   "python": {
+    "meanErrAvg": 1.4233210333049207,
+    "meanErrMax": 4.963409741786563,
+    "addedErrAvg": 0.41746437983235446,
+    "lossErrAvgPP": 0.43900470237901784,
+    "meanAddedRelPct": -0.2892773328595277,
+    "addedP90RelPct": 2.8576906326244655,
+    "meanLossRelPct": -3.1879866172617732,
+    "pop10RelPct": 1.7980589326980878,
+    "pop25RelPct": -1.6760677350074138,
+    "lw10RelPct": 0.43323479217718397,
+    "top10": 10
+   },
+   "agree": {
+    "meanErrAvg": true,
+    "meanErrMax": true,
+    "addedErrAvg": true,
+    "lossErrAvgPP": true,
+    "meanAddedRelPct": true,
+    "addedP90RelPct": true,
+    "meanLossRelPct": true,
+    "pop10RelPct": true,
+    "pop25RelPct": true,
+    "lw10RelPct": true,
+    "top10": true
+   },
+   "allAgree": true
+  },
+  {
+   "world": "keybridge_removed",
+   "K": 128,
+   "ts": {
+    "meanErrAvg": 1.8,
+    "meanErrMax": 4.0,
+    "addedErrAvg": 0.1,
+    "lossErrAvgPP": 0.18,
+    "meanAddedRelPct": 0.2,
+    "addedP90RelPct": -0.5,
+    "meanLossRelPct": -0.6,
+    "pop10RelPct": -0.5,
+    "pop25RelPct": -3.4,
+    "lw10RelPct": -0.8,
+    "top10": 10
+   },
+   "python": {
+    "meanErrAvg": 1.7978418689294244,
+    "meanErrMax": 3.980759963300102,
+    "addedErrAvg": 0.14103870310167868,
+    "lossErrAvgPP": 0.17935115890097697,
+    "meanAddedRelPct": 0.20029835209129931,
+    "addedP90RelPct": -0.49984537348396474,
+    "meanLossRelPct": -0.6405163126162794,
+    "pop10RelPct": -0.48506017173060023,
+    "pop25RelPct": -3.3547793340474197,
+    "lw10RelPct": -0.827283286043623,
+    "top10": 10
+   },
+   "agree": {
+    "meanErrAvg": true,
+    "meanErrMax": true,
+    "addedErrAvg": true,
+    "lossErrAvgPP": true,
+    "meanAddedRelPct": true,
+    "addedP90RelPct": true,
+    "meanLossRelPct": true,
+    "pop10RelPct": true,
+    "pop25RelPct": true,
+    "lw10RelPct": true,
+    "top10": true
+   },
+   "allAgree": true
+  },
+  {
+   "world": "keybridge_and_harbor_tunnel_closed",
+   "K": 32,
+   "ts": {
+    "meanErrAvg": 6.1,
+    "meanErrMax": 12.0,
+    "addedErrAvg": 2.0,
+    "lossErrAvgPP": 0.97,
+    "meanAddedRelPct": 2.3,
+    "addedP90RelPct": -0.6,
+    "meanLossRelPct": -0.6,
+    "pop10RelPct": 4.0,
+    "pop25RelPct": -9.5,
+    "lw10RelPct": 3.7,
+    "top10": 10
+   },
+   "python": {
+    "meanErrAvg": 6.131806835749631,
+    "meanErrMax": 11.877013469814642,
+    "addedErrAvg": 2.0122932103656708,
+    "lossErrAvgPP": 0.9737278941157002,
+    "meanAddedRelPct": 2.2848724240018825,
+    "addedP90RelPct": -0.6148830817090833,
+    "meanLossRelPct": -0.5822246116259588,
+    "pop10RelPct": 4.043841628323808,
+    "pop25RelPct": -9.453631685920339,
+    "lw10RelPct": 3.6785687185530547,
+    "top10": 10
+   },
+   "agree": {
+    "meanErrAvg": true,
+    "meanErrMax": true,
+    "addedErrAvg": true,
+    "lossErrAvgPP": true,
+    "meanAddedRelPct": true,
+    "addedP90RelPct": true,
+    "meanLossRelPct": true,
+    "pop10RelPct": true,
+    "pop25RelPct": true,
+    "lw10RelPct": true,
+    "top10": true
+   },
+   "allAgree": true
+  },
+  {
+   "world": "keybridge_and_harbor_tunnel_closed",
+   "K": 64,
+   "ts": {
+    "meanErrAvg": 1.9,
+    "meanErrMax": 5.0,
+    "addedErrAvg": 1.2,
+    "lossErrAvgPP": 0.64,
+    "meanAddedRelPct": -0.4,
+    "addedP90RelPct": -2.2,
+    "meanLossRelPct": -2.4,
+    "pop10RelPct": -0.5,
+    "pop25RelPct": -15.6,
+    "lw10RelPct": -0.5,
+    "top10": 9
+   },
+   "python": {
+    "meanErrAvg": 1.8562304554372608,
+    "meanErrMax": 4.7487713017935675,
+    "addedErrAvg": 1.175989186188404,
+    "lossErrAvgPP": 0.6418370786485159,
+    "meanAddedRelPct": -0.4478771113429092,
+    "addedP90RelPct": -2.2145404482153075,
+    "meanLossRelPct": -2.4341436647389414,
+    "pop10RelPct": -0.5157268562399175,
+    "pop25RelPct": -15.567230339907667,
+    "lw10RelPct": -0.5367125657456451,
+    "top10": 9
+   },
+   "agree": {
+    "meanErrAvg": true,
+    "meanErrMax": true,
+    "addedErrAvg": true,
+    "lossErrAvgPP": true,
+    "meanAddedRelPct": true,
+    "addedP90RelPct": true,
+    "meanLossRelPct": true,
+    "pop10RelPct": true,
+    "pop25RelPct": true,
+    "lw10RelPct": true,
+    "top10": true
+   },
+   "allAgree": true
+  },
+  {
+   "world": "keybridge_and_harbor_tunnel_closed",
+   "K": 128,
+   "ts": {
+    "meanErrAvg": 1.3,
+    "meanErrMax": 3.0,
+    "addedErrAvg": 0.6,
+    "lossErrAvgPP": 0.35,
+    "meanAddedRelPct": 1.0,
+    "addedP90RelPct": 0.6,
+    "meanLossRelPct": 0.6,
+    "pop10RelPct": 0.3,
+    "pop25RelPct": -18.0,
+    "lw10RelPct": 0.1,
+    "top10": 10
+   },
+   "python": {
+    "meanErrAvg": 1.3153022506193406,
+    "meanErrMax": 2.89044166854967,
+    "addedErrAvg": 0.6308057806247485,
+    "lossErrAvgPP": 0.3547326272409173,
+    "meanAddedRelPct": 1.0207523467292479,
+    "addedP90RelPct": 0.6353788084765943,
+    "meanLossRelPct": 0.5856822149730156,
+    "pop10RelPct": 0.29568201708425335,
+    "pop25RelPct": -17.960387516184973,
+    "lw10RelPct": 0.07605057804747073,
+    "top10": 10
+   },
+   "agree": {
+    "meanErrAvg": true,
+    "meanErrMax": true,
+    "addedErrAvg": true,
+    "lossErrAvgPP": true,
+    "meanAddedRelPct": true,
+    "addedP90RelPct": true,
+    "meanLossRelPct": true,
+    "pop10RelPct": true,
+    "pop25RelPct": true,
+    "lw10RelPct": true,
+    "top10": true
+   },
+   "allAgree": true
+  }
+ ],
+ "note": "tolerance = one unit of the last digit TypeScript printed; TypeScript compares against golden.json, the port against its own exact recomputation of the same lens"
+}

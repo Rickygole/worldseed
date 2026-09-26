@@ -1,0 +1,22 @@
+K=8 seed 7 reproduces destinations.json nodes: True
+reference (2.9457681370469584, 115.60326878887713, 173.7350899588871)
+{'name': 'K=2, seed 7', 'K': 2, 'popMeanAddedS': 1.5856385038567575, 'p99AddedS': 91.23792442275499, 'maxAddedS': 132.8632319005426} 3
+{'name': 'K=4, seed 7', 'K': 4, 'popMeanAddedS': 3.884654987349812, 'p99AddedS': 114.7458778200862, 'maxAddedS': 160.58380958203713} 4
+{'name': 'K=6, seed 7', 'K': 6, 'popMeanAddedS': 3.751658966530271, 'p99AddedS': 121.1581004519951, 'maxAddedS': 177.10564712741416} 5
+{'name': 'K=8, seed 7', 'K': 8, 'popMeanAddedS': 2.9457681370469584, 'p99AddedS': 115.60326878887713, 'maxAddedS': 173.7350899588871} 8
+{'name': 'K=12, seed 7', 'K': 12, 'popMeanAddedS': 7.990103226083869, 'p99AddedS': 114.37450485197314, 'maxAddedS': 171.1069759611205} 11
+{'name': 'K=16, seed 7', 'K': 16, 'popMeanAddedS': 9.32830587582825, 'p99AddedS': 110.84945700031608, 'maxAddedS': 167.56871865863195} 14
+{'name': 'K=24, seed 7', 'K': 24, 'popMeanAddedS': 7.6265240037236, 'p99AddedS': 100.18414807659224, 'maxAddedS': 157.7358899153221} 16
+{'name': 'K=32, seed 7', 'K': 32, 'popMeanAddedS': 7.279059902670785, 'p99AddedS': 98.66324514132725, 'maxAddedS': 152.89943900001504} 19
+{'name': 'K=8, seed 1', 'K': 8, 'popMeanAddedS': 3.1376521991384787, 'p99AddedS': 121.69837013178676, 'maxAddedS': 179.2845855878261}
+{'name': 'K=8, seed 2', 'K': 8, 'popMeanAddedS': 3.13794732850051, 'p99AddedS': 121.69837013178676, 'maxAddedS': 179.2845855878261}
+{'name': 'K=8, seed 3', 'K': 8, 'popMeanAddedS': 3.1347485546890943, 'p99AddedS': 121.75917945854962, 'maxAddedS': 179.61321443882662}
+{'name': 'K=8, seed 4', 'K': 8, 'popMeanAddedS': 3.129503337397226, 'p99AddedS': 121.37081305040101, 'maxAddedS': 178.9828582127675}
+{'name': 'K=8, seed 5', 'K': 8, 'popMeanAddedS': 3.0952360941785213, 'p99AddedS': 122.45637647486888, 'maxAddedS': 183.01435053086357}
+  boot 0 3.002359225846271 25
+  boot 5 3.6505614424268327 28
+  boot 10 9.859447527860823 32
+  boot 15 3.4309366167498747 36
+  boot 20 4.532530145445785 39
+  boot 25 9.88961517304821 41
+done 44

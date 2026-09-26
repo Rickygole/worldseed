@@ -1,0 +1,252 @@
+=== reference ===
+| Variant | People losing >10% | People losing >25% | Low-wage >10% | Low-wage >25% | Mean added (s) | Added p50 / p90 (s) | Top-10 BG overlap | Spearman (BG) | Regional mean added (s) | EMS d p50 / d p90 (s) | Conclusions failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| REFERENCE (shipped snapshot) | 19,705 | 11,623 | 1,371 | 789 | 13.6 | 0.2 / 26.6 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+
+=== sens_speeds ===
+| Variant | People losing >10% | People losing >25% | Low-wage >10% | Low-wage >25% | Mean added (s) | Added p50 / p90 (s) | Top-10 BG overlap | Spearman (BG) | Regional mean added (s) | EMS d p50 / d p90 (s) | Conclusions failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| speed x0.8: all edges | 96,277 | 33,230 | 6,873 | 2,377 | 17.0 | 0.2 / 33.2 | 8/10 | 0.44 | 3.68 | 0.0 / 0.0 | none |
+| speed x1.2: all edges | 6,667 | 1,097 | 469 | 77 | 11.4 | 0.2 / 22.1 | 9/10 | 0.73 | 2.45 | 0.0 / 0.0 | none |
+| speed x0.8: motorway class | 54,882 | 16,778 | 3,947 | 1,171 | 14.7 | 0.4 / 38.3 | 10/10 | 0.78 | 2.95 | 0.0 / 0.0 | none |
+| speed x1.2: motorway class | 11,158 | 5,617 | 741 | 401 | 13.6 | 0.1 / 24.2 | 7/10 | 0.85 | 3.16 | 0.0 / 0.0 | none |
+| speed x0.8: tunnel edges only | 22,759 | 12,023 | 1,600 | 815 | 15.3 | 0.7 / 29.5 | 10/10 | 0.99 | 3.44 | 0.0 / 0.0 | none |
+| speed x1.2: tunnel edges only | 17,510 | 11,408 | 1,223 | 776 | 12.6 | 0.0 / 25.1 | 10/10 | 1.00 | 2.64 | 0.0 / 0.0 | none |
+| speed x0.8: surface (non-motorway, non-ramp) | 54,629 | 14,581 | 3,913 | 1,015 | 16.9 | 0.1 / 30.6 | 7/10 | 0.76 | 3.93 | 0.0 / 0.0 | none |
+| speed x1.2: surface (non-motorway, non-ramp) | 11,911 | 5,536 | 800 | 395 | 11.8 | 0.3 / 29.2 | 9/10 | 0.82 | 2.36 | 0.0 / 0.0 | none |
+| speed x0.8: ramps (link class) | 21,352 | 12,727 | 1,502 | 862 | 13.5 | 0.1 / 27.0 | 10/10 | 0.99 | 2.91 | 0.0 / 0.0 | none |
+| speed x1.2: ramps (link class) | 17,964 | 10,998 | 1,244 | 746 | 13.7 | 0.2 / 26.4 | 10/10 | 0.99 | 2.92 | 0.0 / 0.0 | none |
+
+=== sens_tunnel ===
+| Variant | People losing >10% | People losing >25% | Low-wage >10% | Low-wage >25% | Mean added (s) | Added p50 / p90 (s) | Top-10 BG overlap | Spearman (BG) | Regional mean added (s) | EMS d p50 / d p90 (s) | Conclusions failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| tunnel time x1.25 in BOTH worlds | 22,759 | 12,023 | 1,600 | 815 | 15.3 | 0.7 / 29.5 | 10/10 | 0.99 | 3.44 | 0.0 / 0.0 | none |
+| tunnel time x1.25 only AFTER bridge closure (diversion) | 39,893 | 13,687 | 2,882 | 940 | 21.0 | 10.9 / 40.7 | 10/10 | 0.88 | 7.34 | 0.0 / 0.0 | C4 |
+| tunnel time x1.5 in BOTH worlds | 27,307 | 12,633 | 1,927 | 855 | 17.0 | 1.4 / 32.2 | 9/10 | 0.97 | 4.00 | 0.0 / 0.0 | none |
+| tunnel time x1.5 only AFTER bridge closure (diversion) | 76,221 | 19,484 | 5,577 | 1,374 | 28.1 | 17.3 / 59.0 | 8/10 | 0.81 | 11.57 | 0.0 / 0.0 | C4 |
+
+=== sens_T ===
+| Variant | People losing >10% | People losing >25% | Low-wage >10% | Low-wage >25% | Mean added (s) | Added p50 / p90 (s) | Top-10 BG overlap | Spearman (BG) | Regional mean added (s) | EMS d p50 / d p90 (s) | Conclusions failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| T = 20 min | 100,460 | 77,648 | 7,136 | 5,432 | 13.6 | 0.2 / 26.6 | 7/10 | 0.12 | 2.95 | 0.0 / 0.0 | none |
+| T = 24 min | 96,450 | 32,995 | 6,881 | 2,366 | 13.6 | 0.2 / 26.6 | 8/10 | 0.42 | 2.95 | 0.0 / 0.0 | none |
+| T = 30 min | 19,705 | 11,623 | 1,371 | 789 | 13.6 | 0.2 / 26.6 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| T = 36 min | 6,422 | 934 | 452 | 65 | 13.6 | 0.2 / 26.6 | 9/10 | 0.73 | 2.95 | 0.0 / 0.0 | none |
+| T = 40 min | 842 | 0 | 59 | 0 | 13.6 | 0.2 / 26.6 | 7/10 | 0.58 | 2.95 | 0.0 / 0.0 | C3 |
+
+=== sens_snap ===
+| Variant | People losing >10% | People losing >25% | Low-wage >10% | Low-wage >25% | Mean added (s) | Added p50 / p90 (s) | Top-10 BG overlap | Spearman (BG) | Regional mean added (s) | EMS d p50 / d p90 (s) | Conclusions failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| snap speed 10 km/h | 20,598 | 12,345 | 1,439 | 838 | 13.6 | 0.2 / 26.6 | 9/10 | 0.94 | 2.95 | 0.0 / 0.0 | none |
+| snap speed 16 km/h | 19,556 | 12,146 | 1,370 | 825 | 13.6 | 0.2 / 26.6 | 10/10 | 0.99 | 2.95 | 0.0 / 0.0 | none |
+| snap speed 24 km/h | 19,641 | 11,590 | 1,366 | 786 | 13.6 | 0.2 / 26.6 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| snap speed 30 km/h | 18,665 | 11,349 | 1,303 | 772 | 13.6 | 0.2 / 26.6 | 10/10 | 0.99 | 2.95 | 0.0 / 0.0 | none |
+| no snap time | 15,810 | 10,775 | 1,089 | 733 | 13.6 | 0.2 / 26.6 | 10/10 | 0.93 | 2.95 | 0.0 / 0.0 | none |
+
+=== sens_shore ===
+| Variant | People losing >10% | People losing >25% | Low-wage >10% | Low-wage >25% | Mean added (s) | Added p50 / p90 (s) | Top-10 BG overlap | Spearman (BG) | Regional mean added (s) | EMS d p50 / d p90 (s) | Conclusions failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shore: divider shifted -1000 m (north = +) | 20,666 | 11,368 | 1,442 | 770 | 13.8 | 0.1 / 26.3 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: divider shifted -500 m (north = +) | 19,938 | 11,688 | 1,386 | 794 | 13.7 | 0.1 / 26.4 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: divider shifted -250 m (north = +) | 19,780 | 11,623 | 1,376 | 789 | 13.7 | 0.1 / 26.5 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: divider shifted +250 m (north = +) | 19,633 | 11,770 | 1,365 | 799 | 13.6 | 0.2 / 26.6 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: divider shifted +500 m (north = +) | 19,495 | 11,808 | 1,356 | 801 | 13.6 | 0.2 / 26.6 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: divider shifted +1000 m (north = +) | 19,151 | 11,830 | 1,331 | 803 | 13.6 | 0.2 / 26.9 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: ambiguity band 0 m | 19,606 | 11,623 | 1,363 | 789 | 13.5 | 0.1 / 26.5 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: ambiguity band 500 m | 19,806 | 11,770 | 1,379 | 799 | 13.7 | 0.2 / 26.6 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: ambiguity band 1000 m | 20,440 | 11,948 | 1,427 | 811 | 14.0 | 0.2 / 27.5 | 10/10 | 1.00 | 2.95 | 0.0 / 0.0 | none |
+| shore: all Baltimore city hexes ambiguous | 127,163 | 17,941 | 8,197 | 1,249 | 45.0 | 36.1 / 113.0 | 9/10 | 0.92 | 2.95 | 0.0 / 0.0 | C3, C4 |
+
+=== sens_corner ===
+| Variant | People losing >10% | People losing >25% | Low-wage >10% | Low-wage >25% | Mean added (s) | Added p50 / p90 (s) | Top-10 BG overlap | Spearman (BG) | Regional mean added (s) | EMS d p50 / d p90 (s) | Conclusions failed |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| corner A: speeds -20%, tunnels x1.5, T=24 min, snap 16 | 106,287 | 88,838 | 7,552 | 6,231 | 21.3 | 1.8 / 40.2 | 6/10 | 0.09 | 5.00 | 0.0 / 0.0 | C3, C6 |
+| corner B: speeds +20%, T=36 min, snap 24 | 9 | 0 | 1 | 0 | 11.4 | 0.2 / 22.1 | 7/10 | 0.40 | 2.45 | 0.0 / 0.0 | C3 |
+| corner C: speeds -20%, T=36 min | 24,230 | 13,283 | 1,706 | 905 | 17.0 | 0.2 / 33.2 | 10/10 | 0.95 | 3.68 | 0.0 / 0.0 | none |
+| corner D: speeds +20%, tunnels x1.0, T=24 min | 25,090 | 13,468 | 1,775 | 918 | 11.4 | 0.2 / 22.1 | 10/10 | 0.91 | 2.45 | 0.0 / 0.0 | none |
+
+=== shore_flip ===
+| Random misclassification | Hexes changed | Population in changed hexes | People >10% | People >25% | Mean added (s) | Top-10 overlap |
+|---|---|---|---|---|---|---|
+| 2% of hexes within 6 km of divider, 3 random draws | 60 | 8,941 | 18,380 to 18,587 | 11,027 to 11,642 | 13.3 to 13.4 | 10/10 to 10/10 |
+| 5% of hexes within 6 km of divider, 3 random draws | 150 | 24,846 | 17,426 to 17,554 | 10,521 to 11,314 | 12.9 to 13.1 | 10/10 to 10/10 |
+| 10% of hexes within 6 km of divider, 3 random draws | 300 | 44,794 | 15,382 to 16,501 | 9,985 to 10,439 | 12.2 to 12.4 | 10/10 to 10/10 |
+
+=== shore_counts ===
+| Shore variant | Hexes changing shore | Population in them | Jobs in them | Ambiguous hexes (after) | People >10% | People >25% | Mean added (s) | Top-10 overlap |
+|---|---|---|---|---|---|---|---|---|
+| divider shifted -1000 m (north = +) | 98 | 10,399 | 6,536 | 37 | 20,666 | 11,368 | 13.8 | 10/10 |
+| divider shifted -500 m (north = +) | 61 | 7,324 | 3,923 | 30 | 19,938 | 11,688 | 13.7 | 10/10 |
+| divider shifted -250 m (north = +) | 30 | 3,371 | 1,915 | 29 | 19,780 | 11,623 | 13.7 | 10/10 |
+| divider shifted +250 m (north = +) | 31 | 3,354 | 1,717 | 32 | 19,633 | 11,770 | 13.6 | 10/10 |
+| divider shifted +500 m (north = +) | 66 | 6,744 | 2,600 | 35 | 19,495 | 11,808 | 13.6 | 10/10 |
+| divider shifted +1000 m (north = +) | 112 | 9,988 | 6,774 | 46 | 19,151 | 11,830 | 13.6 | 10/10 |
+| ambiguity band 0 m | 31 | 4,236 | 1,500 | 0 | 19,606 | 11,623 | 13.5 | 10/10 |
+| ambiguity band 500 m | 30 | 2,488 | 2,132 | 61 | 19,806 | 11,770 | 13.7 | 10/10 |
+| ambiguity band 1000 m | 108 | 8,919 | 8,051 | 139 | 20,440 | 11,948 | 14.0 | 10/10 |
+| all Baltimore city hexes ambiguous | 1,651 | 420,409 | 302,210 | 1,682 | 127,163 | 17,941 | 45.0 | 9/10 |
+
+=== call ===
+| Call-to-wheels delay | EMS baseline p50 (s) | EMS baseline p90 (s) | Within 8 min, baseline | Within 8 min, bridge removed | d p50 (s) | d p90 (s) |
+|---|---|---|---|---|---|---|
+| 60 s (reference) | 201.8 | 367.5 | 96.2% | 96.2% | 0.0 | 0.0 |
+| 0 s | 141.8 | 307.5 | 97.6% | 97.6% | 0.0 | 0.0 |
+| 48 s | 189.8 | 355.5 | 96.5% | 96.5% | 0.0 | 0.0 |
+| 72 s | 213.8 | 379.5 | 95.8% | 95.8% | 0.0 | 0.0 |
+| 120 s | 261.8 | 427.5 | 93.9% | 93.9% | 0.0 | 0.0 |
+
+=== scoreboard ===
+| Conclusion | Variants where it holds | Variants where it fails |
+|---|---|---|
+| C1 regional mean added < 30 s | 51 of 51 | - |
+| C2 EMS p50 and p90 change < 1 s | 51 of 51 | - |
+| C3 0.5% to 10% of people lose >10% cross-harbor jobs | 47 of 51 | T = 40 min; shore: all Baltimore city hexes ambiguous; corner A: speeds -20%, tunnels x1.5, T=24 min, snap 16; corner B: speeds +20%, T=36 min, snap 24 |
+| C4 xharbor added-time p50 < 5 s | 48 of 51 | tunnel time x1.25 only AFTER bridge closure (diversion); tunnel time x1.5 only AFTER bridge closure (diversion); shore: all Baltimore city hexes ambiguous |
+| C5 low-wage loss within 1 pp of population loss | 51 of 51 | - |
+| C6 top-10 worst BGs overlap >= 7 | 50 of 51 | corner A: speeds -20%, tunnels x1.5, T=24 min, snap 16 |
+
+=== bootstrap ===
+| Metric (200 block resamples) | 2.5th pct | Median | 97.5th pct | Min | Max |
+|---|---|---|---|---|---|
+| People losing >10% | 15,376 | 20,354 | 36,371 | 14,187 | 67,199 |
+| People losing >25% | 9,695 | 11,480 | 12,992 | 8,658 | 13,681 |
+| Low-wage workers losing >10% | 1,055 | 1,421 | 2,562 | 964 | 4,656 |
+| Mean loss (% of jobs within 30 min) | 1.03 | 1.50 | 2.33 | 0.97 | 2.75 |
+| Mean added time (s) | 9.69 | 13.57 | 20.73 | 9.29 | 23.62 |
+| Added p50 (s) | 0.05 | 0.16 | 0.32 | 0.02 | 0.35 |
+| Added p90 (s) | 15.72 | 26.50 | 51.80 | 14.41 | 61.76 |
+| Low-wage minus population mean loss (pp) | -0.13 | -0.06 | -0.02 | -0.16 | -0.01 |
+| Top-10 overlap with reference (of 10) | 8.00 | 10.00 | 10.00 | 7.00 | 10.00 |
+| Spearman vs reference (BG ranks) | 0.87 | 0.97 | 0.99 | 0.84 | 1.00 |
+
+=== bootstrap_note ===
+reference values: 19,705 / 11,623 / 1,371; conclusions C3, C4, C5, C6 hold in 200, 200, 200, 200 of 200 resamples; 5,330 job blocks; total jobs range 510,229 to 705,339
+
+=== regional_dest ===
+| Regional-lens anchors | Mean added (s) | p99 hex added (s) | Max hex added (s) |
+|---|---|---|---|
+| K=2, seed 7 | 1.59 | 91 | 133 |
+| K=4, seed 7 | 3.88 | 115 | 161 |
+| K=6, seed 7 | 3.75 | 121 | 177 |
+| K=8, seed 7 | 2.95 | 116 | 174 |
+| K=12, seed 7 | 7.99 | 114 | 171 |
+| K=16, seed 7 | 9.33 | 111 | 168 |
+| K=24, seed 7 | 7.63 | 100 | 158 |
+| K=32, seed 7 | 7.28 | 99 | 153 |
+| K=8, seed 1 | 3.14 | 122 | 179 |
+| K=8, seed 2 | 3.14 | 122 | 179 |
+| K=8, seed 3 | 3.13 | 122 | 180 |
+| K=8, seed 4 | 3.13 | 121 | 179 |
+| K=8, seed 5 | 3.10 | 122 | 183 |
+| K=8, 30 block-bootstrap re-clusterings: median (2.5th to 97.5th pct) | 3.78 (2.75 to 13.59); max 16.39 |  |  |
+
+=== null ===
+| # | Closure | Class | km from Key Bridge | People >10% loss | xharbor mean added (s) | Regional mean added (s) | People with regional +1 s or more | EMS d p50 / d p90 (s) | People with EMS change >1 s | Passes rule |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | remote cul-de-sac (no hex on it) | residential | 14.2 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 0 | yes |
+| 2 | remote cul-de-sac (no hex on it) | residential | 18.2 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 0 | yes |
+| 3 | remote cul-de-sac (no hex on it) | residential | 17.8 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 0 | yes |
+| 4 | remote cul-de-sac (no hex on it) | residential | 20.1 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 0 | yes |
+| 5 | remote cul-de-sac (no hex on it) | residential | 12.2 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 0 | yes |
+| 6 | remote cul-de-sac (hex snaps to dead end) | residential | 16.3 | 49 | 1.214 | 0.263 | 49 | 0.00 / 0.00 | 49 | NO |
+| 7 | remote cul-de-sac (hex snaps to dead end) | residential | 15.3 | 35 | 0.199 | 0.206 | 35 | 0.00 / 0.00 | 35 | yes |
+| 8 | remote cul-de-sac (hex snaps to dead end) | residential | 21.3 | 34 | 1.633 | 0.191 | 34 | 0.00 / 0.00 | 34 | NO |
+| 9 | remote cul-de-sac (hex snaps to dead end) | residential | 13.2 | 104 | 3.879 | 0.596 | 104 | 0.00 / 0.00 | 104 | NO |
+| 10 | remote rural edge | secondary | 13.5 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 1,790 | yes |
+| 11 | remote rural edge | residential | 12.1 | 0 | 0.001 | 0.001 | 468 | 0.00 / 0.00 | 0 | yes |
+| 12 | remote rural edge | residential | 12.8 | 0 | 0.170 | 0.000 | 0 | 0.11 / 0.08 | 400 | yes |
+| 13 | remote rural edge | residential | 16.6 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 0 | yes |
+| 14 | remote rural edge | residential | 12.4 | 0 | 0.000 | 0.000 | 0 | 0.00 / 0.00 | 0 | yes |
+| 15 | remote rural edge | secondary | 12.0 | 0 | 0.000 | 0.007 | 1,670 | 0.00 / 0.00 | 0 | yes |
+
+=== null_pass ===
+12 of 15
+
+=== ordering ===
+| Closed (each vs. baseline) | Directed edges | People >10% | People >25% | Low-wage >10% | xharbor mean added (s) | xharbor added p90 (s) | Regional mean added (s) | EMS d p50 / d p90 (s) |
+|---|---|---|---|---|---|---|---|---|
+| Key Bridge (I-695) | 6 | 19,705 | 11,623 | 1,371 | 13.6 | 26.6 | 2.9 | 0.0 / 0.0 |
+| Harbor Tunnel (I-895) | 6 | 63,272 | 4,934 | 4,849 | 23.9 | 60.3 | 14.5 | 0.0 / 0.0 |
+| Fort McHenry Tunnel (I-95) | 4 | 5,207 | 0 | 404 | 2.1 | 7.2 | 3.4 | 0.0 / 0.0 |
+| Both tunnels | 10 | 151,676 | 71,083 | 11,178 | 48.8 | 170.0 | 35.1 | 0.0 / 0.0 |
+| Bridge + both tunnels | 16 | 311,086 | 153,393 | 21,968 | 105.4 | 298.5 | 56.6 | 0.0 / 0.0 |
+
+=== randomcut ===
+| Metric | Key Bridge | Random-cut median | Random-cut p90 | Random-cut max | Key Bridge percentile, all cuts | Percentile, length 0.5-2x bridge (n=166) | Percentile, cuts without a tunnel (n=193) |
+|---|---|---|---|---|---|---|---|
+| People losing >10% of cross-harbor jobs | 19,705 | 8,024 | 52,818 | 151,676 | 78 (42 of 199 larger) | 76 | 81 |
+| People losing >25% | 11,623 | 320 | 7,459 | 71,083 | 92 (15 of 199 larger) | 91 | 95 |
+| xharbor mean loss (%) | 1.50 | 0.63 | 1.76 | 5.05 | 87 (25 of 199 larger) | 85 | 89 |
+| xharbor mean added time (s) | 13.63 | 8.12 | 32.24 | 72.74 | 67 (64 of 199 larger) | 62 | 69 |
+| Regional mean added time (s) | 2.95 | 5.57 | 15.99 | 35.09 | 36 (125 of 199 larger) | 29 | 38 |
+
+=== randomcut_note ===
+199 usable cuts of 200 (one window contained the bridge and was skipped); edges per cut: median 19 (range 2 to 81) vs. 6 for the bridge; one-way-equivalent length: median 1.77 km vs. 2.77 km for the bridge; 6 cuts include a tunnel edge; share of cuts with any change in EMS d p90 above 1 s: 0.0%; share of cuts with xharbor mean added time under 0.5 s: 10.6%
+
+=== randomseg ===
+| Metric | Key Bridge | Segment median | Segment p90 | Segment max | Key Bridge percentile |
+|---|---|---|---|---|---|
+| People losing >10% of cross-harbor jobs | 19,705 | 0 | 11,702 | 59,390 | 97 (6 of 199 larger) |
+| People losing >25% | 11,623 | 0 | 1,884 | 9,481 | 100 (0 of 199 larger) |
+| xharbor mean loss (%) | 1.50 | 0.10 | 0.60 | 1.43 | 100 (0 of 199 larger) |
+| xharbor mean added time (s) | 13.63 | 1.56 | 8.52 | 16.26 | 98 (4 of 199 larger) |
+| Regional mean added time (s) | 2.95 | 1.05 | 4.12 | 10.58 | 81 (37 of 199 larger) |
+
+=== randomseg_note ===
+199 usable; one draw was a Key Bridge edge and was skipped
+
+=== val_named ===
+| Trip (place-node hexes) | Model baseline (min) | Model bridge removed (min) | Model added (min) | OSRM current OSM (min) | OSRM route's closest approach to bridge site (m) |
+|---|---|---|---|---|---|
+| Dundalk to Ferndale | 16.1 | 17.2 | 1.2 | 22.4 | 4,424 |
+| Ferndale to Dundalk | 16.3 | 16.3 | 0.1 | 20.7 | 4,417 |
+| Dundalk to Curtis Bay | 13.3 | 13.3 | 0.0 | 17.7 | 4,424 |
+| Sparrows Point to Curtis Bay | 17.3 | 22.8 | 5.5 | 29.2 | 4,540 |
+| Dundalk to Hawkins Point | 9.0 | 19.1 | 10.1 | 25.1 | 2,717 |
+| Edgemere to Hawkins Point | 12.1 | 26.5 | 14.3 | 33.3 | 2,717 |
+| Essex to Glen Burnie | 22.0 | 22.0 | 0.0 | 28.0 | 5,164 |
+| Sparrows Point to Brooklyn Park | 18.2 | 22.6 | 4.3 | 29.4 | 4,540 |
+
+=== val_pairs ===
+| Comparison | Pairs | Median model/OSRM | p10 to p90 ratio | Within 20% | Spearman | Pearson | Median abs. error (s) |
+|---|---|---|---|---|---|---|---|
+| Bridge-removed model vs OSRM, all pairs | 4,991 | 0.78 | 0.70 to 0.84 | 30% | 0.98 | 0.98 | 298 |
+| Baseline model vs OSRM, all pairs | 4,991 | 0.77 | 0.69 to 0.84 | 28% | 0.98 | 0.98 | 299 |
+| Bridge-removed, cross-harbor pairs | 2,412 | 0.78 | 0.73 to 0.84 | 35% | 0.97 | 0.98 | 346 |
+| Bridge-removed, same-shore pairs | 2,529 | 0.76 | 0.69 to 0.85 | 25% | 0.98 | 0.98 | 242 |
+| Pairs the bridge does not touch (model diff < 1 s) | 4,768 | 0.77 | 0.70 to 0.84 | 29% | 0.98 | 0.98 | 291 |
+
+=== val_aff ===
+197 pairs where the model says the bridge adds more than 60 s; OSRM's time is closer to the bridge-removed model in 100% of them; median abs. error 432 s (bridge removed) vs 722 s (baseline)
+
+=== fast ===
+| World | Anchors per shore | Mean-time err, mean (s) | max (s) | Added-time err, mean (s) | max (s) | Loss err, mean (pp) | People >10% | People >25% | Low-wage >10% | Mean added | Added p90 | Top-10 overlap |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| keybridge removed | 16 (32 total) | 13.2 | 23 | 1.48 | 12 | 1.06 | -10.9% | -17.1% | -10.0% | -5.4% | -2.3% | 7/10 |
+| keybridge removed | 32 (64 total) | 4.2 | 10 | 0.87 | 5 | 0.64 | +8.6% | -11.4% | +9.8% | -4.3% | -2.8% | 8/10 |
+| keybridge removed | 64 (128 total) | 1.4 | 5 | 0.42 | 3 | 0.44 | +1.8% | -1.7% | +0.4% | -0.3% | +2.9% | 10/10 |
+| keybridge removed | 128 (256 total) | 1.8 | 4 | 0.14 | 1 | 0.18 | -0.5% | -3.4% | -0.8% | +0.2% | -0.5% | 10/10 |
+| harbor tunnel closed | 16 (32 total) | 7.8 | 23 | 5.38 | 14 | 0.93 | +2.7% | -5.7% | +2.1% | +10.5% | -4.8% | 8/10 |
+| harbor tunnel closed | 32 (64 total) | 5.7 | 13 | 2.35 | 6 | 0.66 | +8.7% | -41.9% | +8.3% | +7.0% | +4.6% | 8/10 |
+| harbor tunnel closed | 64 (128 total) | 1.6 | 5 | 0.48 | 3 | 0.41 | +2.2% | +20.0% | +2.0% | -0.3% | -2.1% | 10/10 |
+| harbor tunnel closed | 128 (256 total) | 1.4 | 3 | 0.47 | 1 | 0.25 | +5.9% | +51.2% | +6.5% | +1.7% | +1.2% | 10/10 |
+| keybridge and harbor tunnel closed | 16 (32 total) | 7.8 | 23 | 5.41 | 13 | 1.28 | +9.6% | +1.0% | +9.3% | +4.0% | -2.3% | 10/10 |
+| keybridge and harbor tunnel closed | 32 (64 total) | 6.1 | 12 | 2.01 | 5 | 0.97 | +4.0% | -9.5% | +3.7% | +2.3% | -0.6% | 10/10 |
+| keybridge and harbor tunnel closed | 64 (128 total) | 1.9 | 5 | 1.18 | 4 | 0.64 | -0.5% | -15.6% | -0.5% | -0.4% | -2.2% | 9/10 |
+| keybridge and harbor tunnel closed | 128 (256 total) | 1.3 | 3 | 0.63 | 1 | 0.35 | +0.3% | -18.0% | +0.1% | +1.0% | +0.6% | 10/10 |
+
+=== pair ===
+| Dundalk to Ferndale, model | Baseline (min) | Bridge removed (min) | Added (min) |
+|---|---|---|---|
+| free-flow (reference) | 16.1 | 17.2 | 1.2 |
+| tunnels x1.25 after closure only (diversion) | 16.1 | 17.6 | 1.6 |
+| tunnels x1.5 after closure only (diversion) | 16.1 | 18.1 | 2.0 |
+| all speeds x0.8, both worlds | 20.0 | 21.4 | 1.5 |
+| all speeds x0.8 and tunnels x1.5 after closure | 20.0 | 22.5 | 2.5 |
+| bridge AND both tunnels closed (limit of any tunnel slowdown) | 16.1 | 25.4 | 9.4 |
+
+=== ts_agree ===
+6 world x anchor-count comparisons (66 numbers); all agree at the precision TypeScript printed
+
+=== mono ===
+16 catalog candidates in two contexts (baseline and bridge removed) = 32 evaluations in the file as it is now (10 further entries are listed as pruned; the catalog file changed on disk while this study ran, not by this study; the real network and every lens headline number were checked to be identical); minimum benefit on each of the five measures = 0; negative benefits found: 0
