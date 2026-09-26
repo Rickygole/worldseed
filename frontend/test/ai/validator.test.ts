@@ -13,6 +13,8 @@ import {
 import { mintBundleIds } from "../../lib/agent/tools";
 import { STRESS_LINK_IDS, STRESS_TODS, stressContext, stressLabel } from "../../lib/agent/stress";
 import { DEFAULT_FUTURES_PARAMS } from "../../lib/sim/sample";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { fakeCatalog, MISSION } from "./fixtures";
 
 const catalog = fakeCatalog();
@@ -287,7 +289,15 @@ describe("R4: the critic chooses a stress test only from the application's close
     expect(validateCritiqueOutput(crit({ kind: "close_link", linkId: "L-FORTMCHENRY" }), { ...k, tried }).ok).toBe(true);
     expect(validateCritiqueOutput(crit({ kind: "combined", linkId: "L-HARBORTUNNEL", tod: "am" }), { ...k, tried }).ok).toBe(true); // a combination is a different stress
   });
-  it("the closed set mirrors the simulator's closureEligible list", () => {
+  it("guard: every offered stress link is a REAL link of the snapshot (its graph.meta.json links), so the simulator can always run it; additions to the snapshot are tolerated", () => {
+    const meta = JSON.parse(readFileSync(path.resolve(__dirname, "../../../data/snapshot/graph.meta.json"), "utf8")) as { links: { id: string }[] };
+    const real = new Set(meta.links.map((l) => l.id));
+    expect(STRESS_LINK_IDS.length).toBeGreaterThan(0);
+    for (const id of STRESS_LINK_IDS) expect(real.has(id), `${id} is not a link of the snapshot`).toBe(true);
+    // the corridor aliases are not real links and must not be offered
+    expect(STRESS_LINK_IDS).not.toContain("L-HANOVER");
+    expect(STRESS_LINK_IDS).not.toContain("L-BROENING");
+    // and the simulator's own closure-eligible list agrees
     for (const id of STRESS_LINK_IDS) expect(DEFAULT_FUTURES_PARAMS.closureEligible, id).toContain(id);
   });
   it("the stress is labeled by the application, never by the model", () => {

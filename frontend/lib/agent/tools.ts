@@ -200,7 +200,8 @@ export const EvaluationRowSchema = z.strictObject({
   p90S: z.number().finite().min(0).max(1e7),
   pctWithin: z.number().finite().min(0).max(100),
   isolatedCount: z.number().int().min(0).max(100_000),
-  equityGapS: z.number().finite().min(0).max(1e7),
+  // Signed: the equity gap is a difference between groups and can be negative.
+  equityGapS: z.number().finite().min(-1e7).max(1e7),
   pGoal: z.number().finite().min(0).max(1).nullable(),
   costTier: CostTierSchema,
 });
@@ -224,7 +225,7 @@ export const BaselineRowSchema = z.strictObject({
   p90S: z.number().finite().min(0).max(1e7),
   pctWithin: z.number().finite().min(0).max(100),
   isolatedCount: z.number().int().min(0).max(100_000),
-  equityGapS: z.number().finite().min(0).max(1e7),
+  equityGapS: z.number().finite().min(-1e7).max(1e7),
 });
 export type BaselineRow = z.infer<typeof BaselineRowSchema>;
 

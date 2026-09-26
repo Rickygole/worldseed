@@ -106,7 +106,7 @@ export async function exhaustiveSearch(opts: {
       const b = want.get(r.bundleId);
       const v = metricOf(opts.mission.goal.metric, r);
       // Same acceptance rules as the machine: a row must be for a bundle we asked about, once, with the same candidates and a usable number.
-      if (!b || seen.has(r.bundleId) || bundleKey(b.candidateIds) !== bundleKey(r.candidateIds) || !Number.isFinite(v) || v < 0) continue;
+      if (!b || seen.has(r.bundleId) || bundleKey(b.candidateIds) !== bundleKey(r.candidateIds) || !Number.isFinite(v) || (v < 0 && opts.mission.goal.metric !== "equityGap")) continue; // the equity gap is signed; times and counts are not
       seen.add(r.bundleId);
       scored.push({ candidateIds: b.candidateIds, costTier: tierOf(opts.catalog, b.candidateIds), value: v });
     }
@@ -138,10 +138,12 @@ export function rankOf(result: ExhaustiveResult, candidateIds: readonly string[]
 
 /**
  * The UI's summary line: "Exhaustive check: the AI's top pick is rank 3 of 341 bundles evaluated."
- * Both numbers come from the run; nothing is written by a model.
+ * `pick` says whose pick it was: "ai" (default) or "deterministic" for the no-AI path ("the
+ * deterministic search's top pick"). Both numbers come from the run; nothing is written by a model.
  */
-export function exhaustiveSummaryLine(r: { rank: number; of: number }): string {
+export function exhaustiveSummaryLine(r: { rank: number; of: number }, pick: "ai" | "deterministic" = "ai"): string {
+  const who = pick === "ai" ? "the AI's" : "the deterministic search's";
   return r.rank === 1
-    ? `Exhaustive check: the AI's top pick is rank ${r.rank} of ${r.of} bundles evaluated (it matches the best bundle on the goal metric).`
-    : `Exhaustive check: the AI's top pick is rank ${r.rank} of ${r.of} bundles evaluated.`;
+    ? `Exhaustive check: ${who} top pick is rank ${r.rank} of ${r.of} bundles evaluated (it matches the best bundle on the goal metric).`
+    : `Exhaustive check: ${who} top pick is rank ${r.rank} of ${r.of} bundles evaluated.`;
 }

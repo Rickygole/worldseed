@@ -205,7 +205,10 @@ describe("R2-6 (integrity): evaluated rows are bounded", () => {
     expect(ok({ futures: 1 })).toBe(true);
     expect(ok({ futures: 100_000 })).toBe(true);
     for (const f of [0, -1, 1.5, 100_001, 10_000_000, Number.NaN, Number.POSITIVE_INFINITY]) expect(ok({ futures: f }), String(f)).toBe(false);
-    for (const k of ["p50S", "p90S", "equityGapS"]) for (const v of [-1, -1e-9, Number.NaN, Number.POSITIVE_INFINITY, 1e8]) expect(ok({ [k]: v }), `${k}=${v}`).toBe(false);
+    for (const k of ["p50S", "p90S"]) for (const v of [-1, -1e-9, Number.NaN, Number.POSITIVE_INFINITY, 1e8]) expect(ok({ [k]: v }), `${k}=${v}`).toBe(false);
+    // the equity gap is signed: a negative finite value is fine, non-finite and absurd values are not
+    for (const v of [-1, -300.5, 0, 240]) expect(ok({ equityGapS: v }), `equityGapS=${v}`).toBe(true);
+    for (const v of [Number.NaN, Number.NEGATIVE_INFINITY, 1e8, -1e8]) expect(ok({ equityGapS: v }), `equityGapS=${v}`).toBe(false);
     expect(ok({ p50S: 0, p90S: 0, equityGapS: 0 })).toBe(true);
   });
 

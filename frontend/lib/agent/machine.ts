@@ -25,7 +25,8 @@ import type { AgentApi } from "./api";
 import { bundleCostTier, type Catalog } from "./catalog";
 import type { EvaluateFn } from "./evaluate";
 import { pickDeterministicStress } from "./critic";
-import { greedyFinalists, greedyPlanRound, rankRows } from "./greedy";
+import { exhaustiveSearch, type DeterministicEvaluateFn, type ExhaustiveResult } from "./exhaustive";
+import { greedyFinalists, greedyPlanRound, rankRows, shortlistBundles } from "./greedy";
 import {
   outputRejectedMessage,
   UI_MESSAGES,
@@ -189,6 +190,8 @@ export interface MachineState {
   progress?: { done: number; total: number };
   models: Record<string, string>;
   degraded?: Degraded;
+  /** Stage-1 numbers of a screened deterministic search: how many bundles were scored and how many went on to the futures run. */
+  screened?: { enumerated: number; scored: number; shortlisted: number };
 }
 
 export interface MachineDeps {
@@ -201,6 +204,16 @@ export interface MachineDeps {
   limits?: { inputTokens: number; outputTokens: number };
   /** Deprecated and ignored: the narrator was removed. Kept only so existing callers still compile. */
   narrate?: boolean;
+  /**
+   * A deterministic one-run-per-bundle evaluator (no futures; the same kind the exhaustive check
+   * uses). When given, the deterministic search (the "Deterministic search" button, or the fallback
+   * after the AI planner fails before anything was scored) runs in two stages: it SCREENS every
+   * eligible bundle with this evaluator, then runs the futures evaluation only on the shortlist.
+   * Without it the round-by-round greedy search runs as before. The AI path never uses it.
+   */
+  screen?: DeterministicEvaluateFn;
+  /** Shortlist size for the futures run (default 12, the per-mission cap on evaluated bundles). */
+  shortlist?: number;
   /** How many leading bundles a stress test re-scores. Default 4. */
   stressTopK?: number;
   /**
@@ -419,7 +432,7 @@ export class AgentMachine {
 
   private async run(run: Run, mission: ConfirmedMission, mode: Mode): Promise<void> {
     this.live(run);
-    this.set({ mission, mode, bundles: [], dropped: [], rows: [], finalists: [], narration: {}, critique: undefined, degraded: undefined, stresses: [] });
+    this.set({ mission, mode, bundles: [], dropped: [], rows: [], finalists: [], narration: {}, critique: undefined, degraded: undefined, stresses: [], screened: undefined });
     try {
       await this.searchRounds(run, mission);
       await this.topUp(run, mission);
@@ -466,7 +479,10 @@ export class AgentMachine {
           converged = fresh.length === 0;
         }
       }
-      if (this.state.mode === "deterministic") {
+      if (this.state.mode === "deterministic" && round === 1 && this.deps.screen && this.state.rows.length === 0) {
+        fresh = await this.screenAll(run, mission);
+      }
+      if (this.state.mode === "deterministic" && fresh.length === 0 && !this.state.screened) {
         fresh = greedyPlanRound({
           catalog: this.deps.catalog,
           mission,
@@ -478,15 +494,67 @@ export class AgentMachine {
           this.log("decision", `Deterministic search (not AI) chose ${fresh.length} bundles for round ${round}.`);
         }
       }
+      if (this.state.mode === "deterministic" && this.state.screened && round > 1) {
+        // The shortlist used the whole budget of bundles, so there is no round 2 or 3; the second stress test still runs.
+        if (this.state.stresses.length < 2) await this.attack(run, mission);
+        break;
+      }
 
       if (fresh.length === 0) {
         this.log("info", converged ? "The planner added no new bundles, so search stops here." : "No new bundles to try, so search stops here.");
         break;
       }
       await this.evaluateBundles(run, mission, round, fresh);
+      if (this.state.mode === "deterministic" && this.state.screened && round === 1) {
+        const n = this.state.rows.length;
+        const f = this.state.counts.futuresEvaluated;
+        this.log(
+          "decision",
+          `Deterministic search (no AI): screened ${this.state.screened.scored} bundles, then scored the top ${n} with ${f} simulated futures${n > 0 && f % n === 0 ? ` (${f / n} per bundle)` : ""} in total.`,
+        );
+      }
       // The critic attacks the leaders after each of the first two rounds; the next round reads the result.
       if (round < MAX_ROUNDS) await this.attack(run, mission);
     }
+  }
+
+  /**
+   * Stage 1 of the screened deterministic search: one deterministic run per eligible bundle, all
+   * ranked on the goal metric; returns the shortlist (application-minted ids) for the futures run,
+   * or [] when screening was not possible (the round-by-round search then runs instead).
+   */
+  private async screenAll(run: Run, mission: ConfirmedMission): Promise<BundleSpec[]> {
+    const signal = this.live(run);
+    this.log("info", "Deterministic search (no AI): screening every eligible bundle with one deterministic run each.");
+    let res: ExhaustiveResult;
+    try {
+      res = await exhaustiveSearch({
+        catalog: this.deps.catalog,
+        mission,
+        evaluate: this.deps.screen as DeterministicEvaluateFn,
+        signal,
+        onProgress: (done, total) => {
+          if (this.isLive(run)) this.set({ progress: { done, total } });
+        },
+      });
+    } catch (e) {
+      this.live(run);
+      if (e instanceof Cancelled || (e instanceof Error && e.name === "AbortError")) throw e;
+      this.log("fallback", "Screening could not be run; the round-by-round deterministic search is used instead.", { errors: ["screen_failed"] });
+      return [];
+    }
+    this.live(run);
+    if (res.ranked.length < 3) {
+      this.log("info", `Screening scored only ${res.ranked.length} bundles; the round-by-round deterministic search is used instead.`);
+      return [];
+    }
+    const list = shortlistBundles(res, Math.min(this.deps.shortlist ?? MAX_EVALUATED_BUNDLES, MAX_EVALUATED_BUNDLES));
+    this.set({ screened: { enumerated: res.enumerated, scored: res.evaluations, shortlisted: list.length }, progress: undefined });
+    this.log(
+      "decision",
+      `Deterministic search (no AI): screened ${res.evaluations} of ${res.enumerated} bundles with one deterministic run each, and took the top ${list.length} (the leaders, plus variety) for the full futures run.`,
+    );
+    return list;
   }
 
   private async evaluateBundles(run: Run, mission: ConfirmedMission, round: number, fresh: BundleSpec[]): Promise<void> {
@@ -760,7 +828,7 @@ export class AgentMachine {
     }
     this.live(run);
     if (!finalists) {
-      finalists = greedyFinalists(this.state.rows, mission, excluded).map((f) => this.toFinalist(f.bundleId, f.note));
+      finalists = greedyFinalists(this.state.rows, mission, excluded, { diverse: this.state.screened !== undefined }).map((f) => this.toFinalist(f.bundleId, f.note));
       this.log("decision", `Deterministic search (not AI) ranked ${finalists.length} finalists by the goal metric.`);
     }
     this.set({ finalists });

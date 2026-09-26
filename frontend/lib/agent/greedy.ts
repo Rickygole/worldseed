@@ -17,6 +17,7 @@ import {
   type Catalog,
 } from "./catalog";
 import { pickDeterministicStress, type DeterministicStressResult } from "./critic";
+import { exhaustiveSearch, type DeterministicEvaluateFn, type ExhaustiveEntry, type ExhaustiveResult } from "./exhaustive";
 import type { EvaluateFn } from "./evaluate";
 import type { BundleSpec, ConfirmedMission, EvaluationRow, GoalMetric } from "./tools";
 import { MAX_BUNDLE_SIZE, MAX_EVALUATED_BUNDLES, MAX_ROUNDS, mintBundleIds } from "./tools";
@@ -113,16 +114,75 @@ export function greedyPlanRound(input: GreedyRoundInput): BundleSpec[] {
   return out;
 }
 
-/** Top three by rank, skipping excluded bundles (dropped or vetoed). Fewer if fewer exist. */
+/* ------------------------- two-stage (screened) search ------------------------- */
+
+/** Default size of the shortlist that gets the full futures run (also the per-mission cap on evaluated bundles). */
+export const DEFAULT_SHORTLIST = MAX_EVALUATED_BUNDLES;
+
+/** Two bundles that share two or more members are near-duplicates (two of three members in common). */
+export function nearDuplicate(a: readonly string[], b: readonly string[]): boolean {
+  return a.filter((x) => b.includes(x)).length >= 2;
+}
+
+/**
+ * The shortlist for the futures run, from ALL screened bundles best first: the top two thirds of
+ * the slots by rank alone (the true leaders always make it), then the remaining slots go to the
+ * best bundles that are not near-duplicates of any bundle already chosen, then, if slots are still
+ * free, to the best of the rest. So the shortlist is mostly the leaders and always has variety.
+ */
+export function selectShortlist(ranked: readonly ExhaustiveEntry[], k: number = DEFAULT_SHORTLIST): ExhaustiveEntry[] {
+  const size = Math.max(1, Math.min(k, ranked.length));
+  const chosen: ExhaustiveEntry[] = ranked.slice(0, Math.ceil((size * 2) / 3));
+  const taken = new Set(chosen);
+  for (const e of ranked) {
+    if (chosen.length >= size) break;
+    if (!taken.has(e) && !chosen.some((c) => nearDuplicate(c.candidateIds, e.candidateIds))) {
+      chosen.push(e);
+      taken.add(e);
+    }
+  }
+  for (const e of ranked) {
+    if (chosen.length >= size) break;
+    if (!taken.has(e)) {
+      chosen.push(e);
+      taken.add(e);
+    }
+  }
+  return chosen;
+}
+
+/** Best first, skipping near-duplicates of a bundle already picked; if fewer than `n` remain, the best of the skipped fill the gap. */
+export function pickDiverse<T extends { candidateIds: readonly string[] }>(rankedRows: readonly T[], n = 3): T[] {
+  const out: T[] = [];
+  for (const r of rankedRows) {
+    if (out.length >= n) break;
+    if (!out.some((c) => nearDuplicate(c.candidateIds, r.candidateIds))) out.push(r);
+  }
+  for (const r of rankedRows) {
+    if (out.length >= n) break;
+    if (!out.includes(r)) out.push(r);
+  }
+  return out;
+}
+
+/** Bundles for the futures run from a screening result, with application-minted ids. */
+export function shortlistBundles(screened: Pick<ExhaustiveResult, "ranked">, k: number = DEFAULT_SHORTLIST): BundleSpec[] {
+  const list = selectShortlist(screened.ranked, k);
+  const ids = mintBundleIds([], list.length);
+  return list.map((e, i) => ({ id: ids[i], candidateIds: e.candidateIds }));
+}
+
+/** Top three by rank, skipping excluded bundles (dropped or vetoed). Fewer if fewer exist. With `diverse`, no two share two members unless nothing else is left. */
 export function greedyFinalists(
   rows: readonly EvaluationRow[],
   mission: ConfirmedMission,
   excluded: ReadonlySet<string> = new Set(),
+  opts: { diverse?: boolean } = {},
 ): GreedyFinalist[] {
   let pool = rows.filter((r) => !excluded.has(r.bundleId));
   if (pool.length < 3) pool = [...rows];
-  return rankRows(pool, mission)
-    .slice(0, 3)
+  const ranked = rankRows(pool, mission);
+  return (opts.diverse ? pickDiverse(ranked, 3) : ranked.slice(0, 3))
     .map((r) => ({
       bundleId: r.bundleId,
       candidateIds: r.candidateIds,
@@ -133,6 +193,8 @@ export function greedyFinalists(
 /* ------------------------ standalone convenience ------------------------ */
 
 export interface GreedyResult {
+  /** Stage-1 result when a screening evaluator was given and scored at least three bundles. */
+  screened?: ExhaustiveResult;
   /** Stress tests the deterministic critic ran (after rounds 1 and 2), labeled non-AI in the UI. */
   stresses: DeterministicStressResult[];
   finalists: GreedyFinalist[];
@@ -150,6 +212,15 @@ export async function greedySearch(opts: {
   signal?: AbortSignal;
   /** Run the deterministic stress step after rounds 1 and 2 (default true). */
   stress?: boolean;
+  /**
+   * A deterministic one-run-per-bundle evaluator (no futures). When given, stage 1 scores EVERY
+   * eligible bundle with it and stage 2 runs the futures evaluation only on the shortlist.
+   * Without it the round-by-round search below runs unchanged.
+   */
+  screen?: DeterministicEvaluateFn;
+  /** Shortlist size for stage 2 (default 12, the per-mission cap on evaluated bundles). */
+  shortlist?: number;
+  onScreenProgress?: (done: number, total: number) => void;
 }): Promise<GreedyResult> {
   const rows: EvaluationRow[] = [];
   const known: BundleSpec[] = [];
@@ -157,6 +228,32 @@ export async function greedySearch(opts: {
   let futuresEvaluated = 0;
   let rounds = 0;
   const stresses: DeterministicStressResult[] = [];
+  let screened: ExhaustiveResult | undefined;
+  if (opts.screen) {
+    screened = await exhaustiveSearch({ catalog: opts.catalog, mission: opts.mission, evaluate: opts.screen, signal: opts.signal, onProgress: opts.onScreenProgress });
+  }
+  if (screened && screened.ranked.length >= 3) {
+    const bundles = shortlistBundles(screened, opts.shortlist);
+    known.push(...bundles);
+    const res = await opts.evaluate(bundles, { mission: opts.mission, round: 1, signal: opts.signal });
+    const want = new Map(bundles.map((b) => [b.id, b]));
+    for (const { futures, ...r } of res.rows) {
+      const b = want.get(r.bundleId);
+      if (!b || rows.some((x) => x.bundleId === r.bundleId) || b.candidateIds.join("|") !== r.candidateIds.join("|")) continue;
+      rows.push(r);
+      bundlesEvaluated += 1;
+      futuresEvaluated += futures;
+    }
+    rounds = 1;
+    for (let attack = 0; attack < 2 && opts.stress !== false && rows.length > 0; attack++) {
+      const leaders = rankRows(rows, opts.mission).slice(0, 4).map((r) => ({ id: r.bundleId, candidateIds: r.candidateIds }));
+      const pick = await pickDeterministicStress({ evaluate: opts.evaluate, mission: opts.mission, round: 1, leaders, normal: rows, tried: stresses.map((x) => x.spec), signal: opts.signal });
+      if (!pick) break;
+      stresses.push(pick);
+      for (const r of pick.rows) futuresEvaluated += r.futures;
+    }
+    return { stresses, screened, finalists: greedyFinalists(rows, opts.mission, new Set(), { diverse: true }), rows, rounds, bundlesEvaluated, futuresEvaluated };
+  }
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     if (opts.signal?.aborted) throw new Error("aborted");
     const bundles = greedyPlanRound({ catalog: opts.catalog, mission: opts.mission, round, rows, known });

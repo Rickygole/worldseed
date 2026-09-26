@@ -280,7 +280,7 @@ describe("R4-1: the deterministic critic (no AI) runs the same stress step", () 
   it("picks the single-link closure that hurts the leading bundles most, from the evaluator's own results, and labels it non-AI", async () => {
     const stressCalls: { label: string; closedLinks: string[]; tod?: string; ids: string[] }[] = [];
     const all = FAKE_CANDIDATES.map((c) => c.id);
-    const evaluate = fakeEvaluator({ stressCalls, fragile: { "L-BROENING": all } });
+    const evaluate = fakeEvaluator({ stressCalls, fragile: { "L-FORTMCHENRY": all } });
     const server = makeServer([]);
     const m = new AgentMachine({ api: apiFor(server), evaluate, catalog: fakeCatalog(), newMissionId: () => "mission-r4-3" });
     await m.runDeterministic(MISSION);
@@ -288,12 +288,12 @@ describe("R4-1: the deterministic critic (no AI) runs the same stress step", () 
     expect(server.provider.calls).toHaveLength(0); // no model call at all
     expect(s.mode).toBe("deterministic");
     expect(s.stresses.length).toBe(2);
-    expect(s.stresses[0]).toMatchObject({ source: "deterministic", label: "Broening Highway corridor closed" });
-    expect(s.stresses[1].label).not.toBe(s.stresses[0].label); // the second attack picks a stress not yet run
-    const line = sentences(s).find((x) => x.startsWith("Deterministic stress test (no AI): Broening Highway corridor closed"))!;
-    expect(line).toContain("the closure that hurt the leading bundles most of the 4 single-link closures the simulator tried");
-    // every single-link closure was scored to make the choice (4 on the first attack, 3 left for the second)
-    expect(stressCalls.filter((c) => c.closedLinks.length === 1).length).toBe(4 + 3);
+    expect(s.stresses[0]).toMatchObject({ source: "deterministic", label: "Fort McHenry Tunnel closed" });
+    expect(s.stresses[1].label).toBe("Harbor Tunnel closed"); // the second attack picks the one not yet run
+    const line = sentences(s).find((x) => x.startsWith("Deterministic stress test (no AI): Fort McHenry Tunnel closed"))!;
+    expect(line).toContain("the closure that hurt the leading bundles most of the 2 single-link closures the simulator tried");
+    // every real single-link closure was scored to make the choice (2 on the first attack, 1 left for the second)
+    expect(stressCalls.filter((c) => c.closedLinks.length === 1).length).toBe(2 + 1);
     expect(s.log.some((l) => l.kind === "decision" && l.sentence.startsWith("Under this stress "))).toBe(true);
     expect(s.phase).toBe("finalists");
   });
@@ -308,12 +308,12 @@ describe("R4-1: the deterministic critic (no AI) runs the same stress step", () 
     });
     const pick = await pickDeterministicStress({ ...base, evaluate: evalWith({ "L-FORTMCHENRY": 300, "L-HARBORTUNNEL": 200 }) });
     expect(pick?.spec).toEqual({ kind: "close_link", linkId: "L-FORTMCHENRY" });
-    expect(pick?.scanned).toBe(4);
+    expect(pick?.scanned).toBe(2);
     const tie = await pickDeterministicStress({ ...base, evaluate: evalWith({}) });
     expect(tie?.spec).toEqual({ kind: "close_link", linkId: "L-HARBORTUNNEL" }); // the first in the fixed order
     const skipped = await pickDeterministicStress({ ...base, evaluate: evalWith({ "L-FORTMCHENRY": 300, "L-HARBORTUNNEL": 200 }), tried: [{ kind: "close_link", linkId: "L-FORTMCHENRY" }] });
     expect(skipped?.spec).toEqual({ kind: "close_link", linkId: "L-HARBORTUNNEL" });
-    expect(skipped?.scanned).toBe(3);
+    expect(skipped?.scanned).toBe(1);
     expect(await pickDeterministicStress({ ...base, evaluate: evalWith({}), tried: linkStresses() })).toBeNull();
   });
 

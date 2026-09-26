@@ -5,8 +5,10 @@
  * one in words. The machine hands the chosen stress to the simulator through the evaluator
  * context (`EvaluateContext.stress`), and every number that follows comes from the simulator.
  *
- * The link ids mirror the simulator's `closureEligible` list (lib/sim/sample.ts); a test keeps the
- * two in step. Time of day uses "midday" here; the simulator's own name for it is "mid", so the
+ * Only REAL links of the snapshot are offered (its graph.meta.json `links`): a stress the simulator
+ * cannot run would come back with no rows. The Key Bridge link is not offered: it is already closed
+ * in the baseline, so closing it changes nothing. A test keeps this list a subset of the snapshot's
+ * real links. Time of day uses "midday" here; the simulator's own name for it is "mid", so the
  * evaluator adapter maps `midday` to `mid`.
  */
 import { z } from "zod";
@@ -24,8 +26,6 @@ export const STRESS_TOD_LABEL: Record<StressTod, string> = {
 export const STRESS_LINKS = [
   { id: "L-HARBORTUNNEL", label: "Harbor Tunnel" },
   { id: "L-FORTMCHENRY", label: "Fort McHenry Tunnel" },
-  { id: "L-HANOVER", label: "Hanover Street corridor" },
-  { id: "L-BROENING", label: "Broening Highway corridor" },
 ] as const;
 export type StressLink = (typeof STRESS_LINKS)[number];
 
