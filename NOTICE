@@ -8,23 +8,38 @@ Map data (c) OpenStreetMap contributors, available under the ODbL
 Basemap tiles: OpenFreeMap (c) OpenMapTiles. Data from OpenStreetMap.
 Demographic and jobs data: U.S. Census Bureau (American Community Survey 5-Year
 Estimates, TIGER/Line Shapefiles, LEHD LODES), public domain U.S. government works.
+The ACS tables were obtained through the Census Reporter API, a third-party mirror
+of the official tables. Per-hex figures are estimates derived by WorldSeed, not
+official Census Bureau figures.
+Fire station and hospital locations: MD iMAP, DoIT, MCAC, MSFA (fire stations) and
+MD iMAP, DHMH OHCQ (hospitals), State of Maryland, provided as is.
 
 AI features use NVIDIA Nemotron models served via Nebius Token Factory.
-Model license: to be confirmed on the model card of each model used.
+Model licenses (per the Hugging Face model cards, read 2026-09-26; applying them to
+the copies Nebius serves is unverified): Nemotron 3 Nano and Nemotron 3 Super, NVIDIA
+Nemotron Open Model License; Nemotron 3 Ultra and Nemotron 3.5 Lightning, OpenMDW-1.1.
+See docs/ATTRIBUTIONS.md for the exact model IDs and links.
 Use of the hosted AI features is subject to the Nebius Token Factory Terms of
 Service: https://docs.tokenfactory.nebius.com/legal/terms-of-service
 Live road-closure search results are provided by Tavily; linked articles remain
 the property of their publishers.
 
-Third-party software and fonts (final list is generated from the build):
-- MapLibre GL JS - BSD-3-Clause (contains code (c) Mapbox, BSD-3-Clause)
+Third-party software and fonts. The complete, generated inventory with license texts
+is THIRD_PARTY_LICENSES.md (node scripts/gen-third-party-licenses.mjs). Principal
+components:
+- MapLibre GL JS - BSD-3-Clause, Copyright (c) 2023, MapLibre contributors (its
+  license file also carries notices for code from Mapbox GL JS up to v1.13,
+  BSD-3-Clause, Copyright (c) 2020, Mapbox)
 - deck.gl - MIT, Copyright Vis.gl contributors
-- H3 / h3-js - Apache License 2.0, Copyright Uber Technologies, Inc.
-- Lucide - ISC, Copyright (c) Lucide Icons and Contributors; portions MIT,
+- react-map-gl - MIT, Copyright Vis.gl contributors; Copyright (c) 2014, Mapbox
+- H3 / h3-js - Apache License 2.0, Copyright 2017-2021 Uber Technologies, Inc.
+- Lucide - ISC, Copyright (c) 2026 Lucide Icons and Contributors; portions MIT,
   Copyright (c) 2013-present Cole Bemis (Feather)
-- Inter - SIL OFL 1.1, Copyright (c) 2016 The Inter Project Authors
+- Inter - SIL OFL 1.1, Copyright 2020 The Inter Project Authors
+  (https://github.com/rsms/inter)
 - JetBrains Mono - SIL OFL 1.1, Copyright 2020 The JetBrains Mono Project Authors
-- Space Grotesk - SIL OFL 1.1, Copyright 2020 The Space Grotesk Project Authors
+  (https://github.com/JetBrains/JetBrainsMono)
 
 WorldSeed is not affiliated with or endorsed by the OpenStreetMap Foundation,
-the U.S. Census Bureau, the NTSB, or any hospital, fire, EMS, or government agency.
+OpenFreeMap, the U.S. Census Bureau, the State of Maryland, the NTSB, NVIDIA, Nebius,
+Tavily, Vercel, or any hospital, fire, EMS, or government agency.

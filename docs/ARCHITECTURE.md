@@ -104,8 +104,12 @@ SSE events: `status`, `log` (plain sentence), `tool_call`, `usage`, `error`, `do
 tokens are never shown. The decision log uses a structured `log_sentence` field instead.
 
 ### 1.6 LLM integration: model registry with capability flags and fallbacks
-`frontend/src/server/models.ts`: roles map to an ordered candidate list. The IDs below were checked
-against the public Token Factory catalog on 2026-09-26. Access on the user's key is unverified.
+`frontend/lib/server/models.ts`: roles map to an ordered candidate list. The IDs below are UNVERIFIED
+against a live Token Factory key: only `nvidia/nemotron-3-super-120b-a12b` and `nvidia/Nemotron-3_5-Lightning` appear
+verbatim in the Nebius docs (deprecation notice); the exact Ultra and Nano strings were not printed on any docs page
+reached (see `spikes/SPIKE_REPORT.md`). The server resolves IDs at runtime from the account's `/models` list (cached
+10 minutes) and treats a chain entry as usable only if the account lists it, so a wrong string degrades to the next
+fallback instead of failing. Access on the user's key is unverified.
 
 | Role | Primary | Fallbacks |
 |---|---|---|
@@ -511,7 +515,7 @@ label shown.
 
 | # | Risk | De-risk / honest fallback |
 |---|---|---|
-| R1 | Hero metric is flat (**confirmed for EMS by spike**) | The Access lens is the hero (spike shows +10-15 min car, up to +23 min hazmat). EMS is presented truthfully as resilient. Needs D1 |
+| R1 | Hero metric is flat (**confirmed for EMS by spike**) | The Access lens is the hero. The spike's point-to-point trips showed +10-15 min by car and up to +23 min for hazmat (free-flow estimates for individual trips, not what the app shows; the app currently shows regional +3 s, cross-harbor average +14 s, and +4.3 min for the worst-off 1% of residents). EMS is presented truthfully as resilient. Needs D1 |
 | R2 | Ultra not enabled on the account, or rate-limited | Registry falls back to Super. The UI shows the actual model used. The degraded manual mode plus deterministic search still demos the full loop. The recorded tour is captured the first day Ultra works |
 | R3 | Token credits run out before Dec 15 | Global daily ceiling, per-IP limits, and a tour that needs no tokens. The live AI button reads "Daily AI budget reached; try the recorded run" |
 | R4 | Model ignores the schema or emits numbers | JSON-schema output, validator, one repair turn, then greedy fallback. Rejections are shown as a feature |
@@ -533,8 +537,11 @@ transit routing, native tool-calling dependence, and any vision model.
   finalize) with a validator, on Token Factory with Nemotron roles, plus a deterministic,
   golden-tested simulator.
 - **Design**: a complete coherent product with honest states and runner labels.
-- **Impact**: MDTA/BMC/county planners, with a specific finding: first response stayed resilient,
-  and cross-harbor access, freight, and hazmat routing broke, concentrated on low-wage workers.
+- **Impact**: MDTA/BMC/county planners, with a specific finding: first response stayed resilient
+  (EMS lens unchanged), and what the bridge loss changes is cross-harbor job access. That loss is
+  NOT concentrated on low-wage workers: in `data/snapshot/golden.json` (`xharbor`, `keybridge_removed`),
+  1.8% of low-wage workers and 1.9% of all residents lose more than 10% of their cross-harbor jobs
+  within 30 minutes. Freight and hazmat routing are planned (COULD, section 3) and are not yet in the product.
 - **Idea**: the LLM searches a space it cannot score. It never produces a number.
 
 ---

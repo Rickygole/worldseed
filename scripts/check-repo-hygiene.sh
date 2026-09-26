@@ -5,6 +5,8 @@
 #   - forbidden tooling/vendor names or assistant-attribution trailers
 #   - files that must never be committed (agent config, real .env files)
 #   - likely secrets (API keys, private keys)
+#   - submission-readiness gaps: missing LICENSE/NOTICE/THIRD_PARTY_LICENSES.md, a filled-in secret in
+#     .env.example, a NEXT_PUBLIC_ variable that looks like a key; warns when THIRD_PARTY_LICENSES.md is stale
 #
 # Usage:
 #   scripts/check-repo-hygiene.sh                    # tracked files + commit messages
@@ -21,7 +23,7 @@ INCLUDE_UNTRACKED=0
 for arg in "$@"; do
   case "$arg" in
     --include-untracked) INCLUDE_UNTRACKED=1 ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -92,6 +94,40 @@ if git rev-parse --verify -q HEAD >/dev/null; then
       report "forbidden text in commit message: $(git log -1 --format='%h %s' "$sha")"
     fi
   done < <(git rev-list HEAD)
+fi
+
+# --- Submission-readiness checks (extension) ---
+warn() { echo "HYGIENE WARN: $*" >&2; }
+
+# Files the submission depends on.
+for req in LICENSE NOTICE data/snapshot/LICENSE.md THIRD_PARTY_LICENSES.md; do
+  [ -f "$req" ] || report "required file missing: $req"
+done
+
+# .env.example is a template: no value may be filled in for a secret-looking variable.
+if [ -f .env.example ]; then
+  filled=$(grep -En '^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(KEY|TOKEN|SECRET|SALT|PASSWORD)[A-Z0-9_]*[[:space:]]*=[[:space:]]*[^[:space:]#]' .env.example | cut -d: -f1 | tr '\n' ' ')
+  if [ -n "$filled" ]; then
+    report ".env.example line(s) ${filled}give a value to a secret-looking variable (value not shown)"
+  fi
+fi
+
+# Keys are server-side only: no NEXT_PUBLIC_ variable may look like a key, token or secret.
+if [ "$INCLUDE_UNTRACKED" -eq 1 ]; then
+  pub=$(git grep -In --untracked -E 'NEXT_PUBLIC_[A-Za-z0-9_]*(KEY|TOKEN|SECRET)' -- . ':!scripts/check-repo-hygiene.sh' 2>/dev/null | cut -d: -f1,2 | head -5 | tr '\n' ' ')
+else
+  pub=$(git grep -In -E 'NEXT_PUBLIC_[A-Za-z0-9_]*(KEY|TOKEN|SECRET)' -- . ':!scripts/check-repo-hygiene.sh' 2>/dev/null | cut -d: -f1,2 | head -5 | tr '\n' ' ')
+fi
+if [ -n "$pub" ]; then
+  report "NEXT_PUBLIC_ variable that looks like a secret (file:line): ${pub}"
+fi
+
+# THIRD_PARTY_LICENSES.md is generated; warn (not fail) when it no longer matches the lockfiles.
+# Needs the installed dependencies to compare, so it is skipped when they are absent (for example in CI).
+if [ -f scripts/gen-third-party-licenses.mjs ] && command -v node >/dev/null 2>&1 && [ -d frontend/node_modules ] && [ -d pipeline/.venv ]; then
+  if ! node scripts/gen-third-party-licenses.mjs --check >/dev/null 2>&1; then
+    warn "THIRD_PARTY_LICENSES.md is stale. Run: node scripts/gen-third-party-licenses.mjs"
+  fi
 fi
 
 if [ "$fail" -eq 0 ]; then
