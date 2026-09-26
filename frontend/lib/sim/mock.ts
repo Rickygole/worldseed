@@ -241,7 +241,7 @@ function computeMetrics(
 }
 
 const MOCK_ASSUMPTIONS: Assumption[] = [
-  { label: "Dispatch constant", value: "1.0 min", note: "Call-to-wheels-rolling, added to every trip.", placeholder: true },
+  { label: "Call-processing and turnout delay", value: "1.0 min", note: "Call-to-wheels delay, added to every trip.", placeholder: true },
   { label: "Speed: motorway", value: "55 mph", note: "Default by OSM road class.", placeholder: true },
   { label: "Speed: primary / secondary", value: "35 mph", placeholder: true },
   { label: "Speed: residential", value: "25 mph", placeholder: true },

@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /public/maplibre/
+
+# synced from data/snapshot by scripts/sync-snapshot.mjs
+/public/snapshot/
