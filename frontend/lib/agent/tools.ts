@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { CostTierSchema, ID_RE, LensSchema, CandidateTypeSchema } from "./catalog";
 import { makeRationaleSchema } from "./rationale";
+import { StressSpecSchema } from "./stress";
 
 export const CandidateIdSchema = z.string().regex(ID_RE);
 /**
@@ -144,6 +145,9 @@ export const CritiqueSchema = z.strictObject({
   action: z.literal("critique"),
   concerns: z.array(z.strictObject({ bundleId: BundleIdSchema, kind: z.enum(CONCERN_KINDS) })).max(24),
   veto: z.array(BundleIdSchema).max(MAX_EVALUATED_BUNDLES).optional(),
+  /** The stress test the critic wants the simulator to run: a choice from the application's closed set (stress.ts). */
+  stress: StressSpecSchema,
+  rationale: makeRationaleSchema(),
 });
 export type CritiqueOutput = z.infer<typeof CritiqueSchema>;
 
@@ -186,23 +190,6 @@ export const ConfirmedMissionSchema = z.strictObject({
 });
 export type ConfirmedMission = z.infer<typeof ConfirmedMissionSchema>;
 
-/* ----------------------------- narrator ----------------------------- */
-
-export const NarrationSchema = z.strictObject({
-  action: z.literal("narrate"),
-  items: z
-    .array(
-      z.strictObject({
-        bundleId: BundleIdSchema,
-        // A selection, not text: rendered by the application into the decision log only.
-        rationale: makeRationaleSchema(),
-      }),
-    )
-    .min(1)
-    .max(3),
-});
-export type NarrationOutput = z.infer<typeof NarrationSchema>;
-
 /* ---------------------------- evaluation ---------------------------- */
 
 /** One row of the `evaluation` tool message the client builds from simulator results. */
@@ -225,7 +212,11 @@ export type EvaluationRow = z.infer<typeof EvaluationRowSchema>;
  * accepts; it never uses an aggregate the evaluator claims for a batch.
  */
 export const MAX_FUTURES_PER_ROW = 100_000;
-export const EvaluatedRowSchema = EvaluationRowSchema.extend({ futures: z.number().int().min(1).max(MAX_FUTURES_PER_ROW) });
+export const EvaluatedRowSchema = EvaluationRowSchema.extend({
+  futures: z.number().int().min(1).max(MAX_FUTURES_PER_ROW),
+  /** Echo of the stress label when the row was scored under a stress. Informational: the machine uses its own label. */
+  stressLabel: z.string().max(160).optional(),
+});
 export type EvaluatedRow = z.infer<typeof EvaluatedRowSchema>;
 
 export const BaselineRowSchema = z.strictObject({
@@ -251,6 +242,16 @@ export const ExtractedClosureSchema = z.strictObject({
 export const ExtractionSchema = z.strictObject({ closures: z.array(ExtractedClosureSchema).max(16) });
 export type ExtractedClosure = z.infer<typeof ExtractedClosureSchema>;
 export type Extraction = z.infer<typeof ExtractionSchema>;
+
+/**
+ * Adds the optional `reasoning` property to a model-facing JSON schema. The strict validation
+ * schemas do NOT contain it: the server splits it off before validation and screens it on its
+ * own (lib/agent/reasoning.ts), so a bad reasoning string can never reject an answer.
+ */
+export function withReasoningField(schema: Record<string, unknown>): Record<string, unknown> {
+  const props = (schema.properties ?? {}) as Record<string, unknown>;
+  return { ...schema, properties: { ...props, reasoning: { type: "string", maxLength: 600 } } };
+}
 
 /** JSON Schema (draft 7) for `response_format`. */
 export function toJsonSchema(schema: z.ZodType): Record<string, unknown> {

@@ -7,14 +7,14 @@
  *   node --env-file=../.env scripts/smoke-token-factory.mjs --stream   # also probe streaming
  *
  * Reads NEBIUS_API_KEY and NEBIUS_BASE_URL from the environment (never printed). Optional model
- * overrides: WS_MODEL_PLANNER, WS_MODEL_CRITIC, WS_MODEL_PARSER, WS_MODEL_NARRATOR, WS_MODEL_EXTRACTOR.
+ * overrides: WS_MODEL_PLANNER, WS_MODEL_CRITIC, WS_MODEL_PARSER, WS_MODEL_EXTRACTOR.
  * The output is written so it can be pasted into docs/FEEDBACK_NOTES.md.
  *
  * --measure-screen [--base http://localhost:3000] [--n 10]
  *   Measures how often the REAL model returns a valid rationale selection (the app's only model
  *   output that reaches a reader is a rationale KIND from a fixed list; see lib/agent/rationale.ts).
  *   It calls a RUNNING app's own routes (this script never reads or prints the key), runs N
- *   synthetic missions (propose, finalize, narrate: about three model calls each) and prints how
+ *   synthetic missions (propose, critique with a stress-test choice, finalize: about three model calls each) and prints how
  *   many answers were valid first time, needed the one repair turn, or fell back to deterministic
  *   search, plus the rationale kinds the model chose. Synthetic evaluation numbers are used only to
  *   build valid requests; they are not results.
@@ -92,7 +92,7 @@ async function measureScreen(base, n) {
     }
     if (r.done.repaired) repaired++;
     else firstTime++;
-    const kind = r.done.result?.rationale?.kind ?? r.done.result?.items?.map((i) => i.rationale?.kind).join("+");
+    const kind = r.done.result?.rationale?.kind;
     if (kind) kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
     return true;
   };
@@ -107,24 +107,26 @@ async function measureScreen(base, n) {
       console.log("  fewer than three bundles proposed; skipping finalize");
       continue;
     }
-    const fin = await post("/api/agent/plan", { missionId, mission, phase: "finalize", round: 1, bundles: bundles.slice(0, 3).map((b) => ({ id: b.id, candidateIds: b.candidateIds })), evaluations: rows, baseline, dropped: [] });
-    if (audit(fin)) {
-      const nar = await post("/api/agent/narrate", { missionId, mission, finalists: fin.done.result.finalists.map((f) => ({ bundleId: f.bundleId })), evaluations: rows, baseline });
-      audit(nar);
+    const crit = await post("/api/agent/critique", { missionId, mission, round: 1, evaluations: rows, baseline, dropped: [], stresses: [] });
+    if (audit(crit)) {
+      const st = crit.done.result?.stress;
+      const key = st ? `stress:${st.kind}${st.linkId ? `:${st.linkId}` : ""}${st.tod ? `:${st.tod}` : ""}` : "";
+      if (key) kinds.set(key, (kinds.get(key) ?? 0) + 1);
     }
+    const fin = await post("/api/agent/plan", { missionId, mission, phase: "finalize", round: 1, bundles: bundles.slice(0, 3).map((b) => ({ id: b.id, candidateIds: b.candidateIds })), evaluations: rows, baseline, dropped: [] });
+    audit(fin);
   }
   const total = firstTime + repaired + fallbacks;
   console.log(`\nProvider-backed answers: ${total} (${calls} routes called). Valid first time: ${firstTime}, valid after the one repair turn: ${repaired}, fell back to deterministic search: ${fallbacks}.`);
   console.log(`Valid selection rate: ${total ? (((firstTime + repaired) / total) * 100).toFixed(0) : 0}% (first time ${total ? ((firstTime / total) * 100).toFixed(0) : 0}%).`);
   console.log(`Rationale kinds chosen: ${[...kinds].map(([k, c]) => `${k}=${c}`).join(", ") || "none"}`);
-  console.log("No model-written sentence reaches a reader in this design, so there is no text to screen or blank.");
+  console.log("The only free text a model can add is the optional plain-text reasoning field (collapsed and labeled in the decision log); everything else is a selection.");
 }
 
 const DEFAULTS = {
   planner: ["nvidia/Nemotron-3-Ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b"],
   critic: ["nvidia/Nemotron-3-Ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b"],
   parser: ["nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "nvidia/Nemotron-3_5-Lightning", "nvidia/nemotron-3-super-120b-a12b"],
-  narrator: ["nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "nvidia/nemotron-3-super-120b-a12b"],
   extractor: ["nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "nvidia/Nemotron-3_5-Lightning", "nvidia/nemotron-3-super-120b-a12b"],
 };
 

@@ -6,12 +6,11 @@ import {
   AGENT_EVENT_NAMES,
   type AgentEvent,
   type CritiqueRequest,
-  type NarrateRequest,
   type Outcome,
   type ParseRequest,
   type PlanRequest,
 } from "./protocol";
-import type { CritiqueOutput, NarrationOutput, ParsedMission, PlannerAction } from "./tools";
+import type { CritiqueOutput, ParsedMission, PlannerAction } from "./tools";
 
 export interface CallOptions {
   signal?: AbortSignal;
@@ -22,7 +21,6 @@ export interface AgentApi {
   parse(req: ParseRequest, opts?: CallOptions): Promise<Outcome<ParsedMission>>;
   plan(req: PlanRequest, opts?: CallOptions): Promise<Outcome<PlannerAction>>;
   critique(req: CritiqueRequest, opts?: CallOptions): Promise<Outcome<CritiqueOutput>>;
-  narrate(req: NarrateRequest, opts?: CallOptions): Promise<Outcome<NarrationOutput>>;
 }
 
 /** Incremental Server-Sent Events parser. Feed it text chunks; it yields complete events. */
@@ -109,6 +107,5 @@ export function createFetchAgentApi(opts: { baseUrl?: string; fetchImpl?: typeof
     parse: (req, o) => call(`${base}/api/agent/parse`, req, o, f),
     plan: (req, o) => call(`${base}/api/agent/plan`, req, o, f),
     critique: (req, o) => call(`${base}/api/agent/critique`, req, o, f),
-    narrate: (req, o) => call(`${base}/api/agent/narrate`, req, o, f),
   };
 }

@@ -1,6 +1,8 @@
 /** Route logic for /api/health and /api/closures, kept out of the route files so tests can call it. */
 import {
   ClosuresRequestSchema,
+  EvidenceRequestSchema,
+  type EvidenceResponse,
   ConfirmClosureRequestSchema,
   type ClosuresResponse,
   type ConfirmClosureResponse,
@@ -9,6 +11,7 @@ import { guardPost, json, readBody, requestIp, requesterKey } from "./agentServi
 import { ipTag, logEvent } from "./log";
 import { ROLES } from "./models";
 import type { Runtime } from "./runtime";
+import { lookupEvidence } from "./evidence";
 import { lookupClosures, redeemConfirmation } from "./tavily";
 
 /**
@@ -55,6 +58,7 @@ async function computeHealth(rt: Runtime): Promise<Response> {
       roles: Object.fromEntries(ROLES.map((r) => [r, models ? models.roles[r].model : "unavailable"])),
       fallbacks: Object.fromEntries(ROLES.map((r) => [r, models ? models.roles[r].chain.slice(1) : []])),
       tavily: { configured: rt.search !== null && rt.confirmSecret !== "" },
+      evidence: { available: rt.search !== null && agent.config.liveAi },
     },
     200,
     { "cache-control": "no-store" },
@@ -86,6 +90,34 @@ export async function handleClosures(request: Request, rt: Runtime): Promise<Res
     rt.closures,
     deadlineAt,
     requesterKey(request, rt.agent.config),
+  );
+  const status = out.status === "unavailable" && out.reason === "rate_limited" ? 429 : 200;
+  return json(out, status, { "cache-control": "no-store", ...(out.status === "unavailable" && out.retryAfterS ? { "retry-after": String(out.retryAfterS) } : {}) });
+}
+
+/**
+ * POST /api/evidence: news sources about the March 2024 Key Bridge collapse's effect on detours,
+ * tunnel traffic or freight. Sources only, no model call. See lib/server/evidence.ts.
+ */
+export async function handleEvidence(request: Request, rt: Runtime): Promise<Response> {
+  const deadlineAt = rt.agent.now() + rt.agent.config.closuresDeadlineMs;
+  const g = guardPost(request, rt.agent.config);
+  if (g) return g;
+  const ip = requestIp(request, rt.agent.config);
+  const door = rt.agent.frontDoor.check("evidence", ip);
+  if (!door.ok) {
+    logEvent("info", "front_door_refused", { kind: "evidence", ip: ipTag(ip) });
+    const o: EvidenceResponse = { status: "unavailable", reason: "rate_limited", message: "Too many lookups from this connection. Try again later.", retryAfterS: door.retryAfterS };
+    return json(o, 429, { "cache-control": "no-store", "retry-after": String(door.retryAfterS) });
+  }
+  const body = await readBody(request, EvidenceRequestSchema);
+  if (!body.ok) return body.res;
+  const out = await lookupEvidence(
+    { config: rt.agent.config, search: rt.search, store: rt.store, limiter: rt.agent.limiter, now: rt.agent.now },
+    body.value.topic,
+    ip,
+    rt.evidence,
+    deadlineAt,
   );
   const status = out.status === "unavailable" && out.reason === "rate_limited" ? 429 : 200;
   return json(out, status, { "cache-control": "no-store", ...(out.status === "unavailable" && out.retryAfterS ? { "retry-after": String(out.retryAfterS) } : {}) });

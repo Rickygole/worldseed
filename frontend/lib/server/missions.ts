@@ -22,8 +22,8 @@ import type { SharedStore } from "./store";
 
 export const MISSION_TTL_MS = 2 * 3600_000;
 export const MIN_OUTPUT_TOKENS = 300;
-/** Asks per route kind and mission: parse 3, plan 12 (four turns, a retry or two each), critique 9, narrate 3. */
-export const TURN_LIMITS: Record<string, number> = { parse: 3, plan: 12, critique: 9, narrate: 3 };
+/** Asks per route kind and mission: parse 3, plan 12 (four turns, a retry or two each), critique 9. */
+export const TURN_LIMITS: Record<string, number> = { parse: 3, plan: 12, critique: 9 };
 
 export interface MissionCaps {
   inputTokens: number;

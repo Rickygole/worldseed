@@ -7,19 +7,20 @@ import { BASELINE, blockNetwork, readSse, row } from "./fixtures";
 beforeEach(blockNetwork);
 
 describe("SSE", () => {
-  it("round-trips all six event types through the server helper and the client parser", async () => {
+  it("round-trips the event types through the server helper and the client parser", async () => {
     const res = sseResponse(async (emit) => {
       emit({ event: "status", data: { phase: "x", message: "hi" } });
       emit({ event: "log", data: { kind: "info", sentence: "line one\nline two" } });
       emit({ event: "tool_call", data: { name: "propose", args: { a: 1 }, model: "m", repaired: false } });
-      emit({ event: "usage", data: { role: "planner", model: "m", inputTokens: 1, outputTokens: 2, mission: { inputTokens: 1, outputTokens: 2, limitIn: 3, limitOut: 4 } } });
+      emit({ event: "usage", data: { role: "planner", model: "m", inputTokens: 1, outputTokens: 2, latencyMs: 5, mission: { inputTokens: 1, outputTokens: 2, limitIn: 3, limitOut: 4 } } });
+      emit({ event: "reasoning", data: { role: "critic", model: "m", inputTokens: 1, outputTokens: 2, latencyMs: 5, text: "Plain words." } });
       emit({ event: "error", data: { code: "c", message: "m" } });
       emit({ event: "done", data: { status: "fallback", reason: "upstream_error", message: "m", next: "retry_later" } });
     });
     expect(res.headers.get("content-type")).toContain("text/event-stream");
-    expect((await readSse(res.clone())).map((e) => e.event)).toEqual(["status", "log", "tool_call", "usage", "error", "done"]);
+    expect((await readSse(res.clone())).map((e) => e.event)).toEqual(["status", "log", "tool_call", "usage", "reasoning", "error", "done"]);
     const parsed = new SseParser().push(await res.text());
-    expect(parsed).toHaveLength(6);
+    expect(parsed).toHaveLength(7);
     expect((parsed[1].data as { sentence: string }).sentence).toBe("line one\nline two");
   });
   it("parses events split across arbitrary chunk boundaries and ignores comments and unknown events", () => {

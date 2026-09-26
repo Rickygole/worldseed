@@ -11,6 +11,8 @@
  *      catalog focus id) that the application renders (rationale.ts). Anything else is a schema
  *      violation, so free text cannot reach a card or the log.
  *   6. finalize names exactly 3 distinct evaluated bundles and nothing unevaluated.
+ *   7. A critic's stress test is a member of the application's closed set (link ids, times of
+ *      day: enforced by the schema's enums) and is not one that was already run.
  *   7. On violation: one repair turn, then deterministic search. That is orchestration, done in
  *      lib/server/agentService.ts (repair) and agent/machine.ts (fallback), not here.
  *
@@ -19,6 +21,7 @@
  * and error events.)
  */
 import { z } from "zod";
+import { stressKey, type StressSpec } from "./stress";
 import { candidateRejection, type Catalog, type CatalogConstraints } from "./catalog";
 import {
   CritiqueSchema,
@@ -26,7 +29,6 @@ import {
   MAX_EVALUATED_BUNDLES,
   MAX_ROUNDS,
   mintBundleIds,
-  NarrationSchema,
   ParsedMissionSchema,
   plannerModelSchemaFor,
   plannerSchemaFor,
@@ -34,7 +36,6 @@ import {
   type ConfirmedMission,
   type CritiqueOutput,
   type FinalizeAction,
-  type NarrationOutput,
   type ParsedMission,
   type PlannerAction,
   type PlannerPhase,
@@ -42,7 +43,7 @@ import {
   type RefineAction,
 } from "./tools";
 
-export type RuleNumber = 1 | 2 | 3 | 4 | 5 | 6;
+export type RuleNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface Violation {
   rule: RuleNumber;
@@ -297,6 +298,8 @@ export interface CritiqueContext {
   catalog: Catalog;
   /** Evaluated bundles the critic may mention. */
   known: KnownBundle[];
+  /** Stress tests already run in this mission: the critic may not pick one of them again. */
+  tried?: readonly StressSpec[];
   budget?: TokenBudget;
 }
 
@@ -314,6 +317,11 @@ export function validateCritiqueOutput(raw: unknown, ctx: CritiqueContext): Vali
   (a.veto ?? []).forEach((id, i) => {
     if (!evaluated.has(id)) violations.push(v(6, "unknown_bundle", `veto.${i}`, "bundle was not evaluated"));
   });
+  if ((ctx.tried ?? []).some((t) => stressKey(t) === stressKey(a.stress))) {
+    violations.push(v(7, "stress_repeated", "stress", "this stress test was already run in this mission"));
+  }
+  const focus = a.rationale.focus;
+  if (focus !== undefined && !ctx.catalog.byId.has(focus)) violations.push(v(2, "unknown_candidate", "rationale.focus", "candidateId is not in the catalog"));
   return violations.length ? { ok: false, violations } : { ok: true, value: a };
 }
 
@@ -338,33 +346,6 @@ export function validateParseOutput(raw: unknown, ctx: ParseContext): Validation
     violations.push(v(2, "duplicate_area", "constraints.areas", "areas must be unique"));
   }
   return violations.length ? { ok: false, violations } : { ok: true, value: m };
-}
-
-/* ------------------------------- narrator ------------------------------- */
-
-export interface NarrationContext {
-  catalog: Catalog;
-  finalistIds: readonly string[];
-  budget?: TokenBudget;
-}
-
-export function validateNarrationOutput(raw: unknown, ctx: NarrationContext): ValidationResult<NarrationOutput> {
-  const violations = checkTokenBudget(ctx.budget);
-  const parsed = parseWith(NarrationSchema, raw);
-  if (!parsed.ok) return { ok: false, violations: [...violations, ...parsed.violations] };
-  const n = parsed.value;
-  const allowed = new Set(ctx.finalistIds);
-  const seen = new Set<string>();
-  n.items.forEach((it, i) => {
-    if (!allowed.has(it.bundleId)) violations.push(v(6, "unknown_bundle", `items.${i}.bundleId`, "bundle is not a finalist"));
-    if (seen.has(it.bundleId)) violations.push(v(6, "duplicate_finalist", `items.${i}.bundleId`, "bundle is narrated twice"));
-    seen.add(it.bundleId);
-    if (it.rationale.focus !== undefined && !ctx.catalog.byId.has(it.rationale.focus)) {
-      violations.push(v(2, "unknown_candidate", `items.${i}.rationale.focus`, "candidateId is not in the catalog"));
-    }
-  });
-  if (seen.size !== allowed.size) violations.push(v(6, "missing_finalist", "items", "every finalist must be narrated exactly once"));
-  return violations.length ? { ok: false, violations } : { ok: true, value: n };
 }
 
 /** Human-readable list for logs and the repair prompt. */

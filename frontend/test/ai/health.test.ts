@@ -3,7 +3,7 @@ import { GET as healthGET } from "../../app/api/health/route";
 import * as parseRoute from "../../app/api/agent/parse/route";
 import * as planRoute from "../../app/api/agent/plan/route";
 import * as critiqueRoute from "../../app/api/agent/critique/route";
-import * as narrateRoute from "../../app/api/agent/narrate/route";
+import * as evidenceRoute from "../../app/api/evidence/route";
 import * as closuresRoute from "../../app/api/closures/route";
 import * as confirmRoute from "../../app/api/closures/confirm/route";
 import { handleHealth } from "../../lib/server/handlers";
@@ -25,7 +25,6 @@ describe("/api/health", () => {
       planner: "nvidia/Nemotron-3-Ultra-550b-a55b",
       critic: "nvidia/Nemotron-3-Ultra-550b-a55b",
       parser: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
-      narrator: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
       extractor: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
     });
     expect(out.fallbacks.planner).toEqual(["nvidia/nemotron-3-super-120b-a12b"]);
@@ -87,7 +86,7 @@ describe("finding 11: /api/health exposes booleans, enums and model names only",
     await rt.agent.budget.settle(r!, 0.2);
     const out = await (await handleHealth(rt)).json();
     expect(scan(out)).toEqual([]);
-    expect(Object.keys(out).sort()).toEqual(["degraded", "degradedReason", "fallbacks", "ok", "planner", "protection", "provider", "roles", "tavily"]);
+    expect(Object.keys(out).sort()).toEqual(["degraded", "degradedReason", "evidence", "fallbacks", "ok", "planner", "protection", "provider", "roles", "tavily"]);
     const text = JSON.stringify(out);
     for (const word of ["spent", "ceiling", "callsToday", "dailyCap", "checkedAt", "budget"]) expect(text).not.toContain(word);
   });
@@ -139,7 +138,7 @@ describe("finding 11: /api/health exposes booleans, enums and model names only",
 
 describe("route modules", () => {
   it("export POST handlers on the node runtime with a 60 s duration", () => {
-    for (const r of [parseRoute, planRoute, critiqueRoute, narrateRoute, closuresRoute, confirmRoute]) {
+    for (const r of [parseRoute, planRoute, critiqueRoute, evidenceRoute, closuresRoute, confirmRoute]) {
       expect(typeof r.POST).toBe("function");
       expect(r.runtime).toBe("nodejs");
       expect(r.maxDuration).toBe(60);

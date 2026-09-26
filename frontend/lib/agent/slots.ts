@@ -132,3 +132,70 @@ export function cardLines(row: EvaluationRow, baseline: BaselineRow | undefined,
     `Cost tier: ${row.costTier}`,
   ];
 }
+
+/* ------------------------------- stress tests ------------------------------ */
+
+const METRIC_NOUN: Record<string, string> = {
+  p50: "median travel-time",
+  p90: "worst-case (90th percentile) travel-time",
+  isolated: "isolated-group",
+  equityGap: "equity-gap",
+};
+
+function slotMetric(goal: string): string {
+  return goal === "isolatedCount" ? "isolated" : goal === "equityGap" ? "equityGap" : goal;
+}
+
+/** A benefit is the metric's improvement over the baseline (lower is better for every goal metric), computed from displayed values. */
+function benefit(metric: string, baseline: number, value: number): number {
+  return Math.round((shown(metric, baseline) - shown(metric, value)) * 10) / 10;
+}
+
+function benefitText(metric: string, b: number): string {
+  const sign = b < 0 ? "minus " : "";
+  const n = Math.abs(b);
+  if (metric === "p50" || metric === "p90" || metric === "equityGap") return `${sign}${n.toFixed(1)} min`;
+  return `${sign}${Math.round(n)} ${Math.round(n) === 1 ? "group" : "groups"}`;
+}
+
+/**
+ * The application's sentence for one bundle under a stress, computed from real rows. The benefit is
+ * the goal metric's improvement over the matching baseline (normal and stressed). Direction words
+ * come from the sign of the difference between the two DISPLAYED benefits:
+ *   "B2 loses 3.2 min of its worst-case (90th percentile) travel-time benefit (from 5.0 min to 1.8 min)"
+ *   "B3 keeps all of its ... benefit (5.0 min)"   "B4 gains 0.4 min of its ... benefit (from ... to ...)"
+ * Without a stress baseline only the level under stress is stated.
+ */
+export function stressBenefitLine(
+  goal: string,
+  bundleId: string,
+  normal: { baseline?: BaselineRow; row: EvaluationRow },
+  stressed: { baseline?: BaselineRow; row: EvaluationRow },
+): string {
+  const metric = slotMetric(goal);
+  const noun = METRIC_NOUN[metric] ?? "goal-metric";
+  const cur = value(metric, stressed.row);
+  if (typeof cur !== "number") return `${bundleId} was not scored on the ${noun} measure under this stress.`;
+  const nb = normal.baseline ? value(metric, normal.baseline) : undefined;
+  const sb = stressed.baseline ? value(metric, stressed.baseline) : undefined;
+  const nv = value(metric, normal.row);
+  if (typeof nb !== "number" || typeof sb !== "number" || typeof nv !== "number") {
+    return `Under this stress ${bundleId} scores ${level(metric, cur)} on the ${noun} measure (no stressed baseline was available, so its benefit is not stated).`;
+  }
+  const before = benefit(metric, nb, nv);
+  const after = benefit(metric, sb, cur);
+  const d = Math.round((after - before) * 10) / 10;
+  if (d === 0) return `Under this stress ${bundleId} keeps all of its ${noun} benefit (${benefitText(metric, after)}).`;
+  const size = benefitText(metric, Math.abs(d));
+  return d < 0
+    ? `Under this stress ${bundleId} loses ${size} of its ${noun} benefit (from ${benefitText(metric, before)} to ${benefitText(metric, after)}).`
+    : `Under this stress ${bundleId} gains ${size} on its ${noun} benefit (from ${benefitText(metric, before)} to ${benefitText(metric, after)}).`;
+}
+
+/** How much WORSE a bundle's own goal metric is under a stress than without it (positive = worse), unrounded. Used to pick the stress that hurts the leaders most. */
+export function benefitLoss(goal: string, normalRow: EvaluationRow, stressedRow: EvaluationRow): number {
+  const metric = slotMetric(goal);
+  const a = value(metric, normalRow);
+  const b = value(metric, stressedRow);
+  return typeof a === "number" && typeof b === "number" ? b - a : 0;
+}

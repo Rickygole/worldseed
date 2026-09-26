@@ -1,7 +1,8 @@
 /**
- * The planner's and narrator's "why", as a SELECTION from a fixed set of application sentences.
+ * The planner's and critic's "why", as a SELECTION from a fixed set of application sentences.
  *
- * A model never writes text that reaches a reader. It picks a `kind` (and optionally one catalog
+ * A model never writes a sentence that reaches a reader through this path (its one other text
+ * field, the optional plain-text `reasoning`, is a separate, labeled exception: see reasoning.ts). It picks a `kind` (and optionally one catalog
  * candidate to focus on); the application renders the sentence from the table below, and the
  * sentence appears only in the decision log, labeled RATIONALE_LABEL. Finalist cards contain no
  * model text at all. Every sentence describes what the planner weighed, never what a plan
@@ -22,6 +23,8 @@ export const RATIONALE_KINDS = [
   "combine_complementary",
   "extend_kept",
   "mix_of_types",
+  "respond_to_stress",
+  "avoid_single_point",
 ] as const;
 export type RationaleKind = (typeof RATIONALE_KINDS)[number];
 
@@ -35,6 +38,8 @@ export const RATIONALE_TEXT: Record<RationaleKind, string> = {
   combine_complementary: "The planner combined options that touch different parts of the network.",
   extend_kept: "The planner built on the bundles it kept.",
   mix_of_types: "The planner picked finalists of different intervention types.",
+  respond_to_stress: "The planner weighed the stress test result first.",
+  avoid_single_point: "The planner favored options that rely on different links.",
 };
 
 /** Optional catalog id the rationale focuses on; the model-facing schema pins it to the eligible candidates. */

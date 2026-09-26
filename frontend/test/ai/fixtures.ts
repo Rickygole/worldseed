@@ -9,13 +9,14 @@ import type { EvaluateFn } from "../../lib/agent/evaluate";
 import { createFetchAgentApi } from "../../lib/agent/api";
 import type { BaselineRow, ConfirmedMission, EvaluationRow } from "../../lib/agent/tools";
 import { bundleCostTier } from "../../lib/agent/catalog";
-import { handleCritique, handleNarrate, handleParse, handlePlan, type AgentDeps } from "../../lib/server/agentService";
+import { handleCritique, handleParse, handlePlan, type AgentDeps } from "../../lib/server/agentService";
 import { readConfig, type ServerConfig } from "../../lib/server/config";
 import { ModelResolver, buildRoleChains } from "../../lib/server/models";
 import { MissionLedger } from "../../lib/server/missions";
 import { DailyBudget, FrontDoor, StoreRateLimiter } from "../../lib/server/ratelimit";
 import type { Runtime } from "../../lib/server/runtime";
 import { MemoryStore, StoreError, type SharedStore } from "../../lib/server/store";
+import { newEvidenceState } from "../../lib/server/evidence";
 import type { SearchClient } from "../../lib/server/tavily";
 import type { CompletionRequest, CompletionResult, LlmProvider } from "../../lib/server/tokenfactory";
 import { ProviderBackoff, ProviderError } from "../../lib/server/tokenfactory";
@@ -158,7 +159,6 @@ export function makeServer(script: Scripted[] = [], cfg: Partial<ServerConfig> =
     "/api/agent/parse": handleParse,
     "/api/agent/plan": handlePlan,
     "/api/agent/critique": handleCritique,
-    "/api/agent/narrate": handleNarrate,
   };
   const fetchImpl = (async (url: string, init?: RequestInit) => {
     const h = handlers[url];
@@ -178,7 +178,7 @@ export function brokenStore(): SharedStore {
 
 /** A Runtime around a test server: the same store, limiter and budget the agent routes use. */
 export function makeRuntime(server: TestServer, search: SearchClient | null = null): Runtime {
-  return { agent: server.deps, store: server.store, search, closures: { inflight: null, cache: null }, confirmSecret: "test-confirm-secret-not-real" };
+  return { agent: server.deps, store: server.store, search, closures: { inflight: null, cache: null }, evidence: newEvidenceState(), confirmSecret: "test-confirm-secret-not-real" };
 }
 
 export function post(path: string, body: unknown, ip = "203.0.113.7", headers: Record<string, string> = {}): Request {
@@ -222,11 +222,9 @@ export const finalizeReply = (ids: string[], over: Record<string, unknown> = {})
     finalists: ids.map((bundleId) => ({ bundleId })), ...over,
   });
 export const critiqueReply = (over: Record<string, unknown> = {}) =>
-  JSON.stringify({ action: "critique", concerns: [{ bundleId: "B1", kind: "worst_case" }], veto: [], ...over });
-export const narrateReply = (ids: string[]) =>
   JSON.stringify({
-    action: "narrate",
-    items: ids.map((bundleId) => ({ bundleId, rationale: { kind: "spread_mechanisms" } })),
+    action: "critique", concerns: [{ bundleId: "B1", kind: "worst_case" }], veto: [],
+    stress: { kind: "close_link", linkId: "L-HARBORTUNNEL" }, rationale: { kind: "worst_case" }, ...over,
   });
 export const parseReply = (over: Record<string, unknown> = {}) =>
   JSON.stringify({
@@ -236,17 +234,28 @@ export const parseReply = (over: Record<string, unknown> = {}) =>
 
 /* -------------------------------- evaluator -------------------------------- */
 
-/** Deterministic fake simulator: more/cheaper candidates score better. Every row carries its own futures count. */
-export function fakeEvaluator(opts: { futures?: number; dropIds?: string[]; calls?: string[][] } = {}): EvaluateFn {
+/**
+ * Deterministic fake simulator: more/cheaper candidates score better. Every row carries its own
+ * futures count. Under a stress (ctx.stress) every row and the baseline get worse, and bundles that
+ * contain the candidate named in `fragile` for that link get much worse, so a stress test can tell bundles apart.
+ */
+export function fakeEvaluator(opts: { futures?: number; dropIds?: string[]; calls?: string[][]; stressCalls?: { label: string; closedLinks: string[]; tod?: string; ids: string[] }[]; fragile?: Record<string, string[]> } = {}): EvaluateFn {
   const futures = opts.futures ?? 100;
   return async (bundles, ctx) => {
-    opts.calls?.push(bundles.map((b) => b.id));
+    if (ctx.stress) opts.stressCalls?.push({ label: ctx.stress.label, closedLinks: ctx.stress.closedLinks, tod: ctx.stress.tod, ids: bundles.map((b) => b.id) });
+    else opts.calls?.push(bundles.map((b) => b.id));
     const scored = bundles.filter((b) => !(opts.dropIds ?? []).includes(b.id));
+    const harm = (candidateIds: string[]) => {
+      if (!ctx.stress) return 0;
+      let h = 100 + (ctx.stress.tod ? 50 : 0);
+      for (const l of ctx.stress.closedLinks) if ((opts.fragile?.[l] ?? []).some((id) => candidateIds.includes(id))) h += 400;
+      return h;
+    };
     const rows = scored.map((b) => {
       const w = b.candidateIds.reduce((n, id) => n + (id.length % 5), 0);
-      return { ...row(b.id, b.candidateIds, { p90S: 1500 - 40 * w - 10 * b.candidateIds.length, pGoal: Math.min(0.95, 0.1 * w) }), futures };
+      return { ...row(b.id, b.candidateIds, { p90S: 1500 - 40 * w - 10 * b.candidateIds.length + harm(b.candidateIds), pGoal: Math.min(0.95, 0.1 * w) }), futures, ...(ctx.stress ? { stressLabel: ctx.stress.label } : {}) };
     });
     ctx.onProgress?.(scored.length * futures, scored.length * futures);
-    return { rows, baseline: BASELINE };
+    return { rows, baseline: ctx.stress ? { ...BASELINE, p90S: BASELINE.p90S + 200 + (ctx.stress.tod ? 50 : 0) } : BASELINE };
   };
 }

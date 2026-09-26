@@ -307,7 +307,7 @@ export function ipKey(ip: string): string {
 
 /* ------------------------------- front door ------------------------------- */
 
-export type FrontDoorKind = "ai" | "closures" | "confirm";
+export type FrontDoorKind = "ai" | "closures" | "evidence" | "confirm";
 
 export interface FrontDoorOptions {
   perIpPerMin: number;
@@ -477,7 +477,8 @@ export class FrontDoor {
   check(kind: FrontDoorKind, ip: string): { ok: boolean; retryAfterS: number } {
     const a = this.clientAllow(`ip:${ip}`, this.scale(ip, this.o.perIpPerMin), 60_000);
     if (!a.ok) return a;
-    if (kind === "closures") {
+    if (kind === "closures" || kind === "evidence") {
+      // Evidence lookups share the closure searches' hourly allowance: both spend the same Tavily credits.
       const c = this.clientAllow(`closures:${ip}`, this.scale(ip, this.o.closuresPerIpPerHour), HOUR_MS);
       if (!c.ok) return c;
     }

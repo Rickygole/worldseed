@@ -25,6 +25,15 @@ export const RATIONALE_RULE = [
   "Never describe results or outcomes: the simulator computes them and the application prints them. Bundle IDs are assigned by the application; you never invent one.",
 ].join(" ");
 
+/** One stress test's results as the simulator computed them, labeled by the application. */
+export function stressTable(label: string, rows: readonly EvaluationRow[], baseline?: BaselineRow): string {
+  return `Stress test "${label}" (computed by the simulator; the label is written by the application):\n${evaluationTable(rows, baseline)}`;
+}
+
+/** The optional reasoning field, described once for every role that may use it. */
+export const REASONING_RULE =
+  "Optional reasoning: you may add a reasoning string (at most 600 characters) with your thinking in plain words. Use letters, spaces and basic punctuation only: no digits, no links, no markup, no code. It is shown to a reader in a collapsed panel labeled raw and unverified, and it is never used for any decision, so your structured fields must stand on their own.";
+
 export function candidateLines(views: readonly CandidatePromptView[]): string {
   if (views.length === 0) return "(none)";
   return views

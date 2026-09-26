@@ -1,8 +1,13 @@
 /**
  * Client state machine for a planning mission.
  *
- *   idle -> parsing -> confirmGoal -> planning(r) -> evaluating(r) -> critiquing -> finalizing
- *        -> finalists -> applying -> applied
+ *   idle -> parsing -> confirmGoal -> [planning(r) -> evaluating(r) -> critiquing(stress test)]x2
+ *        -> planning(3) -> evaluating(3) -> finalizing -> finalists -> applying -> applied
+ *
+ * The adversarial loop: after each of the first two search rounds the critic (or, without AI, the
+ * deterministic critic) chooses a STRESS TEST from the application's closed set; the simulator
+ * re-scores the leading bundles under it, and the planner's next round reads those results.
+ * The stress evaluations happen inside the three planning rounds; they add no planner rounds.
  *
  * The browser orchestrates the loop: it asks the server for one validated action, runs the
  * simulator through the injected `evaluate` function, and posts the results back. The server is
@@ -19,11 +24,13 @@
 import type { AgentApi } from "./api";
 import { bundleCostTier, type Catalog } from "./catalog";
 import type { EvaluateFn } from "./evaluate";
-import { greedyFinalists, greedyPlanRound } from "./greedy";
+import { pickDeterministicStress } from "./critic";
+import { greedyFinalists, greedyPlanRound, rankRows } from "./greedy";
 import {
   outputRejectedMessage,
   UI_MESSAGES,
   type AgentEvent,
+  type StepMetrics,
   type FallbackNext,
   type FallbackReason,
   type LogKind,
@@ -31,7 +38,9 @@ import {
   type PlanRequest,
 } from "./protocol";
 import { rationaleLogSentence, renderRationale, type Rationale } from "./rationale";
-import { cardLines, fillSlots, makeSlotResolver } from "./slots";
+import { REASONING_LABEL, reasoningWithheldSentence, screenReasoning, type ReasoningEntry } from "./reasoning";
+import { cardLines, fillSlots, makeSlotResolver, stressBenefitLine } from "./slots";
+import { stressContext, stressLabel, type StressSpec } from "./stress";
 import {
   BaselineRowSchema,
   CONCERN_TEXT,
@@ -45,7 +54,6 @@ import {
   type ConfirmedMission,
   type CritiqueOutput,
   type EvaluationRow,
-  type NarrationOutput,
   type ParsedMission,
   type PlannerAction,
 } from "./tools";
@@ -54,7 +62,6 @@ import {
   describeViolations,
   validateCritiqueOutput,
   validateMintedPlannerOutput,
-  validateNarrationOutput,
   validateParseOutput,
   type KnownBundle,
   type Violation,
@@ -78,12 +85,31 @@ export interface LogEntry {
   id: number;
   t: number;
   /** "commentary" entries are the application's rendering of a model's rationale SELECTION, labeled RATIONALE_LABEL. */
-  kind: LogKind | "evaluation" | "state" | "commentary";
+  kind: LogKind | "evaluation" | "state" | "commentary" | "reasoning";
   sentence: string;
   model?: string;
   errors?: string[];
   /** Raw validated tool JSON, for the expandable view in the decision log. */
   raw?: unknown;
+  /**
+   * Present only on kind "reasoning": the model's optional plain-text reasoning (screened for
+   * length, charset, digits, links and markup only) with the metrics of the step. Show it inside a
+   * collapsed section labeled REASONING_LABEL; never use it for a decision or put it on a card.
+   */
+  reasoning?: ReasoningEntry;
+}
+
+/** One stress test the mission ran, with the simulator's results for the leading bundles. */
+export interface StressResult {
+  id: string;
+  spec: StressSpec;
+  /** Application-authored label ("Harbor Tunnel closed"). */
+  label: string;
+  source: "ai" | "deterministic";
+  model?: string;
+  /** No-intervention baseline under the same stress, when the evaluator returned one. */
+  baseline?: BaselineRow;
+  rows: EvaluationRow[];
 }
 
 export interface BudgetMeter {
@@ -122,6 +148,8 @@ export interface FinalistCard {
   mechanismNote: string;
   /** How a deterministic search chose it ("" for AI choices). */
   note: string;
+  /** Application sentences, from real stress-test rows, saying how this bundle held up ("Harbor Tunnel closed: Under this stress B2 loses ..."). Empty when it was not stress-tested. */
+  stressLines: string[];
 }
 
 export interface Degraded {
@@ -150,9 +178,14 @@ export interface MachineState {
   budget: BudgetMeter;
   /**
    * Bundles = accepted rows (after dropping unknown, duplicate, mismatched and malformed rows).
-   * Futures = the SUM of the futures counts carried by the accepted rows.
+   * Futures = the SUM of the futures counts carried by the accepted rows, stress rows included.
+   * stressEvaluations = accepted rows scored under a stress (re-scores of bundles already counted).
    */
-  counts: { bundlesEvaluated: number; futuresEvaluated: number };
+  counts: { bundlesEvaluated: number; futuresEvaluated: number; stressEvaluations: number };
+  /** Stress tests run so far (at most two per mission), each with real simulator rows. */
+  stresses: StressResult[];
+  /** Metrics of every model call so far (role, model, tokens, latency), for the decision log. */
+  steps: StepMetrics[];
   progress?: { done: number; total: number };
   models: Record<string, string>;
   degraded?: Degraded;
@@ -166,11 +199,10 @@ export interface MachineDeps {
   now?: () => number;
   onApply?: (bundle: { bundleId: string; candidateIds: string[] }) => void | Promise<void>;
   limits?: { inputTokens: number; outputTokens: number };
-  /**
-   * Also ask the narrator for a rationale per finalist. Off by default: the narrator's output can
-   * only reach the decision log (never a card), so it costs a model call for one labeled log line.
-   */
+  /** Deprecated and ignored: the narrator was removed. Kept only so existing callers still compile. */
   narrate?: boolean;
+  /** How many leading bundles a stress test re-scores. Default 4. */
+  stressTopK?: number;
   /**
    * Supplies the Cloudflare Turnstile token for the mission start (sent as `turnstileToken` with the
    * parse request). Needed only when the server has WS_TURNSTILE_SECRET set; a token is single use,
@@ -242,7 +274,9 @@ export class AgentMachine {
       narration: {},
       log: [],
       budget: { inputTokens: 0, outputTokens: 0, limitIn: lim.inputTokens, limitOut: lim.outputTokens, fraction: 0 },
-      counts: { bundlesEvaluated: 0, futuresEvaluated: 0 },
+      counts: { bundlesEvaluated: 0, futuresEvaluated: 0, stressEvaluations: 0 },
+      stresses: [],
+      steps: [],
       models: {},
     };
   }
@@ -385,7 +419,7 @@ export class AgentMachine {
 
   private async run(run: Run, mission: ConfirmedMission, mode: Mode): Promise<void> {
     this.live(run);
-    this.set({ mission, mode, bundles: [], dropped: [], rows: [], finalists: [], narration: {}, critique: undefined, degraded: undefined });
+    this.set({ mission, mode, bundles: [], dropped: [], rows: [], finalists: [], narration: {}, critique: undefined, degraded: undefined, stresses: [] });
     try {
       await this.searchRounds(run, mission);
       await this.topUp(run, mission);
@@ -405,9 +439,9 @@ export class AgentMachine {
         });
         return;
       }
-      if (this.state.mode === "ai") await this.critique(run, mission);
+      // At least one stress test always runs before the finalists are chosen (the search may have stopped early).
+      if (this.state.stresses.length === 0) await this.attack(run, mission);
       await this.finalize(run, mission);
-      if (this.state.mode === "ai" && this.deps.narrate === true) await this.narrate(run, mission);
       this.live(run);
       this.phase("finalists");
       this.log("state", `${this.state.finalists.length} finalist bundles ready. You decide what to apply.`);
@@ -450,6 +484,8 @@ export class AgentMachine {
         break;
       }
       await this.evaluateBundles(run, mission, round, fresh);
+      // The critic attacks the leaders after each of the first two rounds; the next round reads the result.
+      if (round < MAX_ROUNDS) await this.attack(run, mission);
     }
   }
 
@@ -504,6 +540,7 @@ export class AgentMachine {
       rows: [...this.state.rows, ...accepted],
       baseline: baseline?.success ? baseline.data : this.state.baseline,
       counts: {
+        ...this.state.counts,
         bundlesEvaluated: this.state.counts.bundlesEvaluated + accepted.length,
         futuresEvaluated: this.state.counts.futuresEvaluated + futures,
       },
@@ -533,39 +570,179 @@ export class AgentMachine {
     await this.evaluateBundles(run, mission, Math.max(1, this.state.round), extra);
   }
 
-  private async critique(run: Run, mission: ConfirmedMission): Promise<void> {
+  /* ------------------------ the adversarial stress step ------------------------ */
+
+  /** The leading bundles by the goal, not dropped: the ones a stress test re-scores. */
+  private leaders(mission: ConfirmedMission): BundleSpec[] {
+    const dropped = new Set(this.state.dropped);
+    const pool = this.state.rows.filter((r) => !dropped.has(r.bundleId));
+    const ranked = rankRows(pool.length > 0 ? pool : this.state.rows, mission).slice(0, Math.max(1, this.deps.stressTopK ?? 4));
+    return ranked.map((r) => ({ id: r.bundleId, candidateIds: r.candidateIds }));
+  }
+
+  /** Stress results as the server accepts them in a plan or critique request (the last three at most). */
+  private stressRequests(): NonNullable<PlanRequest["stresses"]> {
+    return this.state.stresses.slice(-3).map((st) => ({ stress: st.spec, baseline: st.baseline, evaluations: st.rows }));
+  }
+
+  /**
+   * One critic turn: choose a stress test (the AI critic from the closed set, or the deterministic
+   * critic), have the simulator re-score the leaders under it, and log what happened from the rows.
+   */
+  private async attack(run: Run, mission: ConfirmedMission): Promise<void> {
     if (this.state.rows.length === 0) return;
     this.live(run);
-    this.phase("critiquing");
-    const outcome = await this.deps.api.critique(
-      {
-        missionId: this.state.missionId as string,
-        mission,
-        round: Math.min(Math.max(this.state.round, 1), MAX_ROUNDS),
-        evaluations: this.state.rows,
-        baseline: this.state.baseline,
-        dropped: this.state.dropped,
-      },
-      this.callOpts(run),
-    );
+    this.phase("critiquing", Math.min(Math.max(this.state.round, 1), MAX_ROUNDS));
+    const leaders = this.leaders(mission);
+    if (leaders.length === 0) return;
+    const tried = this.state.stresses.map((st) => st.spec);
+    let spec: StressSpec | null = null;
+    let model: string | undefined;
+
+    if (this.state.mode === "ai") {
+      const outcome = await this.deps.api.critique(
+        {
+          missionId: this.state.missionId as string,
+          mission,
+          round: Math.min(Math.max(this.state.round, 1), MAX_ROUNDS),
+          evaluations: this.state.rows,
+          baseline: this.state.baseline,
+          dropped: this.state.dropped,
+          stresses: this.stressRequests(),
+        },
+        this.callOpts(run),
+      );
+      this.live(run);
+      if (outcome.status !== "ok") {
+        // A rejected critique changes nothing about the search mode; the deterministic critic still runs the stress step.
+        this.logFallbackOnce(outcome.reason === "output_rejected" ? UI_MESSAGES.criticRejected : `${outcome.message} Continuing with the deterministic critic.`);
+      } else {
+        this.track("critic", outcome.model);
+        const check = validateCritiqueOutput(outcome.result, { catalog: this.deps.catalog, known: this.knownBundles(), tried });
+        if (!check.ok) {
+          this.logViolations(check.violations, outcome.model);
+          this.logFallbackOnce(UI_MESSAGES.criticRejected);
+        } else {
+          const c = check.value;
+          this.log("decision", `The critic flagged ${c.concerns.length} concern${c.concerns.length === 1 ? "" : "s"} and ${(c.veto ?? []).length} veto${(c.veto ?? []).length === 1 ? "" : "es"}.`, { model: outcome.model, raw: check.value });
+          // The sentence per concern kind is fixed text; the critic supplies only the bundle and the kind.
+          for (const k of c.concerns) this.log("decision", `${k.bundleId} (${k.kind}): ${CONCERN_TEXT[k.kind]}`, { model: outcome.model });
+          this.logRationale("critic", c.rationale, outcome.model);
+          this.set({ critique: c });
+          spec = c.stress;
+          model = outcome.model;
+        }
+      }
+    }
+
+    if (spec !== null) {
+      this.log("decision", `Stress test chosen by the critic: ${stressLabel(spec)}.`, { model, raw: spec });
+      await this.runStress(run, mission, spec, "ai", leaders, model);
+      return;
+    }
+
+    // Deterministic critic: scan the single-link closures and keep the one that hurts the leaders most.
+    const signal = this.live(run);
+    let pick;
+    try {
+      pick = await pickDeterministicStress({ evaluate: this.deps.evaluate, mission, round: this.state.round, leaders, normal: this.state.rows, tried, signal });
+    } catch (e) {
+      this.live(run);
+      if (e instanceof Cancelled || (e instanceof Error && e.name === "AbortError")) throw e;
+      this.log("fallback", "The deterministic stress test could not be run; the search continues without it.", { errors: ["stress_failed"] });
+      return;
+    }
     this.live(run);
-    if (outcome.status !== "ok") {
-      // A rejected critique changes nothing about the search mode: only the critique is skipped.
-      this.logFallbackOnce(outcome.reason === "output_rejected" ? UI_MESSAGES.criticRejected : `${outcome.message} Continuing without a critique.`);
+    if (!pick) {
+      this.log("info", "No further stress test could be run.");
       return;
     }
-    this.track("critic", outcome.model);
-    const check = validateCritiqueOutput(outcome.result, { catalog: this.deps.catalog, known: this.knownBundles() });
-    if (!check.ok) {
-      this.logViolations(check.violations, outcome.model);
-      this.logFallbackOnce(UI_MESSAGES.criticRejected);
+    this.log(
+      "decision",
+      `Deterministic stress test (no AI): ${stressLabel(pick.spec)}, the closure that hurt the leading bundles most of the ${pick.scanned} single-link closures the simulator tried.`,
+      { raw: pick.spec },
+    );
+    this.recordStress(run, mission, pick.spec, "deterministic", leaders, { rows: pick.rows, baseline: pick.baseline });
+  }
+
+  /** Has the simulator re-score the leaders under `spec`, then records the result. */
+  private async runStress(run: Run, mission: ConfirmedMission, spec: StressSpec, source: "ai" | "deterministic", leaders: BundleSpec[], model?: string): Promise<void> {
+    const signal = this.live(run);
+    this.phase("evaluating", this.state.round);
+    let batch;
+    try {
+      batch = await this.deps.evaluate(leaders, {
+        mission,
+        round: this.state.round,
+        signal,
+        stress: stressContext(spec),
+        onProgress: (done, total) => {
+          if (this.isLive(run)) this.set({ progress: { done, total } });
+        },
+      });
+    } catch (e) {
+      this.live(run);
+      if (e instanceof Cancelled || (e instanceof Error && e.name === "AbortError")) throw e;
+      this.log("fallback", "The stress test could not be run by the simulator; the search continues without it.", { errors: ["stress_failed"] });
       return;
     }
-    const c = check.value;
-    this.log("decision", `The critic flagged ${c.concerns.length} concern${c.concerns.length === 1 ? "" : "s"} and ${(c.veto ?? []).length} veto${(c.veto ?? []).length === 1 ? "" : "es"}.`, { model: outcome.model, raw: check.value });
-    // The sentence per concern kind is fixed text; the critic supplies only the bundle and the kind.
-    for (const c of check.value.concerns) this.log("decision", `${c.bundleId} (${c.kind}): ${CONCERN_TEXT[c.kind]}`, { model: outcome.model });
-    this.set({ critique: check.value });
+    this.live(run);
+    this.recordStress(run, mission, spec, source, leaders, batch, model);
+  }
+
+  /** Accepts stress rows under the same rules as normal rows, stores them and writes the application's log lines. */
+  private recordStress(run: Run, mission: ConfirmedMission, spec: StressSpec, source: "ai" | "deterministic", leaders: BundleSpec[], batch: { rows: unknown[]; baseline?: unknown }, model?: string): void {
+    const wanted = new Map(leaders.map((b) => [b.id, b]));
+    const seen = new Set<string>();
+    const accepted: EvaluationRow[] = [];
+    let futures = 0;
+    let refused = 0;
+    for (const raw of batch.rows) {
+      const parsed = EvaluatedRowSchema.safeParse(raw);
+      if (!parsed.success) {
+        refused++;
+        continue;
+      }
+      const { futures: n, stressLabel: _echo, ...r } = parsed.data;
+      void _echo;
+      const b = wanted.get(r.bundleId);
+      if (!b || seen.has(r.bundleId) || b.candidateIds.join("|") !== r.candidateIds.join("|") || n > (this.deps.maxFutures ?? MAX_FUTURES_PER_ROW)) {
+        refused++;
+        continue;
+      }
+      seen.add(r.bundleId);
+      accepted.push(r);
+      futures += n;
+    }
+    run.rowsRefused += refused;
+    const label = stressLabel(spec);
+    if (accepted.length === 0) {
+      this.log("validator", `The simulator returned no usable rows under the stress "${label}"; the search continues without it.`, { errors: ["stress_rows_refused"] });
+      return;
+    }
+    const base = batch.baseline ? BaselineRowSchema.safeParse(batch.baseline) : undefined;
+    const result: StressResult = { id: `S${this.state.stresses.length + 1}`, spec, label, source, model, baseline: base?.success ? base.data : undefined, rows: accepted };
+    this.set({
+      stresses: [...this.state.stresses, result],
+      counts: { ...this.state.counts, futuresEvaluated: this.state.counts.futuresEvaluated + futures, stressEvaluations: this.state.counts.stressEvaluations + accepted.length },
+    });
+    this.log(
+      "evaluation",
+      `Stress test: the simulator re-scored ${accepted.length} of ${leaders.length} leading bundles under "${label}" across ${futures} simulated futures, computed locally in your browser.`,
+    );
+    if (refused > 0) this.log("validator", `The simulator returned ${refused} stress rows that were not used (unknown bundle, duplicate, mismatched candidates or malformed).`, { errors: [`stress_rows_refused: ${refused}`] });
+    for (const line of this.stressLines(mission, result)) this.log("decision", line.text);
+  }
+
+  /** Application sentences for a stress result, one per re-scored bundle, from the real rows. */
+  private stressLines(mission: ConfirmedMission, st: StressResult): { bundleId: string; text: string }[] {
+    const byId = new Map(this.state.rows.map((r) => [r.bundleId, r]));
+    const out: { bundleId: string; text: string }[] = [];
+    for (const r of st.rows) {
+      const normal = byId.get(r.bundleId);
+      if (normal) out.push({ bundleId: r.bundleId, text: stressBenefitLine(mission.goal.metric, r.bundleId, { baseline: this.state.baseline, row: normal }, { baseline: st.baseline, row: r }) });
+    }
+    return out;
   }
 
   private async finalize(run: Run, mission: ConfirmedMission): Promise<void> {
@@ -589,38 +766,6 @@ export class AgentMachine {
     this.set({ finalists });
   }
 
-  private async narrate(run: Run, mission: ConfirmedMission): Promise<void> {
-    if (this.state.finalists.length !== 3) return;
-    this.live(run);
-    const outcome = await this.deps.api.narrate(
-      {
-        missionId: this.state.missionId as string,
-        mission,
-        // Only the ids go back to the server: the planner's tradeoff sentence is not re-sent into a prompt.
-        finalists: this.state.finalists.map((f) => ({ bundleId: f.bundleId })),
-        evaluations: this.state.rows,
-        baseline: this.state.baseline,
-      },
-      this.callOpts(run),
-    );
-    this.live(run);
-    if (outcome.status !== "ok") {
-      this.logFallbackOnce(outcome.reason === "output_rejected" ? UI_MESSAGES.narratorRejected : `${outcome.message} Finalists are shown without narration.`);
-      return;
-    }
-    this.track("narrator", outcome.model);
-    const check = validateNarrationOutput(outcome.result as NarrationOutput, {
-      catalog: this.deps.catalog,
-      finalistIds: this.state.finalists.map((f) => f.bundleId),
-    });
-    if (!check.ok) {
-      this.logViolations(check.violations, outcome.model);
-      this.logFallbackOnce(UI_MESSAGES.narratorRejected);
-      return;
-    }
-    for (const it of check.value.items) this.logRationale(`narrator, ${it.bundleId}`, it.rationale, outcome.model);
-  }
-
   /* ------------------------------- planner ------------------------------- */
 
   /** Returns a validated action, or null after switching to the deterministic search. */
@@ -642,6 +787,7 @@ export class AgentMachine {
       baseline: this.state.baseline,
       dropped: this.state.dropped,
       critique: this.state.critique ? { concerns: this.state.critique.concerns, veto: this.state.critique.veto ?? [] } : undefined,
+      stresses: this.stressRequests(),
     };
     const outcome = await this.deps.api.plan(req, this.callOpts(run));
     this.live(run);
@@ -756,6 +902,7 @@ export class AgentMachine {
       commentaryLabel: CARD_TEXT_LABEL,
       mechanismNote: "",
       note: f.note,
+      stressLines: this.state.stresses.flatMap((st) => this.stressLines(this.state.mission as ConfirmedMission, st).filter((l) => l.bundleId === bundleId).map((l) => `${st.label}: ${l.text}`)),
     };
   }
 
@@ -779,7 +926,10 @@ export class AgentMachine {
   private onServerEvent(e: AgentEvent): void {
     if (e.event === "log") {
       this.log(e.data.kind, e.data.sentence, { model: e.data.model, errors: e.data.errors });
+    } else if (e.event === "reasoning") {
+      this.onReasoning(e.data);
     } else if (e.event === "usage") {
+      this.set({ steps: [...this.state.steps, { role: e.data.role, model: e.data.model, inputTokens: e.data.inputTokens, outputTokens: e.data.outputTokens, latencyMs: e.data.latencyMs ?? 0 }] });
       const m = e.data.mission;
       this.set({
         budget: {
@@ -791,6 +941,19 @@ export class AgentMachine {
         },
       });
     }
+  }
+
+  /** Model reasoning from the server, screened again here; a failing field is blanked and the log says so. */
+  private onReasoning(d: StepMetrics & { text: string }): void {
+    const v = screenReasoning(d.text);
+    if (!v.ok) {
+      this.log("validator", reasoningWithheldSentence(v.problems), { model: d.model, errors: ["reasoning_withheld"] });
+      return;
+    }
+    this.log("reasoning", REASONING_LABEL, {
+      model: d.model,
+      reasoning: { role: d.role, model: d.model, tokensIn: d.inputTokens, tokensOut: d.outputTokens, latencyMs: d.latencyMs, text: v.text },
+    });
   }
 
   /** A cancelled or replaced run ends silently. Anything else stops the mission with a fixed message. */

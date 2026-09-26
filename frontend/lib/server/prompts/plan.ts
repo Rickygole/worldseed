@@ -1,9 +1,12 @@
 import type { CandidatePromptView } from "../../agent/catalog";
-import type { PlanRequest } from "../../agent/protocol";
+import type { PlanRequest, StressResultRequest } from "../../agent/protocol";
+import { stressLabel } from "../../agent/stress";
 import { CONCERN_TEXT, type BaselineRow, type EvaluationRow, type PlannerActionName } from "../../agent/tools";
 import {
   FRAMING,
   RATIONALE_RULE,
+  REASONING_RULE,
+  stressTable,
   candidateLines,
   evaluationTable,
   lensDescription,
@@ -31,6 +34,8 @@ export interface PlanPromptInput {
   baseline?: BaselineRow;
   excluded: ReadonlySet<string>;
   jsonSchema: Record<string, unknown>;
+  /** Stress tests run so far, with rows whose cost tier was recomputed on the server. */
+  stresses?: readonly StressResultRequest[];
 }
 
 export function buildPlanMessages(i: PlanPromptInput) {
@@ -41,6 +46,7 @@ export function buildPlanMessages(i: PlanPromptInput) {
     `Round ${i.req.round} of at most 3. ${ACTION_RULES[i.action]}`,
     "You only choose IDs from the catalog below and combine 1 to 3 of them per bundle. You cannot invent interventions, parameters or data. You never score anything: the simulator does.",
     RATIONALE_RULE,
+    REASONING_RULE,
     `Catalog (eligible under the mission constraints):\n${candidateLines(i.eligible)}`,
     schemaBlock(i.jsonSchema),
   ].join("\n\n");
@@ -48,6 +54,8 @@ export function buildPlanMessages(i: PlanPromptInput) {
   const parts: string[] = [];
   if (i.rows.length === 0) parts.push("No bundles have been evaluated yet.");
   else parts.push(`Simulator results (evaluation tool message):\n${evaluationTable(i.rows, i.baseline, i.req.dropped)}`);
+  for (const st of i.stresses ?? []) parts.push(stressTable(stressLabel(st.stress), st.evaluations, st.baseline));
+  if ((i.stresses ?? []).length > 0) parts.push("Read the stress tables to see which bundles depend on the stressed condition; do not quote or describe their results.");
   if (i.req.critique && i.req.critique.concerns.length > 0) {
     // The sentence per kind is written here, on the server; the client sends only bundle and kind.
     parts.push(

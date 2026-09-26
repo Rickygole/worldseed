@@ -48,41 +48,63 @@ export interface TavilyResult {
   title: string;
   url: string;
   content: string;
+  /** As reported by the search API (news results); validated where it is used. */
+  publishedDate?: string;
+}
+
+/** Parameters of a caller-supplied query (evidence lookups). Fixed by the server, never by a client. */
+export interface QueryParams {
+  topic: "news";
+  search_depth: "basic";
+  max_results: number;
+  days?: number;
+  include_answer: false;
+  include_raw_content: false;
 }
 
 export interface SearchClient {
+  /** The fixed closure-search query. */
   search(signal?: AbortSignal): Promise<TavilyResult[]>;
+  /** A server-built query with its own parameters (the evidence route). Absent on clients that only do closure search. */
+  query?(query: string, params: QueryParams, signal?: AbortSignal): Promise<TavilyResult[]>;
 }
 
 export class SearchError extends Error {}
 
 export function createTavilyClient(opts: { apiKey: string; fetchImpl?: typeof fetch; timeoutMs?: number }): SearchClient {
   const f = opts.fetchImpl ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
+  async function run(query: string, params: object, max: number, signal?: AbortSignal): Promise<TavilyResult[]> {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), opts.timeoutMs ?? 10_000);
+    signal?.addEventListener("abort", () => ctl.abort(), { once: true });
+    try {
+      const res = await f(TAVILY_ENDPOINT, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${opts.apiKey}` },
+        body: JSON.stringify({ query, ...params }),
+        signal: ctl.signal,
+      });
+      if (!res.ok) throw new SearchError(`search failed with status ${res.status}`);
+      const data = (await res.json()) as { results?: { title?: unknown; url?: unknown; content?: unknown; published_date?: unknown }[] };
+      return (data.results ?? [])
+        .filter((r) => typeof r.url === "string" && /^https?:\/\//i.test(r.url as string))
+        .slice(0, max)
+        .map((r) => ({
+          title: String(r.title ?? "").slice(0, 200),
+          url: r.url as string,
+          content: String(r.content ?? ""),
+          ...(typeof r.published_date === "string" ? { publishedDate: r.published_date.slice(0, 40) } : {}),
+        }));
+    } catch (e) {
+      if (e instanceof SearchError) throw e;
+      throw new SearchError("search request failed");
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   return {
-    async search(signal) {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), opts.timeoutMs ?? 10_000);
-      signal?.addEventListener("abort", () => ctl.abort(), { once: true });
-      try {
-        const res = await f(TAVILY_ENDPOINT, {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${opts.apiKey}` },
-          body: JSON.stringify({ query: TAVILY_QUERY, ...TAVILY_PARAMS }),
-          signal: ctl.signal,
-        });
-        if (!res.ok) throw new SearchError(`search failed with status ${res.status}`);
-        const data = (await res.json()) as { results?: { title?: unknown; url?: unknown; content?: unknown }[] };
-        return (data.results ?? [])
-          .filter((r) => typeof r.url === "string" && /^https?:\/\//i.test(r.url as string))
-          .slice(0, TAVILY_PARAMS.max_results)
-          .map((r) => ({ title: String(r.title ?? "").slice(0, 200), url: r.url as string, content: String(r.content ?? "") }));
-      } catch (e) {
-        if (e instanceof SearchError) throw e;
-        throw new SearchError("search request failed");
-      } finally {
-        clearTimeout(timer);
-      }
-    },
+    search: (signal) => run(TAVILY_QUERY, TAVILY_PARAMS, TAVILY_PARAMS.max_results, signal),
+    query: (query, params, signal) => run(query, params, params.max_results, signal),
   };
 }
 

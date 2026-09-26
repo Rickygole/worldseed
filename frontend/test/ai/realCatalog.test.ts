@@ -24,7 +24,7 @@ describe.skipIf(!have)("committed snapshot catalog matches the contract (2.3)", 
     expect(Object.keys(promptView(eligible[0]))).not.toContain("effect");
     const round1 = greedyPlanRound({ catalog, mission: MISSION, round: 1, rows: [], known: [] });
     expect(round1.length).toBeGreaterThan(0);
-    const msgs = buildPlanMessages({ req: { missionId: "mission-real-01", mission: MISSION, phase: "search", round: 1, bundles: [], evaluations: [], dropped: [] }, action: "propose", eligible: eligible.map(promptView), rows: [], excluded: new Set(), jsonSchema: {} });
+    const msgs = buildPlanMessages({ req: { missionId: "mission-real-01", mission: MISSION, phase: "search", round: 1, bundles: [], evaluations: [], dropped: [], stresses: [] }, action: "propose", eligible: eligible.map(promptView), rows: [], excluded: new Set(), jsonSchema: {} });
     expect(msgs[0].content).toContain(eligible[0].id);
   });
 });

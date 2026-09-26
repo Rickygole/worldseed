@@ -7,9 +7,9 @@ const clean = (t: string, profile: ProseProfile = "card") => expect(proseIssues(
 const blocked = (t: string, profile: ProseProfile = "card") => expect(proseIssues(t, { allowedTokens: IDS, profile }), JSON.stringify(t)).not.toEqual([]);
 
 describe("the defensible claim", () => {
-  it("is exactly: numbers, outcomes and finalist cards are application-produced; AI text is labeled rationale in the decision log only, and screened", () => {
+  it("is exactly: application-produced numbers and cards; labeled rationale and raw, unverified reasoning only in the decision log", () => {
     expect(PROSE_CLAIM).toBe(
-      "Numbers, outcomes and finalist cards are produced by the application from simulator results; AI text appears only as clearly labeled rationale in the decision log and is screened.",
+      "Numbers, outcomes and finalist cards are produced by the application from simulator results. AI text appears only as clearly labeled rationale in the decision log and, in a collapsed raw section there, as optional model reasoning that is unverified, checked only for plain text, and never used for a decision.",
     );
   });
 });

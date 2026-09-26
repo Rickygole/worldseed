@@ -3,6 +3,7 @@
  * Request bodies are zod-validated structured payloads; nothing here carries prompt text.
  */
 import { z } from "zod";
+import { StressSpecSchema } from "./stress";
 import {
   BaselineRowSchema,
   BundleIdSchema,
@@ -37,6 +38,18 @@ const CritiqueContextSchema = z.strictObject({
   veto: z.array(BundleIdSchema).max(12),
 });
 
+/**
+ * One stress test and the simulator's results under it. The spec is a member of the closed set
+ * (stress.ts); the label is written by the server from the spec, never accepted from the client.
+ */
+export const StressResultSchema = z.strictObject({
+  stress: StressSpecSchema,
+  /** The no-intervention baseline under the same stress, when the simulator provides one. */
+  baseline: BaselineRowSchema.optional(),
+  evaluations: z.array(EvaluationRowSchema).min(1).max(12),
+});
+export type StressResultRequest = z.infer<typeof StressResultSchema>;
+
 export const PlanRequestSchema = z.strictObject({
   missionId: MissionIdSchema,
   mission: ConfirmedMissionSchema,
@@ -47,6 +60,8 @@ export const PlanRequestSchema = z.strictObject({
   baseline: BaselineRowSchema.optional(),
   dropped: z.array(BundleIdSchema).max(12).default([]),
   critique: CritiqueContextSchema.optional(),
+  /** Stress tests run so far, each with the simulator's results for the leading bundles. */
+  stresses: z.array(StressResultSchema).max(3).default([]),
 });
 export type PlanRequest = z.infer<typeof PlanRequestSchema>;
 
@@ -57,18 +72,10 @@ export const CritiqueRequestSchema = z.strictObject({
   evaluations: z.array(EvaluationRowSchema).min(1).max(12),
   baseline: BaselineRowSchema.optional(),
   dropped: z.array(BundleIdSchema).max(12).default([]),
+  /** Stress tests already run (the critic may not repeat one). */
+  stresses: z.array(StressResultSchema).max(3).default([]),
 });
 export type CritiqueRequest = z.infer<typeof CritiqueRequestSchema>;
-
-export const NarrateRequestSchema = z.strictObject({
-  missionId: MissionIdSchema,
-  mission: ConfirmedMissionSchema,
-  // Only the ids: the planner's tradeoff sentence is not sent back into a prompt.
-  finalists: z.array(z.strictObject({ bundleId: BundleIdSchema })).length(3),
-  evaluations: z.array(EvaluationRowSchema).min(3).max(12),
-  baseline: BaselineRowSchema.optional(),
-});
-export type NarrateRequest = z.infer<typeof NarrateRequestSchema>;
 
 export const ClosuresRequestSchema = z.strictObject({});
 
@@ -110,8 +117,7 @@ export const UI_MESSAGES = {
   /** Planner output rejected. Only accurate when the run really does switch to deterministic search. */
   outputRejected: "Planner output rejected; deterministic search used.",
   parserRejected: "The goal could not be read from your text (parser output rejected). Rephrase it, or explore manually.",
-  criticRejected: "Critic output rejected; continuing without a critique.",
-  narratorRejected: "Narration rejected; finalists are shown without narration.",
+  criticRejected: "Critic output rejected; the deterministic critic ran the stress test instead.",
   deterministicLabel: "Deterministic search (not AI)",
   verificationFailed: "Human verification did not pass. Reload the page and try again, or use the recorded run.",
   verificationUnavailable: "Human verification is unavailable right now. Try again shortly, or use the recorded run.",
@@ -128,7 +134,7 @@ export function isBudgetExhausted(o: Outcome<unknown>): boolean {
   return o.status === "fallback" && o.reason === "budget_exhausted";
 }
 
-export type AgentRole = "parser" | "planner" | "critic" | "narrator" | "extractor";
+export type AgentRole = "parser" | "planner" | "critic" | "extractor";
 
 /** The rejection message for the role that produced the rejected output. Never claims a mode switch. */
 export function outputRejectedMessage(role: AgentRole): string {
@@ -137,8 +143,6 @@ export function outputRejectedMessage(role: AgentRole): string {
       return UI_MESSAGES.parserRejected;
     case "critic":
       return UI_MESSAGES.criticRejected;
-    case "narrator":
-      return UI_MESSAGES.narratorRejected;
     case "extractor":
       return "Closure extraction output rejected; source links are shown without extracted closures.";
     default:
@@ -149,6 +153,15 @@ export function outputRejectedMessage(role: AgentRole): string {
 /* --------------------------- SSE event shapes ------------------------- */
 
 export type LogKind = "decision" | "validator" | "fallback" | "info";
+
+/** Metrics of one model step (one HTTP request to a route, attempts and repair turn included). */
+export interface StepMetrics {
+  role: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+}
 
 export interface MissionUsage {
   inputTokens: number;
@@ -163,13 +176,58 @@ export type AgentEvent =
   | { event: "tool_call"; data: { name: string; args: unknown; model: string; repaired: boolean } }
   | {
       event: "usage";
-      data: { role: string; model: string; inputTokens: number; outputTokens: number; mission: MissionUsage };
+      data: { role: string; model: string; inputTokens: number; outputTokens: number; latencyMs: number; mission: MissionUsage };
+    }
+  | {
+      /** Optional model reasoning, already screened by the server (plain text only). Shown in a collapsed, labeled section. */
+      event: "reasoning";
+      data: StepMetrics & { text: string };
     }
   | { event: "error"; data: { code: string; message: string } }
   | { event: "done"; data: Outcome<unknown> };
 
 export type AgentEventName = AgentEvent["event"];
-export const AGENT_EVENT_NAMES: readonly AgentEventName[] = ["status", "log", "tool_call", "usage", "error", "done"];
+export const AGENT_EVENT_NAMES: readonly AgentEventName[] = ["status", "log", "tool_call", "usage", "reasoning", "error", "done"];
+
+/* ------------------------------ evidence ----------------------------- */
+
+export const EVIDENCE_TOPICS = ["detours", "traffic", "freight"] as const;
+export type EvidenceTopic = (typeof EVIDENCE_TOPICS)[number];
+
+/** POST /api/evidence. The topic is an enum: the query text is built by the server and no client text is accepted. */
+export const EvidenceRequestSchema = z.strictObject({ topic: z.enum(EVIDENCE_TOPICS) });
+export type EvidenceRequest = z.infer<typeof EvidenceRequestSchema>;
+
+/** One news result, sanitized to plain characters. Nothing here has been checked against anything. */
+export interface EvidenceSource {
+  title: string;
+  url: string;
+  /** Hostname without "www.". */
+  domain: string;
+  /** ISO date (YYYY-MM-DD) when the search result carried a valid one. */
+  publishedDate?: string;
+  /** At most 240 plain characters from the result text. */
+  snippet: string;
+  confidence: "unverified";
+}
+
+export type EvidenceResponse =
+  | {
+      status: "ok";
+      topic: EvidenceTopic;
+      retrievedAt: string;
+      cached: boolean;
+      /** Set when served from the in-process cache; the UI labels it. */
+      cachedNotice?: string;
+      sources: EvidenceSource[];
+      message: string;
+    }
+  | {
+      status: "unavailable";
+      reason: "no_key" | "cap_reached" | "upstream_error" | "rate_limited" | "disabled" | "protection_unavailable";
+      message: string;
+      retryAfterS?: number;
+    };
 
 /* ------------------------------ closures ----------------------------- */
 

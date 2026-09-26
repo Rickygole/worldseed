@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import { buildParseMessages } from "../../lib/server/prompts/parse";
 import { buildPlanMessages } from "../../lib/server/prompts/plan";
 import { buildCritiqueMessages } from "../../lib/server/prompts/critique";
-import { buildNarrateMessages } from "../../lib/server/prompts/narrate";
 import { buildExtractMessages } from "../../lib/server/prompts/extract";
 import { promptView } from "../../lib/agent/catalog";
 import { BASELINE, MISSION, fakeCatalog, row } from "./fixtures";
@@ -78,9 +77,8 @@ describe("prompts", () => {
   const schema = { type: "object" };
   const all = () => [
     buildParseMessages(catalog, "reduce access time near Dundalk", schema),
-    buildPlanMessages({ req: { missionId: "mission-0001", mission: MISSION, phase: "search", round: 1, bundles: [], evaluations: [], dropped: [] }, action: "propose", eligible: catalog.candidates.map(promptView), rows: [], excluded: new Set(), jsonSchema: schema }),
-    buildCritiqueMessages({ req: { missionId: "mission-0001", mission: MISSION, round: 2, evaluations: rows, dropped: [] }, used: catalog.candidates.map(promptView), rows, baseline: BASELINE, jsonSchema: schema }),
-    buildNarrateMessages({ req: { missionId: "mission-0001", mission: MISSION, finalists: rows.map((r) => ({ bundleId: r.bundleId })) as never, evaluations: rows }, used: [], rows, baseline: BASELINE, jsonSchema: schema }),
+    buildPlanMessages({ req: { missionId: "mission-0001", mission: MISSION, phase: "search", round: 1, bundles: [], evaluations: [], dropped: [], stresses: [] }, action: "propose", eligible: catalog.candidates.map(promptView), rows: [], excluded: new Set(), jsonSchema: schema }),
+    buildCritiqueMessages({ req: { missionId: "mission-0001", mission: MISSION, round: 2, evaluations: rows, dropped: [], stresses: [] }, used: catalog.candidates.map(promptView), rows, baseline: BASELINE, jsonSchema: schema }),
     buildExtractMessages([{ url: "https://x.test/1", title: "FAKE", content: "FAKE text" }], schema),
   ];
   it("frame every task as counterfactual planning with a human deciding", () => {
@@ -94,8 +92,8 @@ describe("prompts", () => {
   it("use none of the forbidden operational words", () => {
     for (const msgs of all()) for (const m of msgs) expect(m.content).not.toMatch(PRODUCT_WORDS);
   });
-  it("tell the model it writes no sentence: it selects a rationale kind, and never describes results (plan and narrate prompts)", () => {
-    for (const msgs of [all()[1], all()[3]]) {
+  it("tell the model it writes no sentence: it selects a rationale kind, and never describes results (plan and critic prompts)", () => {
+    for (const msgs of [all()[1], all()[2]]) {
       expect(msgs[0].content).toContain("you never write a sentence");
       expect(msgs[0].content).toContain("RATIONALE");
       expect(msgs[0].content).toContain("Never describe results or outcomes");
@@ -106,10 +104,13 @@ describe("prompts", () => {
     expect(all()[0][0].content).toContain("no free-text fields");
     expect(all()[2][0].content).not.toContain("log_sentence");
   });
-  it("the narrator prompt shows no result and no direction, only ids, candidates and cost tiers", () => {
-    const user = all()[3][1].content;
-    expect(user).not.toMatch(/better|worse|baseline|p90|min\b|%/);
-    expect(user).toMatch(/cost/);
+  it("the critic prompt offers the closed stress list and the optional reasoning rule, and asks for no numbers in words", () => {
+    const sys = all()[2][0].content;
+    expect(sys).toContain("STRESS TEST");
+    expect(sys).toContain("L-HARBORTUNNEL");
+    expect(sys).toContain("time_of_day");
+    expect(sys).toContain("Optional reasoning");
+    expect(sys).toContain("no digits");
   });
   it("never expose numeric effects or notes from the catalog", () => {
     const text = all().map((m) => m.map((x) => x.content).join("\n")).join("\n");

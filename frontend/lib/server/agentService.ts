@@ -27,7 +27,6 @@ import {
 } from "../agent/catalog";
 import {
   CritiqueRequestSchema,
-  NarrateRequestSchema,
   ParseRequestSchema,
   PlanRequestSchema,
   UI_MESSAGES,
@@ -35,7 +34,6 @@ import {
   type CritiqueRequest,
   type FallbackNext,
   type FallbackReason,
-  type NarrateRequest,
   type Outcome,
   type ParseRequest,
   type PlanRequest,
@@ -43,19 +41,20 @@ import {
 import {
   CritiqueSchema,
   expectedAction,
-  NarrationSchema,
   ParsedMissionSchema,
   plannerModelSchemaFor,
   toJsonSchema,
+  withReasoningField,
   type EvaluationRow,
 } from "../agent/tools";
+import { screenReasoning, reasoningWithheldSentence } from "../agent/reasoning";
+import { stressKey } from "../agent/stress";
 import {
   computeExcluded,
   constraintsOf,
   describeViolations,
   validateCritiqueOutput,
   safeMessage,
-  validateNarrationOutput,
   validateParseOutput,
   validatePlannerOutput,
   type KnownBundle,
@@ -67,7 +66,6 @@ import { logEvent, ipTag } from "./log";
 import { TURN_LIMITS, type MissionAccount, type MissionLedger, type MissionReservation } from "./missions";
 import { costUsd, type ModelResolver, type Role } from "./models";
 import { buildCritiqueMessages, CRITIQUE_SCHEMA_NAME } from "./prompts/critique";
-import { buildNarrateMessages, NARRATE_SCHEMA_NAME } from "./prompts/narrate";
 import { buildParseMessages, PARSE_SCHEMA_NAME } from "./prompts/parse";
 import { buildPlanMessages, PLAN_SCHEMA_NAME } from "./prompts/plan";
 import {
@@ -440,6 +438,8 @@ export interface StructuredSpec<T> {
   deadlineAt: number;
   signal?: AbortSignal;
   validate: (raw: unknown, budget: TokenBudget) => ValidationResult<T>;
+  /** The reply may carry an optional `reasoning` string: split off before validation, screened on its own, emitted as a `reasoning` event. */
+  takesReasoning?: boolean;
 }
 
 const RATE_MESSAGE = "The model provider is rate limiting requests right now. Deterministic search (not AI) can continue.";
@@ -510,6 +510,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
   const total = { inputTokens: 0, outputTokens: 0 };
   let mission = { inputTokens: 0, outputTokens: 0 };
   let lastUsage = { inputTokens: 0, outputTokens: 0 };
+  let callMs = 0;
   const limitIn = account.caps.inputTokens;
   const limitOut = account.caps.outputTokens;
 
@@ -580,6 +581,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
       return fail(emit, "attempt_cap", fallback("upstream_error", "The model could not answer within this request's call limit. Deterministic search (not AI) can continue.", "deterministic_search"));
     }
     let res;
+    const callStart = deps.now();
     try {
       res = await callRole(
         deps.provider,
@@ -593,6 +595,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
       const pe = e instanceof ProviderError ? e : new ProviderError("upstream", "unexpected error");
       return providerFallback(deps, emit, pe, s.role);
     }
+    callMs = Math.max(0, deps.now() - callStart);
     attemptsLeft -= res.attempts;
     if (res.skipped.length > 0) logEvent("warn", "model_fallback", { role: s.role, skipped: res.skipped.length, used: res.model });
 
@@ -603,6 +606,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
         model: res.model,
         inputTokens: lastUsage.inputTokens,
         outputTokens: lastUsage.outputTokens,
+        latencyMs: callMs,
         mission: { inputTokens: mission.inputTokens, outputTokens: mission.outputTokens, limitIn, limitOut },
       },
     });
@@ -612,11 +616,28 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
 
     const parsed = extractJson(res.text);
     const budget: TokenBudget = { inputUsed: mission.inputTokens, outputUsed: mission.outputTokens, inputLimit: limitIn, outputLimit: limitOut };
+    // A `reasoning` string never takes part in validation (it can only be blanked, never reject the answer).
+    let reasoningRaw: unknown;
+    let body: unknown = parsed.ok ? parsed.value : undefined;
+    if (parsed.ok && s.takesReasoning && parsed.value && typeof parsed.value === "object" && !Array.isArray(parsed.value) && "reasoning" in parsed.value) {
+      const { reasoning, ...rest } = parsed.value as Record<string, unknown>;
+      reasoningRaw = reasoning;
+      body = rest;
+    }
     const verdict: ValidationResult<T> = parsed.ok
-      ? s.validate(parsed.value, budget)
+      ? s.validate(body, budget)
       : { ok: false, violations: [{ rule: 1, code: "not_json", path: "(root)", message: parsed.error }] };
 
     if (verdict.ok) {
+      if (reasoningRaw !== undefined) {
+        const r = screenReasoning(reasoningRaw);
+        if (r.ok && r.text !== "") {
+          emit({ event: "reasoning", data: { role: s.role, model: res.model, inputTokens: lastUsage.inputTokens, outputTokens: lastUsage.outputTokens, latencyMs: callMs, text: r.text } });
+        } else if (!r.ok) {
+          emit({ event: "log", data: { kind: "validator", sentence: reasoningWithheldSentence(r.problems), code: "reasoning_withheld", model: res.model } });
+          logEvent("info", "reasoning_withheld", { role: s.role, codes: r.problems.join(",") });
+        }
+      }
       emit({ event: "tool_call", data: { name: s.toolName, args: verdict.value, model: res.model, repaired } });
       return { status: "ok", result: verdict.value, model: res.model, usage: { ...total }, repaired };
     }
@@ -641,7 +662,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
         { role: "assistant", content: res.text.slice(0, 4000) },
         {
           role: "user",
-          content: `Your previous reply was rejected by the validator:\n${errors.map((x) => `- ${x}`).join("\n")}\nReturn a corrected JSON object only, following every rule in the system message. There are no free-text fields: choose a rationale kind from the list.`,
+          content: `Your previous reply was rejected by the validator:\n${errors.map((x) => `- ${x}`).join("\n")}\nReturn a corrected JSON object only, following every rule in the system message. Free text is not accepted anywhere except the optional plain-text reasoning field: choose a rationale kind from the list.`,
         },
       ];
       continue;
@@ -695,6 +716,26 @@ function checkAreas(catalog: Catalog, mission: PlanRequest["mission"]): Issue[] 
     if (!catalog.gazetteerById.has(id)) issues.push({ path: `mission.constraints.areas.${i}`, message: "area is not in the gazetteer" });
   });
   if (new Set(mission.constraints.areas).size !== mission.constraints.areas.length) issues.push({ path: "mission.constraints.areas", message: "areas must be unique" });
+  return issues;
+}
+
+/**
+ * Stress results sent by the client must describe bundles that were evaluated, with the same
+ * candidates, and must not repeat a stress. (The stress itself is a member of the closed set by schema.)
+ */
+function checkStresses(catalog: Catalog, mission: PlanRequest["mission"], evaluations: readonly EvaluationRow[], stresses: PlanRequest["stresses"]): Issue[] {
+  const issues: Issue[] = [];
+  const base = new Map(evaluations.map((r) => [r.bundleId, r.candidateIds.join("|")]));
+  const seen = new Set<string>();
+  stresses.forEach((st, i) => {
+    const key = stressKey(st.stress);
+    if (seen.has(key)) issues.push({ path: `stresses.${i}`, message: "duplicate stress test" });
+    seen.add(key);
+    issues.push(...checkHistory(catalog, mission, [], st.evaluations).map((x) => ({ path: `stresses.${i}.${x.path}`, message: x.message })));
+    st.evaluations.forEach((r, j) => {
+      if (base.get(r.bundleId) !== r.candidateIds.join("|")) issues.push({ path: `stresses.${i}.evaluations.${j}`, message: "stress row does not match an evaluated bundle" });
+    });
+  });
   return issues;
 }
 
@@ -759,7 +800,11 @@ export const handlePlan: Handler = async (request, deps) => {
   if (!pre.ok) return pre.res;
   const catalog = pre.catalog;
 
-  const issues = [...checkAreas(catalog, req.mission), ...checkHistory(catalog, req.mission, req.bundles, req.evaluations)];
+  const issues = [
+    ...checkAreas(catalog, req.mission),
+    ...checkHistory(catalog, req.mission, req.bundles, req.evaluations),
+    ...checkStresses(catalog, req.mission, req.evaluations, req.stresses),
+  ];
   const action = expectedAction(req.phase, req.round);
   if (req.phase === "finalize" && req.evaluations.length < 3) issues.push({ path: "evaluations", message: "finalize needs at least three evaluated bundles" });
   if (req.phase === "search" && req.round > 1 && req.evaluations.length === 0) issues.push({ path: "evaluations", message: "refine needs evaluated bundles" });
@@ -780,16 +825,22 @@ export const handlePlan: Handler = async (request, deps) => {
     const excluded = req.phase === "finalize" ? computeExcluded(rows.map((r) => r.bundleId), req.dropped, req.critique?.veto ?? []) : new Set<string>();
     const ids = eligible.map((c) => c.id) as [string, ...string[]];
     // The model is asked for candidate IDs only; the application assigns the bundle IDs afterwards.
-    const jsonSchema = toJsonSchema(plannerModelSchemaFor(action, z.enum(ids)));
+    const jsonSchema = withReasoningField(toJsonSchema(plannerModelSchemaFor(action, z.enum(ids))));
     return runStructured({
       deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "planner", toolName: action, schemaName: PLAN_SCHEMA_NAME, jsonSchema,
-      messages: buildPlanMessages({ req, action, eligible: eligible.map(promptView), rows, baseline: req.baseline, excluded, jsonSchema }),
+      messages: buildPlanMessages({ req, action, eligible: eligible.map(promptView), rows, baseline: req.baseline, excluded, jsonSchema, stresses: trustedStresses(catalog, req.stresses) }),
+      takesReasoning: true,
       maxOut: 1800, deadlineAt, signal: request.signal,
       validate: (raw, budget) =>
         validatePlannerOutput(raw, { catalog, mission: req.mission, phase: req.phase, round: req.round, known, excludedBundleIds: excluded, budget }),
     });
   });
 };
+
+/** Stress results with the cost tier recomputed from the catalog, like the main table. */
+function trustedStresses(catalog: Catalog, stresses: PlanRequest["stresses"]) {
+  return stresses.map((st) => ({ ...st, evaluations: trustedRows(catalog, st.evaluations) }));
+}
 
 function usedViews(catalog: Catalog, rows: readonly EvaluationRow[]) {
   const ids = new Set(rows.flatMap((r) => r.candidateIds));
@@ -806,51 +857,25 @@ export const handleCritique: Handler = async (request, deps) => {
   const pre = await preflight(deps, "critic", "critique");
   if (!pre.ok) return pre.res;
   const catalog = pre.catalog;
-  const issues = [...checkAreas(catalog, req.mission), ...checkHistory(catalog, req.mission, [], req.evaluations)];
+  const issues = [
+    ...checkAreas(catalog, req.mission),
+    ...checkHistory(catalog, req.mission, [], req.evaluations),
+    ...checkStresses(catalog, req.mission, req.evaluations, req.stresses),
+  ];
   if (issues.length > 0) return inconsistent(issues, "The critique request was inconsistent and was not sent to a model.");
   const b = await begin(deps, request, req.missionId, { kind: "critique" });
   if (!b.ok) return b.res;
   return streamOutcome(b.begun, async (emit) => {
     const rows = trustedRows(catalog, req.evaluations);
     const known = knownFrom([], rows);
-    const jsonSchema = toJsonSchema(CritiqueSchema);
+    const jsonSchema = withReasoningField(toJsonSchema(CritiqueSchema));
+    const tried = req.stresses.map((st) => st.stress);
     return runStructured({
       deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "critic", toolName: "critique", schemaName: CRITIQUE_SCHEMA_NAME, jsonSchema,
-      messages: buildCritiqueMessages({ req, used: usedViews(catalog, rows), rows, baseline: req.baseline, jsonSchema }),
-      maxOut: 1200, deadlineAt, signal: request.signal,
-      validate: (raw, budget) => validateCritiqueOutput(raw, { catalog, known, budget }),
-    });
-  });
-};
-
-export const handleNarrate: Handler = async (request, deps) => {
-  const deadlineAt = deps.now() + deps.config.routeDeadlineMs;
-  const g = guardPost(request, deps.config) ?? frontDoorCheck(request, deps.config, deps.frontDoor, "ai");
-  if (g) return g;
-  const body = await readBody<NarrateRequest>(request, NarrateRequestSchema);
-  if (!body.ok) return body.res;
-  const req = body.value;
-  const pre = await preflight(deps, "narrator", "narrate");
-  if (!pre.ok) return pre.res;
-  const catalog = pre.catalog;
-  const issues = [...checkAreas(catalog, req.mission), ...checkHistory(catalog, req.mission, [], req.evaluations)];
-  const scored = new Set(req.evaluations.map((r) => r.bundleId));
-  req.finalists.forEach((f, i) => {
-    if (!scored.has(f.bundleId)) issues.push({ path: `finalists.${i}.bundleId`, message: "finalist was not evaluated" });
-  });
-  if (new Set(req.finalists.map((f) => f.bundleId)).size !== 3) issues.push({ path: "finalists", message: "finalists must be distinct" });
-  if (issues.length > 0) return inconsistent(issues, "The narration request was inconsistent and was not sent to a model.");
-  const b = await begin(deps, request, req.missionId, { kind: "narrate" });
-  if (!b.ok) return b.res;
-  return streamOutcome(b.begun, async (emit) => {
-    const rows = trustedRows(catalog, req.evaluations);
-    const jsonSchema = toJsonSchema(NarrationSchema);
-    const finalistIds = req.finalists.map((f) => f.bundleId);
-    return runStructured({
-      deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "narrator", toolName: "narrate", schemaName: NARRATE_SCHEMA_NAME, jsonSchema,
-      messages: buildNarrateMessages({ req, used: usedViews(catalog, rows), rows, baseline: req.baseline, jsonSchema }),
-      maxOut: 1200, deadlineAt, signal: request.signal,
-      validate: (raw, budget) => validateNarrationOutput(raw, { catalog, finalistIds, budget }),
+      messages: buildCritiqueMessages({ req, used: usedViews(catalog, rows), rows, baseline: req.baseline, jsonSchema, stresses: trustedStresses(catalog, req.stresses) }),
+      takesReasoning: true,
+      maxOut: 1400, deadlineAt, signal: request.signal,
+      validate: (raw, budget) => validateCritiqueOutput(raw, { catalog, known, tried, budget }),
     });
   });
 };

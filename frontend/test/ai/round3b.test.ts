@@ -24,7 +24,7 @@ import { createRuntime, type Runtime } from "../../lib/server/runtime";
 import { MemoryStore } from "../../lib/server/store";
 import { matchClosures, type SearchClient, type TavilyResult } from "../../lib/server/tavily";
 import { resetDowngrades } from "../../lib/server/tokenfactory";
-import { BASELINE, BASELINE as BASE, FAKE_CANDIDATES, MISSION, apiFor, blockNetwork, critiqueReply, fakeCatalog, fakeEvaluator, finalizeReply, makeRuntime, makeServer, narrateReply, parseReply, post, proposeReply, refineReply, row } from "./fixtures";
+import { BASELINE, BASELINE as BASE, FAKE_CANDIDATES, MISSION, apiFor, blockNetwork, critiqueReply, fakeCatalog, fakeEvaluator, finalizeReply, makeRuntime, makeServer, parseReply, post, proposeReply, refineReply, row } from "./fixtures";
 
 beforeEach(() => {
   blockNetwork();
@@ -40,31 +40,32 @@ const realCatalog = buildCatalog(FAKE_CANDIDATES, realGazetteer);
 /* ------------------------------------------------------------------------------------------ */
 describe("R2-1 (integrity): finalist cards carry application and catalog text only", () => {
   const b = (id: string, ...candidateIds: string[]) => ({ id, candidateIds });
-  const script = (narrate: boolean) => [
+  const script = () => [
     parseReply(),
     proposeReply([b("B1", "SP-BROENING"), b("B2", "SP-EASTERN"), b("B3", "SP-HARBOR"), b("B4", "TL-DUNDALK")], { rationale: { kind: "worst_case", focus: "SP-HARBOR" } }),
+    critiqueReply({ concerns: [{ bundleId: "B1", kind: "worst_case" }], stress: { kind: "close_link", linkId: "L-HARBORTUNNEL" } }),
     refineReply([b("B5", "SP-BROENING", "SP-EASTERN")], ["B1", "B2"], ["B4"]),
+    critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [], stress: { kind: "close_link", linkId: "L-FORTMCHENRY" } }),
     refineReply([b("B6", "HZ-ESCORT", "IM-I895")], ["B5"], []),
-    critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [] }),
     finalizeReply(["B5", "B6", "B3"]),
-    ...(narrate ? [narrateReply(["B5", "B6", "B3"])] : []),
   ];
-  async function run(narrate: boolean) {
-    const server = makeServer(script(narrate));
-    const m = new AgentMachine({ api: apiFor(server), evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-r3-1", narrate });
+  async function run() {
+    const server = makeServer(script());
+    const m = new AgentMachine({ api: apiFor(server), evaluate: fakeEvaluator(), catalog: fakeCatalog(), newMissionId: () => "mission-r3-1" });
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     return { m, server };
   }
 
   it("every string on every card is a template, a catalog title, or the catalog's own description: nothing a model wrote", async () => {
-    for (const narrate of [false, true]) {
-      const { m, server } = await run(narrate);
+    for (const _round of [1]) {
+      void _round;
+      const { m, server } = await run();
       const cat = fakeCatalog();
       const ids = m.getState().finalists.map((f) => f.bundleId);
       expect(ids).toEqual(["B5", "B6", "B3"]);
       const replies = server.provider.calls.length;
-      expect(replies).toBe(narrate ? 7 : 6);
+      expect(replies).toBe(7);
       for (const id of ids) {
         const card = m.card(id)!;
         const f = m.getState().finalists.find((x) => x.bundleId === id)!;
@@ -84,12 +85,6 @@ describe("R2-1 (integrity): finalist cards carry application and catalog text on
       expect(lines.every((l) => l.startsWith(RATIONALE_LABEL))).toBe(true);
       expect(lines.some((l) => l.includes("Focus: SP-HARBOR (cost tier $$)"))).toBe(true); // the focus is rendered from the catalog, not from model text
     }
-  });
-
-  it("the narrator is off by default (no call) and its selection never reaches state.narration or a card", async () => {
-    const { m, server } = await run(false);
-    expect(server.provider.calls.map((c) => c.messages[0].content.includes("for each of the 3 finalist"))).not.toContain(true);
-    expect(m.getState().narration).toEqual({});
   });
 
   it("every rationale sentence passes the prose screen, states no result, and every kind is a defined sentence (shown/blanked rate)", () => {
@@ -114,7 +109,7 @@ describe("R2-1 (integrity): finalist cards carry application and catalog text on
     try {
       (RATIONALE_TEXT as Record<RationaleKind, string>).worst_case = "It cuts the worst case by 12 minutes.";
       expect(renderRationale({ kind: "worst_case" }, fakeCatalog())).toBe("");
-      const { m } = await run(false);
+      const { m } = await run();
       const lines = m.getState().log.filter((l) => l.kind === "commentary").map((l) => l.sentence);
       expect(lines.some((l) => l.includes("12 minutes"))).toBe(false); // skipped, not shown
       expect(m.getState().log.some((l) => l.kind === "commentary" && l.sentence.endsWith(": "))).toBe(false); // and no empty label either
@@ -227,7 +222,7 @@ describe("R2-6 (integrity): evaluated rows are bounded", () => {
     const s = m.getState();
     expect(s.rows.map((r) => r.bundleId)).toEqual(["B3", ...s.rows.map((r) => r.bundleId).slice(1)].slice(0, s.rows.length));
     expect(s.rows.some((r) => r.bundleId === "B1" || r.bundleId === "B2")).toBe(false);
-    expect(s.counts.futuresEvaluated).toBe(s.rows.length * 100); // never the refused rows' claims
+    expect(s.counts.futuresEvaluated).toBe((s.rows.length + s.counts.stressEvaluations) * 100); // never the refused rows' claims
     expect(s.log.some((l) => l.kind === "validator" && l.errors?.some((e) => e.includes("malformed_row")))).toBe(true);
     const neg = machineWith(evaluatorWith((i) => (i === 0 ? { p90S: -5 } : {})));
     await neg.start("cut access time");
@@ -242,7 +237,7 @@ describe("R2-6 (integrity): evaluated rows are bounded", () => {
     const s = m.getState();
     expect(s.rows.some((r) => r.bundleId === "B1")).toBe(false);
     expect(s.rows.some((r) => r.bundleId === "B2")).toBe(true);
-    expect(s.counts.futuresEvaluated).toBe(s.rows.length * 500);
+    expect(s.counts.futuresEvaluated).toBe((s.rows.length + s.counts.stressEvaluations) * 500);
   });
 });
 
@@ -627,7 +622,6 @@ describe("R2-2 (security): the machine hands a fresh Turnstile token to the miss
       },
       plan: async () => { throw new Error("unexpected"); },
       critique: async () => { throw new Error("unexpected"); },
-      narrate: async () => { throw new Error("unexpected"); },
     };
     const withHook = new AgentMachine({ api, evaluate: fakeEvaluator(), catalog: fakeCatalog(), turnstileToken: async () => "tok-123" });
     await withHook.start("cut access time");

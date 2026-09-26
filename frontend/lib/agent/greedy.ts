@@ -16,6 +16,7 @@ import {
   type Candidate,
   type Catalog,
 } from "./catalog";
+import { pickDeterministicStress, type DeterministicStressResult } from "./critic";
 import type { EvaluateFn } from "./evaluate";
 import type { BundleSpec, ConfirmedMission, EvaluationRow, GoalMetric } from "./tools";
 import { MAX_BUNDLE_SIZE, MAX_EVALUATED_BUNDLES, MAX_ROUNDS, mintBundleIds } from "./tools";
@@ -132,6 +133,8 @@ export function greedyFinalists(
 /* ------------------------ standalone convenience ------------------------ */
 
 export interface GreedyResult {
+  /** Stress tests the deterministic critic ran (after rounds 1 and 2), labeled non-AI in the UI. */
+  stresses: DeterministicStressResult[];
   finalists: GreedyFinalist[];
   rows: EvaluationRow[];
   rounds: number;
@@ -145,12 +148,15 @@ export async function greedySearch(opts: {
   mission: ConfirmedMission;
   evaluate: EvaluateFn;
   signal?: AbortSignal;
+  /** Run the deterministic stress step after rounds 1 and 2 (default true). */
+  stress?: boolean;
 }): Promise<GreedyResult> {
   const rows: EvaluationRow[] = [];
   const known: BundleSpec[] = [];
   let bundlesEvaluated = 0;
   let futuresEvaluated = 0;
   let rounds = 0;
+  const stresses: DeterministicStressResult[] = [];
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     if (opts.signal?.aborted) throw new Error("aborted");
     const bundles = greedyPlanRound({ catalog: opts.catalog, mission: opts.mission, round, rows, known });
@@ -164,6 +170,14 @@ export async function greedySearch(opts: {
       futuresEvaluated += futures;
     }
     rounds = round;
+    if (opts.stress !== false && round < MAX_ROUNDS && rows.length > 0) {
+      const leaders = rankRows(rows, opts.mission).slice(0, 4).map((r) => ({ id: r.bundleId, candidateIds: r.candidateIds }));
+      const pick = await pickDeterministicStress({ evaluate: opts.evaluate, mission: opts.mission, round, leaders, normal: rows, tried: stresses.map((x) => x.spec), signal: opts.signal });
+      if (pick) {
+        stresses.push(pick);
+        for (const r of pick.rows) futuresEvaluated += r.futures;
+      }
+    }
   }
-  return { finalists: greedyFinalists(rows, opts.mission), rows, rounds, bundlesEvaluated, futuresEvaluated };
+  return { stresses, finalists: greedyFinalists(rows, opts.mission), rows, rounds, bundlesEvaluated, futuresEvaluated };
 }

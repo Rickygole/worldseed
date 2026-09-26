@@ -369,10 +369,10 @@ describe("R2-5 (security): the numbers table", () => {
   it("config defaults", () => {
     expect(readConfig({})).toMatchObject({
       dailyBudgetUsd: 1,
-      ipDailyUsd: 0.2,
-      missionInputTokens: 36_000,
-      missionOutputTokens: 7_000,
-      missionMaxCalls: 12,
+      ipDailyUsd: 0.25,
+      missionInputTokens: 48_000,
+      missionOutputTokens: 9_000,
+      missionMaxCalls: 16,
       ipMissionsPerHour: 8,
       ipMissionsPerDay: 10,
       newMissionsPerHour: 30,
@@ -382,28 +382,28 @@ describe("R2-5 (security): the numbers table", () => {
     expect(readConfig({ WS_DAILY_BUDGET_USD: "2.5", WS_IP_DAILY_USD: "0.4" })).toMatchObject({ dailyBudgetUsd: 2.5, ipDailyUsd: 0.4 });
   });
 
-  it("five typical missions fit one client's $0.20 day and the per-IP check does not over-reserve (a 5th mission just fits; the 6th is refused)", async () => {
+  it("six 3-call missions of $0.036 fit one client's $0.25 day and the per-IP check does not over-reserve (the 6th just fits; by the 8th the day is spent)", async () => {
     // A typical mission is 3 model calls of about 6k tokens in and 2k out (the 36k/7k mission caps allow more).
     const usage = { inputTokens: 6_000, outputTokens: 2_000 };
     const perCall = (6_000 * 1 + 2_000 * 3) / 1e6; // $0.012 at the default $1 / $3 per million tokens
     const script: string[] = [];
-    for (let i = 0; i < 6; i++) script.push(parseReply(), proposeReply([{ candidateIds: ["SP-BROENING"] }]), critiqueReply());
+    for (let i = 0; i < 8; i++) script.push(parseReply(), proposeReply([{ candidateIds: ["SP-BROENING"] }]), critiqueReply());
     const { s, fake } = meteredServer(script, { ipMissionsPerHour: 100, dailyBudgetUsd: 50 });
     s.provider.usage = usage;
     s.deps.frontDoor = new FrontDoor({ perIpPerMin: 1000, globalPerMin: 1000, closuresPerIpPerHour: 100, missionsPerIpPerDay: 100, newMissionsPerHour: 100, newMissionsPerDay: 1000, now: s.deps.now });
     const ip = "198.51.100.77";
     const rows = [row("B1", ["SP-BROENING"])];
     const statuses: string[] = [];
-    for (let m = 0; m < 6; m++) {
+    for (let m = 0; m < 8; m++) {
       const id = `MISSION-DOLLAR-${m}`;
       const a = doneOf(await readSse(await handleParse(post("/api/agent/parse", parseBody(id), ip), s.deps)));
       const b = a.status === "ok" ? doneOf(await readSse(await handlePlan(post("/api/agent/plan", { missionId: id, mission: MISSION, phase: "search", round: 1, bundles: [], evaluations: [] }, ip), s.deps))) : a;
       const c = b.status === "ok" ? doneOf(await readSse(await handleCritique(post("/api/agent/critique", { missionId: id, mission: MISSION, round: 1, evaluations: rows, baseline: BASELINE }, ip), s.deps))) : b;
       statuses.push([a, b, c].every((x) => x.status === "ok") ? "complete" : c.status === "fallback" ? `stopped:${c.reason}` : "partial");
     }
-    process.stdout.write(`five-mission day: ${statuses.join(", ")} (each mission ${(3 * perCall).toFixed(3)} USD, cap 0.20, commands ${fake.commands})\n`);
-    expect(statuses.slice(0, 5)).toEqual(Array(5).fill("complete")); // the 5th just fits
-    expect(statuses[5]).toBe("stopped:budget_exhausted");
+    process.stdout.write(`six-mission day: ${statuses.join(", ")} (each mission ${(3 * perCall).toFixed(3)} USD, cap 0.25, commands ${fake.commands})\n`);
+    expect(statuses.slice(0, 6)).toEqual(Array(6).fill("complete")); // the 6th just fits
+    expect(statuses[7]).toBe("stopped:budget_exhausted"); // the 7th completes on rounding slack; by the 8th the day is spent
     // the settled ledger equals what was actually billed: reservations were trued up, none left over
     const st = await s.deps.budget.status();
     expect(st.spentUsd).toBeCloseTo(s.provider.calls.length * perCall, 6);

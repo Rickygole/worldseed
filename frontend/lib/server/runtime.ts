@@ -20,6 +20,7 @@ import { createSharedStore, MeteredStore, sharedStoreCredentials, sharedStoreRef
 import { createTurnstileVerifier } from "./turnstile";
 import { createHmac, randomBytes } from "node:crypto";
 import { createTavilyClient, type ClosuresState, type SearchClient } from "./tavily";
+import { newEvidenceState, type EvidenceState } from "./evidence";
 import { createOpenAIClient, createTokenFactoryProvider, ProviderBackoff } from "./tokenfactory";
 
 export interface Runtime {
@@ -27,6 +28,8 @@ export interface Runtime {
   store: SharedStore;
   search: SearchClient | null;
   closures: ClosuresState;
+  /** In-process evidence cache and single-flight map (Tavily content stays in this process). */
+  evidence: EvidenceState;
   /**
    * Signs stateless closure-confirmation tokens. In production (a serverless host or NODE_ENV=production)
    * it MUST be set explicitly in WS_CONFIRM_SECRET: without it the value is "" and closure search
@@ -110,6 +113,7 @@ export function createRuntime(
     store,
     search: config.tavilyKey && config.liveAi ? createTavilyClient({ apiKey: config.tavilyKey }) : null,
     closures: { inflight: null, cache: null },
+    evidence: newEvidenceState(),
     confirmSecret,
     meter: store instanceof MeteredStore ? store : undefined,
   };

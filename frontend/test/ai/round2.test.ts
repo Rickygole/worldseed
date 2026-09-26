@@ -8,7 +8,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { handleClosures } from "../../lib/server/handlers";
-import { handleCritique, handleNarrate, handleParse, handlePlan } from "../../lib/server/agentService";
+import { handleCritique, handleParse, handlePlan } from "../../lib/server/agentService";
 import { baseUrlIssue, liveAiEnabled, readConfig } from "../../lib/server/config";
 import { setLogSink } from "../../lib/server/log";
 import { MissionLedger } from "../../lib/server/missions";
@@ -17,7 +17,7 @@ import { createRuntime } from "../../lib/server/runtime";
 import { MemoryStore, MeteredStore, UpstashRestStore, sharedStoreCredentials } from "../../lib/server/store";
 import { resetDowngrades } from "../../lib/server/tokenfactory";
 import { FAKE_TOKEN, FAKE_URL, FakeUpstash } from "./fakeUpstash";
-import { BASELINE, MISSION, blockNetwork, critiqueReply, doneOf, finalizeReply, makeRuntime, makeServer, narrateReply, parseReply, post, proposeReply, readSse, refineReply, row, type TestServer } from "./fixtures";
+import { BASELINE, MISSION, blockNetwork, critiqueReply, doneOf, finalizeReply, makeRuntime, makeServer, parseReply, post, proposeReply, readSse, refineReply, row, type TestServer } from "./fixtures";
 
 beforeEach(() => {
   blockNetwork();
@@ -41,9 +41,9 @@ function upstashServer(script: string[], cfg: Record<string, unknown> = {}, door
 }
 
 describe("finding N1(d): store commands per AI call", () => {
-  it("a full seven-call mission costs about 10 commands per call in steady state, and the numbers are on record", async () => {
+  it("a full six-call mission costs about 10 commands per call in steady state, and the numbers are on record", async () => {
     const B = [{ candidateIds: ["SP-BROENING"] }, { candidateIds: ["SP-EASTERN"] }, { candidateIds: ["SP-HARBOR"] }];
-    const { s, fake } = upstashServer([parseReply(), proposeReply(B), critiqueReply({ concerns: [{ bundleId: "B1", kind: "worst_case" }] }), refineReply([{ candidateIds: ["TL-DUNDALK"] }]), critiqueReply(), finalizeReply(["B1", "B2", "B3"]), narrateReply(["B1", "B2", "B3"])], { dailyBudgetUsd: 50, ipDailyUsd: 50 });
+    const { s, fake } = upstashServer([parseReply(), proposeReply(B), critiqueReply({ concerns: [{ bundleId: "B1", kind: "worst_case" }] }), refineReply([{ candidateIds: ["TL-DUNDALK"] }]), critiqueReply(), finalizeReply(["B1", "B2", "B3"])], { dailyBudgetUsd: 50, ipDailyUsd: 50 });
     const id = "MISSION-CMD-001";
     const rows = ["B1", "B2", "B3"].map((b, i) => row(b, [["SP-BROENING", "SP-EASTERN", "SP-HARBOR"][i]]));
     const rows4 = [...rows, row("B4", ["TL-DUNDALK"])];
@@ -55,7 +55,6 @@ describe("finding N1(d): store commands per AI call", () => {
       ["plan 2", () => handlePlan(post("/api/agent/plan", { missionId: id, mission: MISSION, phase: "search", round: 2, bundles: bundles(rows), evaluations: rows, baseline: BASELINE }), s.deps)],
       ["critique 2", () => handleCritique(post("/api/agent/critique", { missionId: id, mission: MISSION, round: 2, evaluations: rows4, baseline: BASELINE }), s.deps)],
       ["finalize", () => handlePlan(post("/api/agent/plan", { missionId: id, mission: MISSION, phase: "finalize", round: 3, bundles: bundles(rows4), evaluations: rows4, baseline: BASELINE }), s.deps)],
-      ["narrate", () => handleNarrate(post("/api/agent/narrate", { missionId: id, mission: MISSION, finalists: ["B1", "B2", "B3"].map((bundleId) => ({ bundleId })), evaluations: rows4, baseline: BASELINE }), s.deps)],
     ];
     const per: number[] = [];
     for (const [name, run] of steps) {
@@ -65,7 +64,7 @@ describe("finding N1(d): store commands per AI call", () => {
       per.push(fake.commands - before);
     }
     const total = fake.commands;
-    process.stdout.write(`store commands per call: ${per.join(", ")} (total ${total} for a seven-call mission; was 231)\n`);
+    process.stdout.write(`store commands per call: ${per.join(", ")} (total ${total} for a six-call mission; was 231)\n`);
     expect(per[0]).toBeLessThanOrEqual(22); // the first call also creates the pair, the counters and their expiries
     for (const n of per.slice(1)) expect(n).toBeLessThanOrEqual(13); // steady state
     expect(Math.max(...per.slice(2))).toBeLessThanOrEqual(12);
@@ -107,7 +106,7 @@ describe("finding N1(a): the in-memory front door runs BEFORE any store command"
     for (let i = 0; i < 300; i++) expect((await handleParse(post("/api/agent/parse", parseBody(`MISSION-FG-1${String(i).padStart(3, "0")}`), `10.1.${i % 250}.${i}`), s.deps)).status).toBe(429);
     expect(fake.commands).toBe(after);
   });
-  it("every route has a front door: plan, critique, narrate, closures and confirm refuse before reading the body", async () => {
+  it("every route has a front door: plan, critique, closures and confirm refuse before reading the body", async () => {
     const s = makeServer([]);
     s.deps.frontDoor = new FrontDoor({ perIpPerMin: 1, globalPerMin: 100, closuresPerIpPerHour: 1, missionsPerIpPerDay: 50 });
     const rt = makeRuntime(s);
@@ -115,7 +114,6 @@ describe("finding N1(a): the in-memory front door runs BEFORE any store command"
     const routes: [string, (r: Request) => Promise<Response>][] = [
       ["/api/agent/plan", (r) => handlePlan(r, s.deps)],
       ["/api/agent/critique", (r) => handleCritique(r, s.deps)],
-      ["/api/agent/narrate", (r) => handleNarrate(r, s.deps)],
       ["/api/closures", (r) => handleClosures(r, rt)],
     ];
     for (const [p, h] of routes) {
@@ -184,14 +182,14 @@ describe("finding N3: per-client dollar cap through the routes", () => {
     expect(calls).toBe(1);
     expect(doneOf(await readSse(await handleParse(post("/api/agent/parse", parseBody("MISSION-D-0003"), "198.51.100.5"), s.deps))).status).toBe("ok");
   });
-  it("defaults: $0.20 per client per day, missions capped at 36k input and 7k output tokens, 8 missions an hour", () => {
-    expect(readConfig({})).toMatchObject({ ipDailyUsd: 0.2, missionInputTokens: 36_000, missionOutputTokens: 7_000, ipMissionsPerHour: 8 });
+  it("defaults: $0.25 per client per day, missions capped at 48k input and 9k output tokens, 8 missions an hour", () => {
+    expect(readConfig({})).toMatchObject({ ipDailyUsd: 0.25, missionInputTokens: 48_000, missionOutputTokens: 9_000, ipMissionsPerHour: 8 });
     expect(readConfig({ WS_IP_DAILY_USD: "0.5" }).ipDailyUsd).toBe(0.5);
   });
   it("an advertised mission (25k in, 4k out) fits inside a single client's day; the dollar cap bounds abuse", () => {
     const missionUsd = (25_000 * 1 + 4_000 * 3) / 1e6;
-    expect(missionUsd).toBeLessThan(0.2); // one mission is well inside the allowance
-    expect(Math.floor(0.2 / missionUsd)).toBeGreaterThanOrEqual(4); // and a judge can run several
+    expect(missionUsd).toBeLessThan(0.25); // one mission is well inside the allowance
+    expect(Math.floor(0.25 / missionUsd)).toBeGreaterThanOrEqual(4); // and a judge can run several
   });
 });
 

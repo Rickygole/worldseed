@@ -1,9 +1,11 @@
 /**
  * Prose screen: a filter for sentences that sit near results.
  *
- * STATUS: since the rationale redesign no model-written text reaches the UI at all (a model picks
- * a rationale kind; the application renders the sentence, see rationale.ts, and finalist cards
- * are application and catalog text). This screen therefore no longer sits on a model output path.
+ * STATUS: since the rationale redesign no model-written sentence reaches the UI (a model picks a
+ * rationale kind; the application renders the sentence, see rationale.ts, and finalist cards are
+ * application and catalog text). The one labeled exception is the optional `reasoning` string,
+ * which has its own plain-text screen (reasoning.ts). This screen therefore no longer sits on a
+ * model output path.
  * It is kept as (1) the certifier for the fixed rationale sentences (rendering runs them through
  * it and tests check the whole table) and (2) a maintained regression target for the vocabulary
  * rules below. Where model-derived text can still reach a reader is listed in the known-limits
@@ -31,7 +33,7 @@
  *      product-claim vocabulary (wording). Every rejection names the dictionary word that caused
  *      it, taken from the fixed lists below and never copied from the model.
  *
- * Two profiles: "card" (finalist notes and narration, shown next to results) is the strict one.
+ * Two profiles: "card" (text shown next to results) is the strict one.
  * "rationale" (the planner's decision-log commentary) also allows a few natural phrases that cannot
  * carry a result claim: "unresolved", "cut off", "drop/dropping" next to a bundle, outcome-state
  * words, and small counts of catalog things the application itself lists ("two bundles").
@@ -49,7 +51,7 @@ export type SlotMetric = (typeof SLOT_METRICS)[number];
  * cannot state a number": the screen is a filter with known limits, not a proof.
  */
 export const PROSE_CLAIM =
-  "Numbers, outcomes and finalist cards are produced by the application from simulator results; AI text appears only as clearly labeled rationale in the decision log and is screened.";
+  "Numbers, outcomes and finalist cards are produced by the application from simulator results. AI text appears only as clearly labeled rationale in the decision log and, in a collapsed raw section there, as optional model reasoning that is unverified, checked only for plain text, and never used for a decision.";
 
 const BUNDLE_SLOT_ID = "B(?:1[0-2]|[1-9])";
 const SLOT_BODY =

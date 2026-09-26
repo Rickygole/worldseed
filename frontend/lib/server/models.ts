@@ -2,15 +2,15 @@
  * Model registry: roles map to an ordered list of model IDs with capability flags.
  * IDs were read from the public Token Factory catalog; access on a given key is unverified, which
  * is why /api/health resolves each role against GET {base}/models (cached 10 min).
- * Override with env: WS_MODEL_PLANNER, WS_MODEL_CRITIC, WS_MODEL_PARSER, WS_MODEL_NARRATOR,
+ * Override with env: WS_MODEL_PLANNER, WS_MODEL_CRITIC, WS_MODEL_PARSER,
  * WS_MODEL_EXTRACTOR. One ID becomes the primary and the defaults follow as fallbacks; a
  * comma-separated list replaces the whole chain.
  */
 import { DEFAULT_PRICE, type PriceTable } from "./config";
 import type { LlmProvider } from "./tokenfactory";
 
-export type Role = "planner" | "critic" | "parser" | "narrator" | "extractor";
-export const ROLES: readonly Role[] = ["planner", "critic", "parser", "narrator", "extractor"];
+export type Role = "planner" | "critic" | "parser" | "extractor";
+export const ROLES: readonly Role[] = ["planner", "critic", "parser", "extractor"];
 
 export interface ModelCaps {
   supportsTools: boolean;
@@ -27,7 +27,6 @@ export const DEFAULT_ROLE_MODELS: Record<Role, string[]> = {
   planner: [ULTRA, SUPER],
   critic: [ULTRA, SUPER],
   parser: [NANO, LIGHTNING, SUPER],
-  narrator: [NANO, SUPER],
   extractor: [NANO, LIGHTNING, SUPER],
 };
 
@@ -65,7 +64,6 @@ const ENV_KEY: Record<Role, string> = {
   planner: "WS_MODEL_PLANNER",
   critic: "WS_MODEL_CRITIC",
   parser: "WS_MODEL_PARSER",
-  narrator: "WS_MODEL_NARRATOR",
   extractor: "WS_MODEL_EXTRACTOR",
 };
 

@@ -6,7 +6,7 @@ import type { EvaluateFn } from "../../lib/agent/evaluate";
 import { UI_MESSAGES } from "../../lib/agent/protocol";
 import {
   BASELINE, MISSION, apiFor, blockNetwork, critiqueReply, fakeCatalog, fakeEvaluator, finalizeReply, makeServer,
-  narrateReply, parseReply, proposeReply, refineReply, row, type Scripted,
+ parseReply, proposeReply, refineReply, row, type Scripted,
 } from "./fixtures";
 
 beforeEach(() => {
@@ -16,20 +16,23 @@ beforeEach(() => {
 
 const b = (id: string, ...candidateIds: string[]) => ({ id, candidateIds });
 const B1234 = [b("B1", "SP-BROENING"), b("B2", "SP-EASTERN"), b("B3", "SP-HARBOR"), b("B4", "TL-DUNDALK")];
-const happyScript = (narrate = false): Scripted[] => [
+const HARBOR = { kind: "close_link", linkId: "L-HARBORTUNNEL" };
+const FORT = { kind: "close_link", linkId: "L-FORTMCHENRY" };
+/** parse, propose, critic (stress 1), refine, critic (stress 2), refine, finalize: seven model calls. */
+const happyScript = (): Scripted[] => [
   parseReply(),
   proposeReply(B1234),
+  critiqueReply({ concerns: [{ bundleId: "B1", kind: "worst_case" }], stress: HARBOR }),
   refineReply([b("B5", "SP-BROENING", "SP-EASTERN")], ["B1", "B2"], ["B4"]),
+  critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [], stress: FORT }),
   refineReply([b("B6", "HZ-ESCORT", "IM-I895")], ["B5"], []),
-  critiqueReply({ concerns: [{ bundleId: "B5", kind: "equity" }], veto: [] }),
   finalizeReply(["B5", "B6", "B3"]),
-  ...(narrate ? [narrateReply(["B5", "B6", "B3"])] : []),
 ];
 
-function harness(script: Scripted[], evaluate: EvaluateFn = fakeEvaluator(), cfg = {}, opts: { narrate?: boolean } = {}) {
+function harness(script: Scripted[], evaluate: EvaluateFn = fakeEvaluator(), cfg = {}) {
   const server = makeServer(script, cfg);
   const applied: unknown[] = [];
-  const m = new AgentMachine({ api: apiFor(server), evaluate, catalog: fakeCatalog(), newMissionId: () => "mission-machine-1", narrate: opts.narrate, onApply: (x) => void applied.push(x) });
+  const m = new AgentMachine({ api: apiFor(server), evaluate, catalog: fakeCatalog(), newMissionId: () => "mission-machine-1", onApply: (x) => void applied.push(x) });
   const phases: Phase[] = [];
   m.subscribe(() => {
     const p = m.getState().phase;
@@ -47,14 +50,14 @@ describe("state machine: full AI mission through the real server handlers", () =
     expect(m.getState().parsed?.constraints.areas).toEqual(["G-DUNDALK"]);
     await m.confirmGoal(MISSION);
     const s = m.getState();
-    expect(phases).toEqual(["parsing", "confirmGoal", "planning", "evaluating", "planning", "evaluating", "planning", "evaluating", "critiquing", "finalizing", "finalists"]);
+    expect(phases).toEqual(["parsing", "confirmGoal", "planning", "evaluating", "critiquing", "evaluating", "planning", "evaluating", "critiquing", "evaluating", "planning", "evaluating", "finalizing", "finalists"]);
     expect(s.mode).toBe("ai");
     expect(s.finalists.map((f) => f.bundleId)).toEqual(["B5", "B6", "B3"]);
     expect(s.critique?.concerns[0].bundleId).toBe("B5");
     expect(s.narration).toEqual({}); // cards carry no model text; the narrator is off by default
     expect(s.models).toMatchObject({ planner: "nvidia/Nemotron-3-Ultra-550b-a55b", parser: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", critic: "nvidia/Nemotron-3-Ultra-550b-a55b" });
     expect(s.models.narrator).toBeUndefined();
-    expect(server.provider.calls).toHaveLength(6);
+    expect(server.provider.calls).toHaveLength(7);
 
     await m.apply("B5");
     expect(m.getState().phase).toBe("applied");
@@ -72,7 +75,8 @@ describe("state machine: full AI mission through the real server handlers", () =
     // each accepted row carries its own futures count (50 here): round 1 has 3 rows, rounds 2 and 3 one each
     expect(sentences(s)).toContain("Round 1: the simulator scored 3 of 4 requested bundles across 150 simulated futures, computed locally in your browser.");
     expect(sentences(s)).toContain("Round 2: the simulator scored 1 of 1 requested bundles across 50 simulated futures, computed locally in your browser.");
-    expect(s.counts).toEqual({ bundlesEvaluated: 5, futuresEvaluated: 250 });
+    // 250 futures for the five scored bundles, plus 300 for the two stress tests (three leaders each, 50 futures per row)
+    expect(s.counts).toEqual({ bundlesEvaluated: 5, futuresEvaluated: 550, stressEvaluations: 6 });
     expect(s.rows.map((r) => r.bundleId)).not.toContain("B2");
     expect(calls).toEqual([["B1", "B2", "B3", "B4"], ["B5"], ["B6"]]);
   });
@@ -82,9 +86,9 @@ describe("state machine: full AI mission through the real server handlers", () =
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const s = m.getState();
-    expect(s.budget.inputTokens).toBe(6 * 1200);
-    expect(s.budget.outputTokens).toBe(6 * 300);
-    expect(s.budget.fraction).toBeCloseTo(Math.max((6 * 1200) / 36000, (6 * 300) / 7000));
+    expect(s.budget.inputTokens).toBe(7 * 1200);
+    expect(s.budget.outputTokens).toBe(7 * 300);
+    expect(s.budget.fraction).toBeCloseTo(Math.max((7 * 1200) / 48000, (7 * 300) / 9000));
     // the card: application headline and result lines from the bundle's own row, plus the catalog's own description
     const card = m.card("B5")!;
     expect(card.headline).toContain("B5:");
@@ -212,7 +216,6 @@ describe("state machine: fallbacks", () => {
       parse: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: JSON.parse(parseReply()) }),
       plan: async () => ({ status: "ok", model: "m", usage: { inputTokens: 0, outputTokens: 0 }, repaired: false, result: { action: "propose", rationale: { kind: "cheap_first" }, bundles: [{ id: "B1", candidateIds: ["NOT-IN-CATALOG"] }] } }),
       critique: async () => { throw new Error("unexpected"); },
-      narrate: async () => { throw new Error("unexpected"); },
     };
     const m = new AgentMachine({ api, evaluate: fakeEvaluator(), catalog: fakeCatalog() });
     await m.start("x y z");
@@ -225,20 +228,21 @@ describe("state machine: fallbacks", () => {
 
   it("a rejected critic is skipped but the mission continues in AI mode", async () => {
     const script = happyScript();
-    script[4] = "not json";
-    script.splice(5, 0, "still not json"); // critic repair also bad; then finalize follows
+    script[2] = "not json";
+    script.splice(3, 0, "still not json"); // the first critic's repair is also bad; the deterministic critic runs the stress test
     const { m } = harness(script);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const s = m.getState();
     expect(s.mode).toBe("ai");
-    expect(s.critique).toBeUndefined();
-    expect(sentences(s).some((x) => x.includes("continuing without a critique") || x.includes("Continuing without a critique"))).toBe(true);
+    expect(sentences(s)).toContain(UI_MESSAGES.criticRejected);
+    expect(sentences(s).some((x) => x.startsWith("Deterministic stress test (no AI):"))).toBe(true); // the stress step still ran, labeled non-AI
+    expect(s.stresses[0]).toMatchObject({ source: "deterministic" });
     expect(s.finalists.map((f) => f.bundleId)).toEqual(["B5", "B6", "B3"]);
   });
 
   it("tops up with deterministic singles when the planner scores fewer than three bundles", async () => {
-    const { m } = harness([parseReply(), proposeReply([b("B1", "SP-BROENING")]), refineReply([]), finalizeReply(["B1", "B2", "B3"])]);
+    const { m } = harness([parseReply(), proposeReply([b("B1", "SP-BROENING")]), critiqueReply(), refineReply([]), finalizeReply(["B1", "B2", "B3"])]);
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const s = m.getState();
@@ -441,7 +445,7 @@ describe("P3: counts come from accepted rows, and refused rows are reported with
     expect(new Set(s.rows.map((r) => r.bundleId)).size).toBe(s.rows.length);
     expect(s.rows.find((r) => r.bundleId === "B1")?.p90S).toBe(1000); // first row wins
     expect(s.counts.bundlesEvaluated).toBe(s.rows.length);
-    expect(s.counts.futuresEvaluated).toBe(s.rows.length * 40); // the SUM of accepted rows' own futures, never the aggregate claim
+    expect(s.counts.futuresEvaluated).toBe((s.rows.length + s.counts.stressEvaluations) * 40); // the SUM of accepted rows' own futures, never the aggregate claim
     expect(sentences(s).some((x) => x.includes("rows that were not used"))).toBe(true);
     expect(s.log.find((l) => l.errors?.some((e) => e.startsWith("duplicate_row")))).toBeDefined();
   });
@@ -524,18 +528,6 @@ describe("P5: fallback labels say what actually happened, per role", () => {
     expect(sentences(s).join(" ")).not.toContain("deterministic search used");
     expect(s.finalists).toHaveLength(3); // the rest of the AI path still ran
   });
-  it("a rejected narration says finalists are shown without narration", async () => {
-    const script = happyScript(true);
-    const badNarr = JSON.stringify({ action: "narrate", items: ["B5", "B6", "B3"].map((bundleId) => ({ bundleId, rationale: "9 hypothetical links" })) });
-    script[6] = badNarr;
-    script.push(badNarr);
-    const { m } = harness(script, fakeEvaluator(), {}, { narrate: true });
-    await m.start("cut access time");
-    await m.confirmGoal(MISSION);
-    expect(sentences(m.getState())).toContain(UI_MESSAGES.narratorRejected);
-    expect(m.getState().narration).toEqual({});
-    expect(m.getState().mode).toBe("ai");
-  });
   it("a rejected planner really does switch, and only then says so", async () => {
     const digits = proposeReply(B1234, { rationale: "Saves 9 minutes" });
     const { m } = harness([parseReply(), digits, digits]);
@@ -544,16 +536,13 @@ describe("P5: fallback labels say what actually happened, per role", () => {
     expect(m.getState().mode).toBe("deterministic");
     expect(sentences(m.getState())).toContain(UI_MESSAGES.outputRejected);
   });
-  it("a finalist carries no model text: mechanismNote is empty, and the optional narrator feeds only labeled log lines", async () => {
-    const { m, server } = harness(happyScript(true), fakeEvaluator(), {}, { narrate: true });
+  it("a finalist carries no model text: mechanismNote is empty on the finalist and the card", async () => {
+    const { m } = harness(happyScript());
     await m.start("cut access time");
     await m.confirmGoal(MISSION);
     const st = m.getState();
     expect(st.finalists.every((f) => f.mechanismNote === "")).toBe(true);
-    expect(st.narration).toEqual({}); // the narrator's selection never reaches a card
-    expect(server.provider.calls).toHaveLength(7);
-    const lines = st.log.filter((l) => l.kind === "commentary").map((l) => l.sentence);
-    expect(lines.filter((x) => x.includes("narrator, B")).length).toBe(3);
+    expect(st.narration).toEqual({});
     for (const id of ["B5", "B6", "B3"]) {
       const card = m.card(id)!;
       expect(card.mechanismNote).toBe("");

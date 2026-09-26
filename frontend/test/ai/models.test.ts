@@ -11,7 +11,7 @@ describe("model registry", () => {
     expect(c.planner).toEqual(["nvidia/Nemotron-3-Ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b"]);
     expect(c.critic).toEqual(c.planner);
     expect(c.parser).toEqual(["nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "nvidia/Nemotron-3_5-Lightning", "nvidia/nemotron-3-super-120b-a12b"]);
-    expect(c.narrator).toEqual(["nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "nvidia/nemotron-3-super-120b-a12b"]);
+    expect(Object.keys(c).sort()).toEqual(["critic", "extractor", "parser", "planner"]); // the narrator role was removed
     expect(c.extractor).toEqual(c.parser);
   });
   it("a single env ID becomes the primary and defaults follow as fallbacks", () => {
@@ -20,14 +20,14 @@ describe("model registry", () => {
     expect(buildRoleChains({ WS_MODEL_PLANNER: DEFAULT_ROLE_MODELS.planner[1] }).planner[0]).toBe(DEFAULT_ROLE_MODELS.planner[1]);
   });
   it("a comma list replaces the chain", () => {
-    expect(buildRoleChains({ WS_MODEL_NARRATOR: "a/b, c/d" }).narrator).toEqual(["a/b", "c/d"]);
+    expect(buildRoleChains({ WS_MODEL_CRITIC: "a/b, c/d" }).critic).toEqual(["a/b", "c/d"]);
   });
   it("prices calls conservatively", () => {
     expect(costUsd("x", 1_000_000, 1_000_000)).toBeCloseTo(4);
   });
   it("config reads only server env and applies the documented defaults", () => {
     const c = readConfig({});
-    expect(c).toMatchObject({ dailyBudgetUsd: 1, ipDailyUsd: 0.2, missionInputTokens: 36_000, missionOutputTokens: 7_000, missionMaxCalls: 12, ipMissionsPerHour: 8, ipMissionsPerDay: 10, newMissionsPerHour: 30, newMissionsPerDay: 120, frontDoorPerIpPerMin: 20, tavilyDailyCap: 30, baseURL: "https://api.tokenfactory.nebius.com/v1/", trustForwarded: false });
+    expect(c).toMatchObject({ dailyBudgetUsd: 1, ipDailyUsd: 0.25, missionInputTokens: 48_000, missionOutputTokens: 9_000, missionMaxCalls: 16, ipMissionsPerHour: 8, ipMissionsPerDay: 10, newMissionsPerHour: 30, newMissionsPerDay: 120, frontDoorPerIpPerMin: 20, tavilyDailyCap: 30, baseURL: "https://api.tokenfactory.nebius.com/v1/", trustForwarded: false });
     expect(readConfig({ WS_DAILY_BUDGET_USD: "abc" }).dailyBudgetUsd).toBe(1);
   });
 });
