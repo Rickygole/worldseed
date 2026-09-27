@@ -13,16 +13,23 @@ eight hardest-hit block groups, 27-77%. (That head-count depends on speed and
 time-budget assumptions: about 6,700 to 96,000 across the variants we tested. The
 time-based measures, and which block groups are worst hit, are stable.) WorldSeed
 puts those facts side by side, and shows the third: first-response times did not
-change in the model, because both shores have their own stations.
+change in the model, because both shores have their own stations. A fourth view,
+hazmat trucks, shows the largest effect in minutes: vehicles carrying the hazardous
+materials the MDTA lists are barred from both harbor tunnels, so with the bridge
+removed, in the model, those trucks take the western I-695 arc and add about 15
+minutes on average across 24 harbor trips, against about 6 for a car. That is a
+simulation of one published rule, not route guidance.
 
 WorldSeed is a counterfactual infrastructure-planning simulator and a screening
 tool. It computes consequences on the 2024 OpenStreetMap road network at free-flow
 speeds (congestion appears only in stress futures), with Census population and jobs
-data. You remove a link and see who is affected. It then screens a catalog of
-hypothetical scenario options for where mitigation would matter, using NVIDIA
-Nemotron on Nebius Token Factory as the search planner. The language model never
-produces a number: the simulator computes every metric, cited Census data supplies
-the population figures, and application templates write every result sentence.
+data. You remove a link and see who is affected. It then screens a catalog of 16
+hypothetical scenario options for where mitigation would matter, with a
+deterministic two-stage search that needs no AI key. An NVIDIA Nemotron planner on
+Nebius Token Factory is built as an alternative planner and is not yet verified
+against live models. No language model ever produces a number: the simulator
+computes every metric, cited Census data supplies the population figures, and
+application templates write every result sentence.
 
 Built for the Nebius x NVIDIA Global AI Hackathon, track **Best Apps and Agents**.
 
@@ -41,16 +48,29 @@ Built for the Nebius x NVIDIA Global AI Hackathon, track **Best Apps and Agents*
 - **Shows the answer honestly, side by side.** Three lenses stay visible at once:
   first response, regional job access, and cross-harbor job access. The region-wide
   number is never hidden behind the local one, and neither is the thing that held.
+- **Times hazmat trucks.** 24 cross-harbor trips between 7 fixed road anchors at
+  port and industrial sites, for two vehicle classes: a car, and a `hazmat_truck`,
+  meaning a vehicle carrying the listed hazardous materials that the Maryland
+  Transportation Authority (MDTA) bars from both harbor tunnels
+  (https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits, accessed 2026-09-26).
+  Free-flow, bridge removed: cars add about 5.8 minutes on average, hazmat trucks
+  about 14.7 (23 of the 24 hazmat trips add more than 5 minutes). Closing the Harbor
+  Tunnel changes nothing for hazmat trucks, because they cannot use it anyway. See
+  [Hazmat and freight trips](#hazmat-and-freight-trips) for what this is and is not.
 - **Explains a place.** Click any hexagon for its block group, Census figures and
   the route that changed (dim = before, bright = now).
-- **Screens hypothetical options.** Give it a goal in plain language. A planner
-  proposes bundles of options from a 24-entry catalog of hypothetical scenario
-  options; the simulator scores each bundle across many simulated stress futures;
-  you compare finalists and decide. It does not find a fix, and it does not design
-  anything. See the finding below.
+- **Screens hypothetical options.** Pick a goal: cross-harbor access, first response,
+  or hazmat truck detours. A search scores bundles of up to three options from a
+  16-entry catalog of hypothetical scenario options (3 temporary links, 8 corridor
+  priorities, 3 staging sites, and 2 escorted hazmat windows that apply only to the
+  hazmat goal). The no-AI search is two-stage: one deterministic run screens every
+  eligible bundle, then the top 12 get paired stress futures; you compare finalists
+  and decide. It screens; it does not design anything, and it does not fix the
+  peninsula. See the finding below.
 - **Checks live news, with you in the loop.** A Tavily lookup can propose current
   road closures near the model area. Nothing enters the model until you read the
-  source and confirm it.
+  source and confirm it. (Built and tested; the live lookup is pending a deployed
+  key.)
 
 ## Who it is for
 
@@ -74,10 +94,12 @@ interesting result is somewhere else.
 | Did regional job access change? | **Barely.** About +3 seconds on the average drive to the region's main job centers. Most trips in the region never used the bridge. |
 | Did cross-harbor job access change? | **Yes, for the Sparrows Point / Edgemere peninsula.** The 8 hardest-hit block groups lose 27-77% of the jobs on the other shore reachable within 30 minutes. About 20,000 residents lose more than 10% of those jobs (the app shows 20,100; the exact reference is 19,705); about 11,400 lose more than 25%. The worst-off 1% add at least 4.3 min to the average cross-harbor trip. **These counts depend on speed and time-budget assumptions: about 6,700 to 96,000 across the variants we tested.** The time-based measures (about 11 to 17 s average added) and the identity of the worst-hit block groups are stable. |
 | Were low-wage workers hit harder? | **Not disproportionately.** 1,380 low-wage workers lose more than 10% of cross-harbor jobs: 1.8% of low-wage workers against 1.9% of all residents. The tool reports this gap either way. |
-| Did the tool find a fix? | **No.** In the catalog measurements only about four of the 24 hypothetical options meaningfully help, and the shuttle links did not. The best single option recovers about 40% of the cross-harbor loss, and that result comes from an assumed corridor speed factor, not from an agency study. |
+| Did freight change? | **Yes, sharply, for hazmat trucks.** Vehicles carrying the hazardous materials MDTA lists are barred from both harbor tunnels; that the Key Bridge carried them is an assumption (the MDTA rule page does not cover the bridge). In the model, with the bridge removed they take the western I-695 arc. Across 24 cross-harbor trips at free-flow, removing the bridge adds about 5.8 min on average for a car and about 14.7 min for a hazmat truck; 23 of the 24 hazmat trips add more than 5 minutes. Closing the Harbor Tunnel as well makes no difference to hazmat trucks. Two hypothetical escorted-window options let hazmat trucks use a tunnel at an assumed fixed delay; in the reference run the Harbor Tunnel escort window cuts the hazmat mean from +14.7 to +10.2 min. Only this one MDTA rule is modeled, and the escort delay is an assumption. |
+| Did the tool find a fix? | **No, only a partial reduction.** The best two-stage search result (Beltway flow + Harbor Tunnel approaches + I-95 flow) reduces "residents who reach more than 10% fewer cross-harbor jobs" from about 20,000 to about 15,000, about a quarter fewer. About 15,000 remain. That is based on assumed corridor speed factors and hypothetical options, not an agency study, and it is a cliff-edge count: the sensitivity study was not run on this option world. Shuttle links did not help in the catalog measurements. |
 
 Every figure above is either computed by the simulator from the snapshot in this
-repository or is cited Census data; none is typed by hand. The plain-language
+repository, is cited Census data, or (the sensitivity ranges) comes from the
+documented study in docs/METHODOLOGY.md. The plain-language
 reading (region-wide, cross-harbor, where, first response) is generated in the app
 by templates from those results. Figures come from free-flow travel times on 2024
 data and are simulated results, not measurements. See
@@ -135,7 +157,7 @@ flowchart LR
 
   subgraph Browser["Your browser (TypeScript)"]
     SIM["Simulator in Web Workers<br/>(the only source of computed metrics)"]
-    UI["Map, ribbon, inspector,<br/>decision log, finalists"]
+    UI["Guided story, Expert mode:<br/>map, ribbon, inspector,<br/>decision log, finalists"]
     SNAP --> SIM
     SIM --> UI
   end
@@ -185,14 +207,33 @@ catalog; none has answered a real call yet.
 Model overrides: `WS_MODEL_PLANNER`, `WS_MODEL_CRITIC`, `WS_MODEL_PARSER` and
 `WS_MODEL_EXTRACTOR`.
 
-**The search loop.** Propose, simulate, stress, refine, finalize. The planner proposes
-bundles; the browser simulator scores them across many futures; the critic picks one
-stress test from a closed set (a tunnel closed and/or a time of day); the simulator
-re-scores the leaders under that stress; the planner refines; then it finalizes three
-finalists. When the AI is unavailable or its output is rejected, a deterministic
-(no-AI) critic runs the same stress step by re-scoring the leaders under each
-single-link closure and choosing the one that hurts them most, and the loop continues,
-labeled "not AI".
+**Model licenses, by role.** The candidate lists in `frontend/lib/server/models.ts` are
+Ultra then Super for the planner and critic, and Nano, then Lightning, then Super for
+the parser and extractor. Licenses as named on the Hugging Face model cards (BF16
+repositories, read 2026-09-26): Nemotron 3 Nano and Nemotron 3 Super, NVIDIA Nemotron
+Open Model License (last modified 2025-12-15); Nemotron 3 Ultra and Nemotron 3.5
+Lightning, OpenMDW License Agreement, version 1.1 (OpenMDW-1.1). WorldSeed calls these
+models through an API and does not distribute model weights or derivatives. Whether the
+copies Nebius serves carry the same terms is unverified. Which model actually runs for
+a role is resolved at runtime and shown by `/api/health`, so the license that applies
+is the one for the model that ran.
+
+**The AI search loop (built, not verified live).** Propose, simulate, stress, refine,
+finalize. The planner proposes bundles; the browser simulator scores them across many
+futures; the critic picks one stress test from a closed set (a tunnel closed and/or a
+time of day); the simulator re-scores the leaders under that stress; the planner
+refines; then it finalizes three finalists.
+
+**The deterministic two-stage search (built, works without a key).** Used whenever the
+AI is unavailable, its output is rejected, or the budget is spent, and labeled
+"Deterministic search (no AI)" everywhere. Stage 1 screens every eligible bundle of up
+to three options with one free-flow deterministic run each, on the lens of the chosen
+goal (the cross-harbor lens uses 32 destination anchors per shore here). Stage 2 takes
+the top 12 (mostly the leaders, with variety) and scores them across paired stress
+futures on the same seeds. A deterministic critic then re-scores the leaders under the
+single-link closure that hurts them most, and the search returns three finalists with
+no two near-duplicates. No model call is made at any point. The seed is shown and runs
+are reproducible.
 
 **The guardrails that make this safe to demo:**
 
@@ -225,18 +266,24 @@ labeled "not AI".
   went through several adversarial review rounds; fixes are pinned by regression
   tests (`frontend/test/ai/round*.test.ts`, `frontend/test/sim/round4.test.ts`).
 
-**Exhaustive-search check (built, UI wiring in progress).** `frontend/lib/agent/exhaustive.ts`
-scores every bundle of up to three eligible catalog options with the simulator's
-deterministic run and reports the true optimum, so the AI's finalists can be ranked
-against it. It never calls a model. It is not yet wired into the interface.
+**Exhaustive-search audit (built, in the interface).** `frontend/lib/agent/exhaustive.ts`
+scores every eligible bundle of up to three catalog options with the same free-flow
+deterministic run the screening stage uses, and reports where a finalist ranks among
+them. It never calls a model. In the reference audit the deterministic search's top
+pick ranks 1 of 129 eligible bundles. That checks the search (that the futures stage
+and the finalist choice did not lose the best bundle on that measure), not the road
+model. **[VERIFY BEFORE SUBMIT: re-run the audit on the deployed build and confirm
+"rank 1 of 129".]**
 
 **Verification status, stated plainly.** The planner, critic (including the adversarial
-stress step), parser and extractor paths, and the deterministic critic, are built and
-covered by tests that use a fake provider. They have **not yet been verified against live Nemotron models on Token Factory**: no API
-key is deployed on the demo yet and model availability on our account is
-unconfirmed. Until that is done the live site shows that AI planner setup is in
-progress, and the deterministic search is the path that works without a key. This
-section will be updated when the live check is done (see [Status](#status)).
+stress step), parser and extractor paths are built and covered by tests that use a
+fake provider only. They have **not yet been verified against live Nemotron models on
+Token Factory**: no API key is deployed on the demo yet and model availability on our
+account is unconfirmed. **[VERIFY BEFORE SUBMIT: state the AI planner as working only
+after one real end-to-end mission has run.]** Until then the app shows that AI planner
+setup is in progress, and the deterministic two-stage search above is the path that
+works without a key. This section will be updated when the live check is done (see
+[Status](#status)).
 
 ## Tavily: live road-closure feed
 
@@ -254,11 +301,12 @@ Status: implemented and tested; live lookup pending a deployed key.
    quote. You must read them and confirm; a signed, single-use token is required to
    add one to the model. Nothing is added automatically.
 
-If nothing qualifies, the app says so. Results are cached, capped per day, and never
-written to the repository.
+If nothing qualifies, the app says so. Results are cached in server process memory,
+capped per day, and never written to the repository. (Tavily is described here only
+by what WorldSeed asks it to do; we publish no performance information about it.)
 
-**Reality-check evidence (built, live lookup pending a key; interface wiring in
-progress).** `/api/evidence` runs one fixed Tavily search per topic (detours, traffic
+**Reality-check evidence (built, with an evidence drawer in the interface; live
+lookup pending a key and unverified).** `/api/evidence` runs one fixed Tavily search per topic (detours, traffic
 or freight after the 2024 collapse) and returns sources only: title, domain, date,
 snippet and link, all labeled unverified. It makes no model call, extracts no claims,
 and does not compare anything to the simulator's numbers. It exists so a reader can
@@ -287,12 +335,78 @@ check the model's picture against published reporting.
   where congestion enters. Every option is evaluated on the same seeds, so
   comparisons are paired and fair. The seed is shown and runs are reproducible.
   These are stress scenarios, not a traffic forecast.
-- **Catalog.** 24 hypothetical scenario options: 7 temporary links (shuttle links and
-  connectors), 8 corridor priorities and 9 staging sites. None was proposed, studied
-  or endorsed by any agency. Costs are relative tiers ($, $$, $$$), never dollar
-  figures. The effect sizes are labeled assumptions.
+- **Catalog.** 16 hypothetical scenario options: 3 temporary links (one shuttle and two
+  road connectors), 8 corridor priorities, 3 staging sites and 2 escorted hazmat
+  windows (a hazmat truck may use the Harbor or Fort McHenry Tunnel at an assumed fixed
+  delay; they change nothing for cars and are offered only for the hazmat goal). An
+  earlier 24-option catalog was pruned to 14 by a rule fixed in advance (four shuttle
+  links and six staging sites removed, recorded with their measured effect in
+  `candidate_effects.json`), and the two hazmat windows were added. None was proposed,
+  studied or endorsed by any agency. Costs are relative tiers ($, $$, $$$), never
+  dollar figures. The effect sizes are labeled assumptions.
+- **Freight trips.** A fixed set of 32 trips between 7 road anchors (Tradepoint
+  Atlantic, Dundalk Marine Terminal, Edgemere, Hawkins Point, Curtis Bay, Fairfield and
+  Glen Burnie industrial): 24 cross-harbor trips (12 pairs, both directions) and 8
+  same-shore controls. A `hazmat_truck` is simulated without the tunnel edges the
+  MDTA rule lists; a `car` uses every enabled edge. Free-flow node-to-node time, no
+  dwell or loading time. The trip set was defined before its results were seen.
 - **Every constant is labeled.** `pipeline/assumptions.yaml` lists each parameter with
   its source, or "assumption". The **Assumptions** button in the app shows them.
+
+## Hazmat and freight trips
+
+WorldSeed is an offline, retrospective planning simulation on a historical (2024) road
+network. It is not connected to, and must not be used as part of, any traffic
+management, traffic control, navigation, vehicle-routing or hazardous-materials
+compliance system. Hazmat results show how one published MDTA rule changes simulated
+travel times; they are not route guidance.
+
+Vehicles carrying the hazardous materials MDTA lists are barred from both harbor
+tunnels (MDTA, accessed 26 September 2026). With the bridge removed, in the model they
+take the western I-695 arc, the alternate route MDTA names: a hazmat truck adds about
+14.7 min on average, a car about 5.8 min (24 cross-harbor trips, free-flow).
+
+- **The rule, paraphrased.** MDTA's page states that vehicles carrying bottled propane
+  gas above a stated container limit, bulk gasoline, flammable liquids, explosives,
+  radioactive and other hazardous materials are prohibited from the Fort McHenry Tunnel
+  (I-95) and the Baltimore Harbor Tunnel (I-895), and cites COMAR 11.07.01. It mentions
+  no escort, time window or permit, and says nothing about the Key Bridge. Source:
+  https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits, accessed 26 September
+  2026.
+- **The bridge assumption.** That the Key Bridge carried hazmat before the collapse is
+  an **assumption**: the MDTA rule page does not cover the bridge. MDTA's Key Bridge
+  news page says tunnel-prohibited hazmat vehicles "should use the western section of
+  I-695 around tunnels". Alternate route: MDTA Key Bridge news,
+  https://mdta.maryland.gov/keybridgenews, accessed 26 September 2026.
+- **Escorted windows are hypothetical.** The two escort-window options are not an MDTA
+  program, proposal or finding, and nothing here says they would be safe or lawful. In
+  the app each escort option title carries the suffix "(hypothetical; not an MDTA
+  program)". **[VERIFY AFTER REDESIGN: confirm the suffix and the wording below in the
+  freight panel and story scene 4.]** The escort delay is an assumed number.
+
+Disclaimer shown with the freight results:
+
+> Simulation, not route guidance. Drive times are simulated at free-flow speeds on the
+> pre-collapse (1 March 2024) road network. The tunnel rule is summarized from the
+> Maryland Transportation Authority (link); the MDTA's published rules and COMAR
+> 11.07.01 govern, not this tool. Carriers must follow posted and designated
+> hazardous-materials routes. The escorted-window options are hypothetical: they are not
+> an MDTA program, proposal or finding, and nothing here says they would be safe or
+> lawful. Not affiliated with or endorsed by the MDTA.
+
+## Privacy
+
+WorldSeed has no accounts and sets no cookies. Your browser's session storage keeps a
+random session id and whether you have seen the intro. To enforce fair-use limits, the
+server keeps a salted hash of your IP address and session id in a counter store
+(Upstash) for at most about two days; WorldSeed does not store raw IP addresses. The
+host (Vercel) processes request data, including IP addresses, in its logs under its own
+privacy policy. If the bot check is on, Cloudflare Turnstile processes signals such as
+your IP address and browser details to detect bots. Text you type as a goal is sent to
+Nebius Token Factory to run the AI model, so do not enter personal information.
+Questions: open a GitHub issue. **[VERIFY BEFORE SUBMIT: the retention figure must match
+the limiter TTLs (daily cap keys are 2 days), and the Upstash and Turnstile parts apply
+only once those are enabled.]**
 
 ## Data sources and licenses
 
@@ -304,6 +418,7 @@ check the model's picture against published reporting.
 | Block-group geometry | Census TIGER/Line cartographic boundaries 2023 | Public domain |
 | Jobs and low-wage workers | Census LEHD LODES8, Maryland 2023 | Public domain |
 | Basemap tiles | OpenFreeMap, (c) OpenMapTiles, data from OpenStreetMap | See map attribution in the app |
+| Hazardous-materials tunnel rule | Maryland Transportation Authority (MDTA), cited and linked, accessed 2026-09-26 | State of Maryland web content, cited for reference only; not affiliated (to be confirmed by legal review) |
 
 Full detail, fetch methods, merge rules and known gaps: [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md).
 The app's map attribution stays on, and the footer credits the data, the AI and the
@@ -353,29 +468,49 @@ only on the server and must never be prefixed `NEXT_PUBLIC_`.
 | `WS_MODEL_*`, `WS_DAILY_BUDGET_USD`, `WS_MISSION_*`, `WS_IP_*`, and others | Optional overrides, documented inline in `.env.example` |
 
 Without keys the app still runs: AI features report that the planner is unavailable,
-and you can explore scenarios by hand.
+the deterministic no-AI search works, and you can explore scenarios by hand.
 
 **Deploying.** The app is a Next.js project with root directory `frontend/` (the
 demo is on Vercel Hobby).
 
-## Reproduce the Key Bridge scenario
+## Try it: the guided story
 
-1. Open the live demo, or run the frontend locally, and step through or skip the intro.
-2. Click **Remove Key Bridge link**. The baseline reads 20.6 min average cross-harbor
-   trip; after removal the terrain rises over the Sparrows Point / Edgemere
-   peninsula and the ribbon shows the deltas.
-3. Read the ribbon: regional access about +3 s, first response unchanged,
-   cross-harbor access with about 20,000 residents (the app shows 20,100) losing more
-   than 10% of reachable jobs, a count that varies from about 6,700 to 96,000 under
-   other speed and time-budget assumptions. Switch lenses above the map; the ribbon keeps all of them visible.
-4. Click a populated hexagon to see its block group, Census figures and the route
-   that changed.
-5. Open **Assumptions** to see every parameter and data vintage.
-6. To check the numbers without the UI: `cd frontend && npm test` runs the simulator
+The interface is a map-first guided story of six scenes with an **Expert mode** toggle
+that opens the full analyst workspace (copy deck: [docs/STORY.md](docs/STORY.md)).
+**[VERIFY AFTER REDESIGN: the story mode was being rebuilt when this was written.
+Confirm every scene name, button label and number below against the deployed build.]**
+
+1. Open the live demo, or run the frontend locally. Read the dedication card and click
+   **Start the walk-through** (or skip to the map).
+2. **The crossing is removed.** Click **Remove the Key Bridge link**. The regional
+   average drive to jobs grows by about 3 seconds, because most trips never used the
+   bridge. A "Is this too small?" note gives the reported Dundalk to Ferndale commute
+   for comparison.
+3. **Averages hide the local story.** About 20,000 residents, mostly around the
+   Sparrows Point and Edgemere peninsula, reach more than 10% fewer jobs across the
+   harbor within 30 minutes, always shown with the range from the sensitivity study
+   (about 6,700 to 96,000). Click **Show the peninsula**.
+4. **What did not break.** First-response time is unchanged in the model, because both
+   shores have their own fire stations.
+5. **Hazmat trucks must detour.** About 15 extra minutes on average across 24 harbor
+   trips for a hazmat truck, about 6 for a car, with the MDTA citation. **Show a hazmat
+   detour** draws the car path and the hazmat path.
+6. **What could help.** **Find a better future** runs the search on a preset goal (the
+   deterministic two-stage search, labeled "not AI", unless the AI planner is
+   available). **Apply the top option** to see the residual: the count of residents
+   reaching more than 10% fewer cross-harbor jobs falls from about 20,000 to about
+   15,000 in the best result, and about 15,000 remain. **[VERIFY AFTER REDESIGN: the
+   scene must name this measure on screen.]**
+7. **Now explore.** Click **Open expert mode**: every lens, the hexagon inspector
+   (block group, Census figures, the route that changed), the Assumptions panel, the
+   planner with hazmat as a selectable goal, Compare and Preview, the decision log, the
+   closures and evidence drawers, and the exhaustive audit. The toggle keeps your
+   scenario.
+8. To check the numbers without the UI: `cd frontend && npm test` runs the simulator
    against the reference results in `data/snapshot/golden.json`.
 
-A guided version of this walk-through (`?tour=keybridge`) is in progress; see
-[Status](#status).
+The earlier guided tour (`?tour=keybridge`) is superseded by the story. **[VERIFY AFTER
+REDESIGN: confirm the old tour URL is removed or redirects.]**
 
 ## Validation
 
@@ -412,8 +547,16 @@ A guided version of this walk-through (`?tour=keybridge`) is in progress; see
 
 - Free-flow driving only in the deterministic run: no signals, turn delays or
   congestion, so tunnel and bridge-approach delays are understated; congestion enters
-  only through stress futures. Cars only: no transit, walking or freight schedules.
-  Freight and hazmat trip routing is [PLANNED] (pipeline work in progress), not modeled.
+  only through stress futures. Two vehicle classes only, a car and a hazmat truck: no
+  transit, walking, general freight, schedules, permits, dwell or loading time.
+- Hazmat: only the MDTA tunnel rule for listed hazardous materials is modeled, and not
+  every truck carries such materials. That the Key Bridge carried hazmat before the
+  collapse is an **assumption**: the MDTA rule page does not cover the bridge, and
+  MDTA's Key Bridge news page (https://mdta.maryland.gov/keybridgenews) sends
+  tunnel-prohibited hazmat vehicles to western I-695. The 24 trips are a fixed sample of
+  7 anchors, not observed freight flows. The escorted windows are hypothetical, not an
+  MDTA program; their delay is an assumption, and the escort figures (for example +14.7
+  to +10.2 min) are hypothetical results. Screening other crossings is [PLANNED].
 - The first-response lens counts every fire station as a source and does not model
   unit counts, staffing, availability or stations outside the study area
   (bbox W -76.80, S 39.10, E -76.40, N 39.34), which can make edge block groups look
@@ -429,14 +572,20 @@ A guided version of this walk-through (`?tour=keybridge`) is in progress; see
 - ACS block-group estimates carry sampling error; LODES is noise-infused; hex values
   are area-apportioned estimates. The ACS vintage (2020-2024) straddles 2024.
 - Neighborhood extents come from the nearest OSM place node, not official boundaries.
-- All 24 catalog options are hypothetical, with assumed (not sourced) effects. Any
-  "recovery" figure for an option rests on those assumptions.
+- All 16 catalog options are hypothetical, with assumed (not sourced) effects. Any
+  reduction figure for an option, such as about 20,000 to about 15,000 residents for
+  the best bundle, rests on those assumptions (for example the corridor speed
+  factors), and the count is a cliff-edge statistic that the sensitivity study did not
+  test in the option worlds. The search's futures stage uses the coarser 32-anchor
+  cross-harbor variant, which is off by about 9 to 11% on counts.
 
 ## Feedback for Nebius and NVIDIA
 
 The hackathon asks for feedback on Token Factory and the NVIDIA models. Raw notes
 are collected as they happen in [docs/FEEDBACK_NOTES.md](docs/FEEDBACK_NOTES.md);
-the final write-up is compiled from it.
+the final write-up is compiled from it and goes in the Devpost feedback section. This
+README stays qualitative: it reports no benchmark, no comparison of models or
+providers, and no performance information about any service.
 
 ## Docs
 
@@ -447,30 +596,33 @@ the final write-up is compiled from it.
 - [Feedback notes](docs/FEEDBACK_NOTES.md): running log for the Nebius / NVIDIA feedback the hackathon requires.
 - [Attributions](docs/ATTRIBUTIONS.md): data, library, font, and service credits (draft, pending legal review).
 - [Dedication](docs/DEDICATION.md): in memory of the six workers lost in the Key Bridge collapse.
+- [Story copy deck](docs/STORY.md): the words of the guided story (draft).
 - [Devpost text](docs/DEVPOST.md), [demo video script](docs/VIDEO_SCRIPT.md), [pitches and judge Q&A](docs/PITCH.md).
 
 Repo hygiene: run `scripts/check-repo-hygiene.sh` before pushing.
 
 ## Status
 
-Last updated: 2026-09-26. Live means it works on https://worldseed-mu.vercel.app
-today; in progress means it is not finished or not verified end to end; planned
-means it does not exist yet.
+Last updated: 2026-09-26. **Live** means it works with no key and runs in your
+browser; **built, not verified** means the code and tests exist but it has not run
+against the real service; **in progress** means it is not finished; **planned** means
+it does not exist yet. **[VERIFY BEFORE SUBMIT: docs/STATUS.md could not confirm which
+commit the deployed site runs. Deploy the latest `main` and confirm each Live item on
+https://worldseed-mu.vercel.app before submitting.]**
 
 - [x] **Live.** Pre-collapse OpenStreetMap road graph and snapshot (Key Bridge, both harbor tunnels, block groups, jobs, facilities)
 - [x] **Live.** Browser-side simulator (Web Workers), tested against the independent reference
-- [x] **Live.** Remove the Key Bridge link, terrain, side-by-side ribbon (cross-harbor, regional, first response), explainer
-- [x] **Live.** Hexagon inspector with block-group figures and the route that changed
-- [x] **Live.** Assumptions drawer, About and intended-use text, map and data attribution
-- [ ] **In progress.** AI planner path against live Nemotron models on Token Factory: implemented and tested with a fake provider; pending key, unverified live (no API key deployed yet; model availability unconfirmed)
-- [ ] **In progress.** Futures fan, finalist cards and deterministic search UI (Compare and Apply flow)
-- [ ] **In progress.** Tavily closure feed on the deployed site (code and tests complete; live lookup pending a deployed key)
-- [ ] **In progress.** Guided tour (`?tour=keybridge`): runs live actions, no recorded playback exists
-- [ ] **In progress.** Adversarial critic loop (propose, simulate, stress, refine, finalize; with a deterministic no-AI critic): built, pending live verification
-- [ ] **In progress.** Reality-check evidence endpoint (Tavily sources only, unverified): built, live lookup pending a key, interface wiring in progress
-- [ ] **In progress.** Exhaustive-search check of the AI's finalists against the true optimum: built, interface wiring in progress
+- [x] **Live.** Cross-harbor, regional and first-response (EMS) lenses side by side; remove the Key Bridge link, terrain, ribbon, explainer, hexagon inspector, Assumptions drawer, attribution
+- [x] **Live.** Freight lens: 24 cross-harbor hazmat and car trips, the hazmat panel, and hazmat truck detours as a selectable search goal with two hypothetical escorted-window options
+- [x] **Live.** Deterministic two-stage search (screen every eligible bundle, then paired stress futures on the top 12), labeled "not AI", with the deterministic stress critic
+- [x] **Live.** Stress tests (futures fan, stress step), finalist cards, Compare, Preview and Apply
+- [x] **Live.** Exhaustive audit of the search against every eligible bundle (top pick ranks 1 of 129 in the reference run)
+- [ ] **Built, not verified against a real service.** AI planner and critic on Nemotron via Token Factory: implemented and tested with a fake provider only; pending key (no API key deployed yet; model availability unconfirmed)
+- [ ] **Built, not verified against a real service.** Tavily road-closure feed and the reality-check evidence drawer (code and tests complete; live lookups pending a deployed key)
+- [ ] **Built, not verified against a real service.** Upstash shared rate limits and daily budget (without it limits are per process)
+- [ ] **Built, not verified against a real service.** Turnstile check hook
+- [ ] **In progress.** The guided story (six scenes, Expert mode toggle): being rebuilt; it replaces the earlier `?tour=keybridge` tour
 - [ ] **Planned.** Screening other crossings from the app (the pipeline is bbox-configurable today)
-- [ ] **Planned.** Freight and hazmat trip lens (pipeline work in progress)
 - [ ] **Planned.** Quantitative comparison of model output to published observations
 - [ ] **Not done.** Demo video (under 3:00) and final Devpost submission
 - [ ] **Not done.** Written Nebius and NVIDIA feedback, compiled from the notes file
@@ -488,15 +640,20 @@ of a simplified simulation using historical, possibly incomplete or outdated ope
 real-world performance and do not reflect the actual capabilities, staffing, capacity,
 or protocols of any hospital, fire, EMS, or government agency.
 
-**AI-generated text.** Numbers, results, and finalist cards are produced by the
-application from simulator results and catalog data. Text written by an AI language
-model appears only as a clearly labeled, unverified rationale in the decision log and
-may be inaccurate. All options are proposals for human review, not recommendations.
+**AI-generated text.** Numbers, results and finalist cards are produced by the
+application from simulator results and catalog data. AI-written text appears only in
+the decision log: a labeled rationale choice, and an optional raw reasoning section
+shown without human review, which may be wrong or inappropriate and is not the view of
+WorldSeed. News-derived closure quotes are verbatim from their sources and unverified.
+
+**Options.** All options are hypothetical proposals for human review, not
+recommendations.
 
 **No affiliation.** Names of hospitals, stations, and agencies identify real-world
 locations only. WorldSeed is not affiliated with, endorsed by, or produced in cooperation
-with any of them, the State of Maryland, Baltimore City or County, the U.S. Census
-Bureau, the NTSB, or the OpenStreetMap Foundation.
+with any of them, the Maryland Transportation Authority (MDTA), the State of Maryland,
+Baltimore City or County, the U.S. Census Bureau, the NTSB, or the OpenStreetMap
+Foundation.
 
 **No warranty.** Provided "as is" under the licenses below, without warranty of any kind.
 

@@ -1,9 +1,11 @@
 # WorldSeed pitches and judge Q&A
 
 Markers: **[VERIFY]** depends on something that was not verified live on 2026-09-26
-(the AI planner and critic on live Nemotron models, the finalist / futures flow, the
-Tavily lookups on the deployed site). **[PLANNED]** does not exist yet. Resolve or cut both before you say
-the sentence out loud. Tone: confident, sober, no hype. This is built on a real loss.
+(the AI planner and critic on live Nemotron models, the Tavily lookups on the deployed
+site, the deployed build matching the current code, or a figure to re-read from the
+running app). **[VERIFY AFTER REDESIGN]** describes the guided-story interface, which
+was being rebuilt. **[PLANNED]** does not exist yet. Resolve or cut all three before you
+say the sentence out loud. Tone: confident, sober, no hype. This is built on a real loss.
 
 Thesis: **Regional averages hide local disasters, and a good tool also shows what
 didn't break.**
@@ -18,11 +20,14 @@ about twenty thousand people, mostly on the Sparrows Point and Edgemere peninsul
 more than ten percent of the jobs they can reach across the harbor in thirty minutes, a
 count that depends on assumptions, and we show the range. And
 first-response times did not change at all, because both shores have their own
-stations. WorldSeed is a screening tool that shows all three side by side, computed in
-your browser on the 2024 road network. A Nemotron planner on Nebius Token Factory
-proposes options from a catalog, but the simulator scores everything, and the model
-can never state a number. **[VERIFY: planner live on Nemotron.]** It is a planning
-prototype, not dispatch, and a human decides.
+stations. And in the model, trucks carrying the hazardous materials MDTA lists, barred
+from both harbor tunnels, add about fifteen minutes across the harbor. WorldSeed is a screening tool that shows these side by side,
+computed in your browser on the 2024 road network. A deterministic search screens
+hypothetical options with no AI; a Nemotron planner on Nebius Token Factory is built to
+propose options from the same catalog, but the simulator scores everything, and the
+model can never state a number. **[VERIFY: planner live on Nemotron; otherwise say
+"built, pending live verification".]** It is a planning prototype, not dispatch, and a
+human decides.
 
 ## 2-minute pitch
 
@@ -48,19 +53,29 @@ worst-hit block groups, are stable. We defined that third lens before we saw its
 because the bridge's function was crossing the Patapsco, and the regional average hides
 it. Low-wage workers are not disproportionately hit; the tool reports that either way.
 
-Then the planner can screen for where mitigation would matter. You describe a goal in
-plain language. A small Nemotron model on Nebius Token Factory parses it, you confirm
-it, and the planner, the largest Nemotron model available, proposes bundles from a
-catalog of twenty-four hypothetical scenario options, only by catalog ID. The simulator
-scores each bundle across many stress futures in your browser. Validators reject
-anything outside the catalog. The model's explanation is a choice from a fixed list
-that the application renders in a labeled log, and every result sentence is written by
-a template. Between rounds a critic picks one stress test from a closed set, such as a
-tunnel closed at rush hour, and the simulator re-scores the leaders under it before the
-planner refines. **[VERIFY: planner and critic live on Nemotron; finalists, futures and
-Apply flow working.]** The honest result is that it does not find a fix: only about four of the
-twenty-four options meaningfully help, shuttle links did not, and the best one recovers
-about forty percent of the loss on an assumed corridor speed. **[VERIFY: figure.]**
+The largest effect in minutes is for hazmat trucks. Vehicles carrying the hazardous
+materials the Maryland Transportation Authority lists are barred from both harbor
+tunnels. That the bridge carried them before the collapse is our assumption; the rule
+page does not cover the bridge. In the model, with the bridge removed they take the
+western I-695 arc, the alternate route MDTA names, across twenty-four cross-harbor
+trips between real port and industrial anchors: about fifteen minutes added on average
+for a hazmat truck and about six for a car, at free-flow speeds. Closing the Harbor
+Tunnel as well changes nothing for them, because they cannot use it anyway. This is a
+simulation of one published rule, not route guidance.
+
+Then the search screens where mitigation would matter, from sixteen hypothetical
+options that no agency proposed. The deterministic search needs no AI: one run screens
+every eligible bundle, then the top twelve are scored across paired stress futures in
+your browser, and an audit of every bundle ranks its top pick first of one hundred
+twenty-nine. **[VERIFY: re-read from the app.]** A Nemotron planner on Nebius Token
+Factory is built to do the proposing, only by catalog ID, with validators rejecting
+anything else. **[VERIFY: built and tested against fakes only; say "live on Nemotron"
+only after one real end-to-end mission has run.]** The honest result is that there is
+no fix. The best two-stage result, Beltway flow plus Harbor Tunnel approaches plus I-95
+flow, cuts the residents who reach more than ten percent fewer cross-harbor jobs from
+about twenty thousand to about fifteen thousand, about a quarter fewer. That rests on
+assumed corridor speed factors and hypothetical options, and about fifteen thousand
+people remain affected. **[VERIFY: re-read both counts from the app.]**
 
 A Tavily feed can propose current closures near the model area, as unverified news
 reports that you confirm before they touch the model. **[VERIFY: live key.]**
@@ -82,13 +97,19 @@ free-flow speeds. The result: first response held, regional access moved about t
 seconds, and for about twenty thousand people, mostly on the Sparrows Point and Edgemere
 peninsula, cross-harbor job access fell by more than ten percent (a count that ranges
 from about 6,700 to 96,000 across the assumptions we tested), and by 27 to 77 percent in
-the eight hardest-hit block groups. A Nemotron planner on Nebius Token
-Factory screens a catalog of twenty-four hypothetical options, but it chooses only by
-catalog ID, strict validators reject anything else, and the simulator computes every
-metric, so the model can never state a number. **[VERIFY: planner live.]** It is a
-research prototype for resilience analysts, not a dispatch system, and a human decides.
+the eight hardest-hit block groups. In the model, trucks carrying the hazardous
+materials MDTA lists, barred from both harbor tunnels, add about fifteen minutes on
+average across 24 harbor trips. A deterministic two-stage
+search screens a catalog of sixteen hypothetical options with no AI, and a Nemotron
+planner on Nebius Token Factory is built to propose from the same catalog by ID only,
+with strict validators, so the model can never state a number: the simulator computes
+every metric. **[VERIFY: planner live; otherwise "built, pending live verification".]**
+On assumed corridor speed factors and hypothetical options, the best result cuts the
+residents who reach more than 10% fewer cross-harbor jobs from about 20,000 to about
+15,000, and about 15,000 remain. It is a research prototype for resilience analysts,
+not a dispatch system, and a human decides.
 
-## Eleven likely judge questions
+## Twelve likely judge questions
 
 **1. Why only Baltimore?**
 Depth and validation over breadth. One place, checked hex by hex against an independent
@@ -99,8 +120,14 @@ from the app is **[PLANNED]**; we have not done it, and we would validate each n
 before showing it.
 
 **2. If the model never produces a number, what is the AI for?**
-Search over a space the model cannot score. The number of possible bundles of options is
-awkward for a person to explore, so the planner proposes bundles, the simulator scores
+Search over a space the model cannot score, and an honest answer starts here: the search
+already works without it. The deterministic two-stage search screens every eligible
+bundle with one run and scores the top twelve across paired futures, and an audit of
+every bundle ranks its top pick first of 129. **[VERIFY: re-read from the app.]** The
+AI planner is built to explore that space more flexibly, from a plain-language goal, but
+it has not been verified against live models, so we do not claim it beats the
+deterministic search. The number of possible bundles of options is awkward for a person
+to explore, so the planner proposes bundles, the simulator scores
 them across many futures, and the planner refines. The model chooses catalog IDs and a
 rationale from a fixed list; it does not write results. The critic picks a stress test
 from a closed set, and the simulator re-scores the leaders under it. One labeled
@@ -111,17 +138,17 @@ to test. **[VERIFY: this describes the live run only after the planner and criti
 verified on Nemotron.]**
 
 **3. What is live, and what is not?**
-Live: the road graph and snapshot, the browser simulator, removing the link, the
-side-by-side lenses, the inspector, the assumptions drawer. Not verified yet as of
-2026-09-26: the planner against live Nemotron models on Token Factory (implemented and
-tested with a fake provider; no key deployed), the Tavily lookups on the deployed site,
-and the finalist flow. Built in code, pending live verification: the adversarial critic
-loop (with a deterministic no-AI critic as the fallback), a reality-check endpoint that
-lists Tavily sources about the 2024 detours, and an exhaustive-search check of the AI's
-finalists against the true optimum; the last two are not yet wired into the interface.
-Planned, not built: screening other crossings, a freight and hazmat trip lens, and a
-quantitative comparison to observations. **[VERIFY: update this answer to the state on
-the day.]**
+Live, with no key needed: the road graph and snapshot, the browser simulator, removing
+the link, the cross-harbor, regional and first-response lenses, the inspector, the
+assumptions drawer, the freight trips and the hazmat goal, the deterministic two-stage
+search with its stress tests, the exhaustive audit, and Compare, Preview and Apply.
+Built but not verified against a real service as of 2026-09-26: the AI planner and
+critic on Nemotron via Token Factory (implemented and tested with a fake provider only;
+no key deployed), the Tavily closure and evidence lookups, the Upstash shared limits and
+the Turnstile hook. Planned, not built: screening other crossings, and a quantitative
+comparison to observations. In progress: the guided-story interface.
+**[VERIFY: confirm the deployed build matches this, since the deployed commit was not
+confirmed; update this answer to the state on the day.]**
 
 **4. How do you know it is right?**
 We do not claim it is right; we claim we know how far it can be trusted. Three checks.
@@ -138,10 +165,10 @@ one commute. The reality-check endpoint only lists published sources, unverified
 quantitative comparison is **[PLANNED]**. One more caveat: the app's cross-harbor lens is
 a faster variant of the exact all-pairs version. At its default setting its headline
 count is within about 2% (about 19,700 exact versus about 20,100 in the app); at the
-setting used for futures it is off by about 9 to 11%. Separately, an exhaustive-search
-check (built, interface wiring in progress) scores every bundle of up to three options
-to test the AI's finalists against the true optimum. That checks the planner, not the
-road model.
+setting used for futures it is off by about 9 to 11%. Separately, the exhaustive audit
+scores every eligible bundle of up to three options and ranks the search's top pick
+among them (rank 1 of 129 in the reference run **[VERIFY: re-read from the app]**).
+That checks the search, not the road model.
 
 **5. Three seconds is tiny. Is your model just missing congestion?**
 Partly, and we say so. The deterministic run uses free-flow speeds, so tunnel and
@@ -185,13 +212,18 @@ manual exploration still works. The server and abuse-control code was independen
 red-teamed in multiple rounds, and the fixes are pinned by regression tests.
 
 **10. Did you find a fix for the peninsula?**
-No, and the tool is honest about it. Of twenty-four hypothetical options, only about
-four meaningfully help, shuttle links did not, and the best single option recovers about
-forty percent of the cross-harbor loss. That number depends on an assumed corridor speed
-factor, not an agency study. All options are hypothetical, none was proposed or endorsed
-by any agency, and costs are relative tiers. The tool screens where mitigation would
-matter; it does not design it. **[VERIFY: re-read the "about forty percent" figure from
-the app or the candidate-effects data before saying it.]**
+No, and the tool is honest about it. The best two-stage search result, Beltway flow plus
+Harbor Tunnel approaches plus I-95 flow, reduces the residents who reach more than ten
+percent fewer cross-harbor jobs from about twenty thousand to about fifteen thousand,
+about a quarter fewer. About fifteen thousand remain. That is based on assumed corridor
+speed factors and hypothetical options, not an agency study, and the count is a
+cliff-edge measure that our sensitivity study did not test in the option worlds. Shuttle
+links did not help, and we pruned ten of the first 24 options for having no measurable
+effect. All options are hypothetical, none was proposed or endorsed by any agency, and
+costs are relative tiers. The tool screens where mitigation would matter; it does not
+design it. **[VERIFY: re-read both counts from the app before saying them. Do not say
+"recovers about 40%": that older figure was one option's share of the mean added
+cross-harbor time on an assumed speed factor, not the measure the app shows.]**
 
 **11. What did your sensitivity study break?**
 Four things, and we published them (docs/METHODOLOGY.md). First, the head-count: about
@@ -209,6 +241,25 @@ variants, and the peninsula block groups stayed the worst-hit in 50 of 51. Time-
 measures (about 11 to 17 s average added) are stable; counts are not. Three of 15 null
 controls failed our pre-declared rule, all closures of a dead-end street a hex snaps to.
 
+**12. Why hazmat trucks, and how sure are you of the fifteen minutes?**
+Because it is the strongest effect we found, and the tunnel rule is published rather than
+assumed: the Maryland Transportation Authority bars vehicles carrying listed hazardous
+materials from the Fort McHenry and Harbor Tunnels (page accessed 26 September 2026).
+That the Key Bridge carried hazmat before the collapse is our assumption: the rule page
+does not cover the bridge, and MDTA's Key Bridge news page sends tunnel-prohibited
+hazmat vehicles to the western I-695 arc, which is the route the model uses. We fixed 24
+cross-harbor trips between seven road anchors at port and industrial sites before seeing
+results. At free-flow, removing the bridge adds about 5.8 minutes for
+a car and about 14.7 for a hazmat truck, and 23 of the 24 hazmat trips add more than five
+minutes. It is one rule, one sample of trips, and no queues, permits, dwell time or real
+freight volumes; general freight is not modeled. Two hypothetical escorted-window
+options let hazmat trucks use a tunnel at an assumed delay: in the reference run the
+Harbor Tunnel one cuts the mean from +14.7 to +10.2 minutes. That escort figure is a
+hypothetical result: escorted windows are not an MDTA program, proposal or finding, and
+nothing here says they would be safe or lawful. Nothing here is route guidance, and
+carriers must follow posted and designated hazardous-materials routes. **[VERIFY: re-read 5.8, 14.7, 23 of 24 and 10.2
+from the app.]**
+
 ## Numbers you may quote (all from the app and the snapshot, on 2026-09-26)
 
 - 36,610 road nodes; OpenStreetMap as of 2024-03-01; 74 fire stations, 2 ambulance stations, 10 hospitals.
@@ -217,6 +268,9 @@ controls failed our pre-declared rule, all closures of a dead-end street a hex s
 - Cross-harbor: about 20,000 residents lose more than 10% of reachable jobs (app 20,100; exact reference 19,705), **always quoted with the range about 6,700 to 96,000 across the variants we tested**; about 11,400 lose more than 25%; the 8 hardest-hit block groups lose 27-77%; worst-off 1% add at least 4.3 min; average added time about 11 to 17 s across speed variants (stable).
 - Study: 51 variants; regional and first-response conclusions held in all 51; peninsula worst-hit in 50 of 51; router rank agreement 0.98 (Spearman), model about 22% faster; reported Dundalk to Ferndale commute about 20 to 41 min versus about +1.2 min in the model (about +9 with both tunnels closed).
 - Low-wage workers: 1,380 lose more than 10%, which is 1.8% of low-wage workers against 1.9% of all residents.
-- Catalog: 24 hypothetical options; only about four meaningfully help; shuttle links did not.
+- Hazmat and freight (free-flow, Key Bridge removed, 24 cross-harbor trips between 7 anchors): cars +5.8 min mean; hazmat trucks +14.7 min mean; 23 of 24 hazmat trips add more than 5 min; Harbor Tunnel closure irrelevant to hazmat trucks; Harbor Tunnel escort window (hypothetical, not an MDTA program, assumed delay) cuts the hazmat mean from +14.7 to +10.2 min. MDTA rule page accessed 2026-09-26. **[VERIFY: re-read from the app.]**
+- Catalog: 16 hypothetical options (an earlier 24 were pruned to 14, plus 2 hazmat windows); shuttle links did not help.
+- Search: deterministic two-stage (screen every eligible bundle, paired futures on the top 12); the exhaustive audit ranks its top pick 1 of 129 **[VERIFY: re-read]**. Best two-stage result (Beltway flow + Harbor Tunnel approaches + I-95 flow): "residents who reach more than 10% fewer cross-harbor jobs" from about 20,000 to about 15,000, about a quarter fewer, on assumed corridor speed factors and hypothetical options; about 15,000 remain. Always name that measure. Do not quote a percent "recovered".
+- AI planner: built, tested against fakes only, pending a real key. **[VERIFY before saying it ran.]**
 
 If a number on screen differs from one here, trust the screen and fix this file.
