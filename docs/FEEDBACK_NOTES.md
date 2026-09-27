@@ -16,6 +16,12 @@ How to use it:
   documented item as an experience in the final submission.
 - The Token Factory terms bar "competitive analysis or benchmarking". Report what we observe running
   this app (our latency, our errors), not comparisons against other providers.
+- Tavily's terms bar disclosing any performance information about Tavily to third parties: record none here.
+  Describe Tavily only by what it does. This includes latency, hit rates, relevance and whether a parameter is honored.
+- Safe wording for any published count (use it verbatim, fill the blanks, keep N and dates):
+  "Observations from WorldSeed's own validators on our own requests (N = __ missions, __ to __ 2026). They describe how
+  our app's schema and screens handled the replies we received, not the quality or performance of Token Factory or any
+  model. This is not a benchmark or a comparison with any other model or provider."
 
 ## Raw log
 

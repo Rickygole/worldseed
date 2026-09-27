@@ -13,12 +13,16 @@ of the official tables. Per-hex figures are estimates derived by WorldSeed, not
 official Census Bureau figures.
 Fire station and hospital locations: MD iMAP, DoIT, MCAC, MSFA (fire stations) and
 MD iMAP, DHMH OHCQ (hospitals), State of Maryland, provided as is.
+Hazardous-materials tunnel rule: Maryland Transportation Authority (MDTA), cited and
+linked (https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits), not affiliated.
 
 AI features use NVIDIA Nemotron models served via Nebius Token Factory.
-Model licenses (per the Hugging Face model cards, read 2026-09-26; applying them to
-the copies Nebius serves is unverified): Nemotron 3 Nano and Nemotron 3 Super, NVIDIA
-Nemotron Open Model License; Nemotron 3 Ultra and Nemotron 3.5 Lightning, OpenMDW-1.1.
-See docs/ATTRIBUTIONS.md for the exact model IDs and links.
+Model licenses as named on the Hugging Face model cards (BF16 repositories, read
+2026-09-26): Nemotron 3 Nano and Nemotron 3 Super, NVIDIA Nemotron Open Model License
+(last modified 2025-12-15); Nemotron 3 Ultra and Nemotron 3.5 Lightning, OpenMDW License
+Agreement, version 1.1 (OpenMDW-1.1). WorldSeed calls these models through an API and
+does not distribute model weights or derivatives. Whether the copies Nebius serves carry
+the same terms is unverified. See docs/ATTRIBUTIONS.md for the exact model IDs and links.
 Use of the hosted AI features is subject to the Nebius Token Factory Terms of
 Service: https://docs.tokenfactory.nebius.com/legal/terms-of-service
 Live road-closure search results are provided by Tavily; linked articles remain
@@ -41,5 +45,6 @@ components:
   (https://github.com/JetBrains/JetBrainsMono)
 
 WorldSeed is not affiliated with or endorsed by the OpenStreetMap Foundation,
-OpenFreeMap, the U.S. Census Bureau, the State of Maryland, the NTSB, NVIDIA, Nebius,
-Tavily, Vercel, or any hospital, fire, EMS, or government agency.
+OpenFreeMap, the U.S. Census Bureau, the State of Maryland, the Maryland Transportation
+Authority (MDTA), the NTSB, NVIDIA, Nebius, Tavily, Vercel, or any hospital, fire, EMS,
+or government agency.

@@ -19,6 +19,13 @@ from worldseed_pipeline.graphio import BUFFER_ORDER, load_graph
 SNAP = config.SNAP
 F = config.FLAGS
 
+# data/raw/ is gitignored (downloads made by the pipeline), so a fresh clone or CI does not have it.
+# Tests that compare the snapshot against the fetched interim tables are skipped there, not failed.
+needs_raw = pytest.mark.skipif(
+    not fetch_census.INTERIM.is_dir(),
+    reason="needs data/raw/interim (gitignored pipeline downloads); run the pipeline to create it",
+)
+
 
 @pytest.fixture(scope="module")
 def g():
@@ -123,6 +130,7 @@ def test_closing_links_keeps_rest_of_graph_usable(g, gold):
 
 
 # ---------------------------------------------------------------------------- census / hexes
+@needs_raw
 def test_population_conservation(hx):
     bgs = json.loads((SNAP / "blockgroups.json").read_text())
     acs = pd.read_csv(fetch_census.INTERIM / "acs_bg.csv", dtype={"geoid": str})
@@ -143,6 +151,7 @@ def test_population_conservation(hx):
     assert abs(float(hx["lowWage"].sum()) - lw_exp) / lw_exp < 0.005
 
 
+@needs_raw
 def test_jobs_conserved(hx):
     wac = pd.read_csv(fetch_census.INTERIM / "lodes_wac_blocks.csv", dtype={"block": str})
     w, s, e, n = config.BBOX

@@ -152,8 +152,8 @@ Expert mode toggle (section 8).
 | Action button | Remove the Key Bridge |
 | What the action does | Removes the `L-KEYBRIDGE` link (six directed I-695 edges), recomputes every lens in the browser, fades the link line (no collapse animation) and raises the terrain where access changed. Button then reads "Removed"; Restore lives in Expert mode. |
 | Caveat chip | Is this too small? (opens Popover 1a) |
-| Popover 1a (40 words; the reported claim is one clause) | Free-flow: no traffic jams, so delays can be larger. Maryland Matters (via Baltimore Fishbowl, link) reported a Dundalk to Ferndale commute rising from about {{study.detour.beforeMin}} to {{study.detour.afterMin}} minutes. The model adds about {{study.detour.modelAddedMin}} minutes, or {{study.detour.bothTunnelsMin}} with both tunnels closed. |
-| Popover 1a source | Maryland Matters, 28 March 2025; text read via Baltimore Fishbowl (link). Never quote more than the one clause above. Methodology, section 6.1. |
+| Popover 1a (40 words; the reported claim is one clause) | Free-flow: no traffic jams, so delays can be larger. Capital News Service (via Baltimore Fishbowl, link) reported a Dundalk to Ferndale commute rising from about {{study.detour.beforeMin}} to {{study.detour.afterMin}} minutes. The model adds about {{study.detour.modelAddedMin}} minutes, or {{study.detour.bothTunnelsMin}} with both tunnels closed. |
+| Popover 1a source | Capital News Service (Kanner and Beinart), 28 March 2025; text read via Baltimore Fishbowl (link). Never quote more than the one clause above. Methodology, section 6.1. |
 | Screen reader, before | Scene {{story.scene}} of {{story.total}}, the bridge. The map shows roads with the Key Bridge in place. Button: Remove the Key Bridge. |
 | Screen reader, after (aria-live, polite) | The Key Bridge is removed. In the simulation, the average drive to jobs gets {{regional.addedS}} longer. |
 | Map alt text | 3D map of the Baltimore area. Taller areas mean a longer average trip to jobs across the river. |
@@ -390,8 +390,7 @@ Census Bureau, the NTSB or the OpenStreetMap Foundation.
 
 **Sources.** Roads: OpenStreetMap contributors (ODbL). People: U.S. Census Bureau ACS 5-year (via Census Reporter) and
 TIGER/Line. Jobs: Census LEHD LODES. Facilities: OpenStreetMap and Maryland iMAP. Hazardous-materials tunnel rule and
-alternate route: Maryland Transportation Authority, cited and linked, not affiliated. Reported commute: Maryland
-Matters (via Baltimore Fishbowl, link). Basemap: OpenFreeMap, OpenMapTiles. Links: Methodology, Data sources,
+alternate route: Maryland Transportation Authority, cited and linked, not affiliated. Reported commute: Capital News Service (via Baltimore Fishbowl, link). Basemap: OpenFreeMap, OpenMapTiles. Links: Methodology, Data sources,
 Attributions.
 
 **AI and search.** When available, NVIDIA Nemotron models on Nebius Token Factory pick ideas from a fixed list. They
@@ -492,7 +491,7 @@ templates) contain slot numbers and were not scored; keep them under 18 words.
    carrying certain hazardous materials (like some fuels and chemicals)" is exact but scores about grade 12 as a scene
    sentence (13 words, 25 syllables), so it is the first line of Popover 4a instead of the on-screen sentence. If
    the owner wants it on screen, accept the readability miss for that one scene.
-6b. **Popover 1a keeps the reported commute to one clause** and cites Maryland Matters (via Baltimore Fishbowl) with a
+6b. **Popover 1a keeps the reported commute to one clause** and cites Capital News Service (via Baltimore Fishbowl) with a
    link placeholder, per the second legal review. The model's own numbers are stated exactly; the source is not
    quoted beyond that clause.
 6c. **Free-flow definition** in Popover 1a is now "Free-flow: no traffic jams" (a colon, not a sentence) to stay
@@ -549,7 +548,7 @@ words at the reference values.
 | 2 | The model uses roads as of 1 March 2024 | About, loading | DATA_SOURCES 1; slot `snapshot.date`. |
 | 3 | The average drive to jobs gets about 3 seconds longer | Scene 1 | Slot `regional.addedS`; METHODOLOGY 0 (+2.9 s); conclusion C1 held in 51 of 51 variants. |
 | 4 | Most trips skip the bridge | Scene 1 | Interpretation in DATA_SOURCES 7 and README table; not computed. Bridge-only worlds. Add a share-of-trips slot or soften to "hardly changes". |
-| 5 | No traffic jams means delays can be larger; commute rising from about 20 to 41 minutes vs model about 1.2 (9 with both tunnels closed) | Popover 1a | METHODOLOGY 6.1; `REPORTED_DETOUR`; Maryland Matters, 28 March 2025, text read via Baltimore Fishbowl (link). One clause only. Legal review 2 also asks for the byline and canonical URL in METHODOLOGY and notes a reported CC BY-NC-ND 4.0 republishing license (unverified). Reference world only. |
+| 5 | No traffic jams means delays can be larger; commute rising from about 20 to 41 minutes vs model about 1.2 (9 with both tunnels closed) | Popover 1a | METHODOLOGY 6.1; `REPORTED_DETOUR`; Capital News Service, 28 March 2025, text read via Baltimore Fishbowl (link). One clause only. Legal review 2 also asks for the byline and canonical URL in METHODOLOGY and notes a reported CC BY-NC-ND 4.0 republishing license (unverified). Reference world only. |
 | 6 | About 20,000 people reach over 10% fewer jobs across the river | Scenes 2, 6 | Slot `xharbor.peopleGt10`; METHODOLOGY 0 (19,705 exact; app 20,100). Always with the range. |
 | 7 | Could be as low as about 6,700 or as high as about 96,000 | Scene 2 chip | METHODOLOGY 0 and 5.1 (`PEOPLE_GT10_RANGE`). |
 | 8 | The worst-hit spots are near Sparrows Point and Edgemere | Scene 2 | Slot `xharbor.worstAreaLabel`; METHODOLOGY 0 (nearest place names, approximate). Label table needs review. |
@@ -594,7 +593,7 @@ words at the reference values.
 - **C. New accessors.** `ems.shoresWithStations`, `freight.anchorCount`, `options.best.recoveryMeasure`, and a
   reviewed label table for `xharbor.worstAreaLabel`.
 - **G. Legal review 2 follow-ups outside this file:** the DATA_SOURCES line about the bridge and hazmat, the
-  METHODOLOGY byline and canonical URL for Maryland Matters, the NOTICE and ATTRIBUTIONS entries for the MDTA, and the
+  METHODOLOGY byline and canonical URL and publisher for the commute article, the NOTICE and ATTRIBUTIONS entries for the MDTA, and the
   suffix " (hypothetical; not an MDTA program)" on escort option titles in the UI. This deck only specifies the copy.
 - **D. Stale README status.** README lists the freight and hazmat lens as planned; the interface already has it
   (DATA_SOURCES 10). Scene 4 assumes the built version.

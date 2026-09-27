@@ -339,7 +339,7 @@ YouTube description (paste):
 > Basemap: OpenFreeMap, (c) OpenMapTiles. Census data: U.S. Census Bureau (ACS via
 > Census Reporter; TIGER/Line; LEHD LODES). Facility locations: MD iMAP, State of
 > Maryland. Hazmat tunnel rule: Maryland Transportation Authority. Reported commute:
-> Maryland Matters (via Baltimore Fishbowl). AI: NVIDIA Nemotron on Nebius Token
+> Capital News Service (via Baltimore Fishbowl). AI: NVIDIA Nemotron on Nebius Token
 > Factory. Search: Tavily. WorldSeed is a research prototype and planning simulation:
 > not dispatch, not route guidance. Not affiliated with or endorsed by any agency or
 > company named. In memory of the six workers lost on March 26, 2024. For the Nebius x
@@ -347,7 +347,7 @@ YouTube description (paste):
 
 **[VERIFY: keep the "AI: NVIDIA Nemotron on Nebius Token Factory" and "Search: Tavily"
 credits only for services that ran live in the submitted build. The credits block is the
-legal-review wording; the sentence before it is ours. Add the Maryland Matters
+legal-review wording; the sentence before it is ours. Add the Capital News Service
 canonical URL when METHODOLOGY has it.]**
 
 ## Checklist: verify live before recording

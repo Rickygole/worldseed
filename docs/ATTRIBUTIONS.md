@@ -9,7 +9,8 @@ Related files: `NOTICE` (short form shipped with the code), `THIRD_PARTY_LICENSE
 software license, with full texts for direct runtime dependencies), `data/snapshot/LICENSE.md` (the ODbL notice for the data).
 
 WorldSeed is not affiliated with or endorsed by OpenStreetMap Foundation, OpenFreeMap, OpenMapTiles, the U.S. Census
-Bureau, the State of Maryland, the NTSB, NVIDIA, Nebius, Tavily, Vercel, or any agency, hospital, fire company or EMS provider.
+Bureau, the State of Maryland, the Maryland Transportation Authority (MDTA), the NTSB, NVIDIA, Nebius, Tavily, Vercel, or any
+agency, hospital, fire company or EMS provider.
 
 ## Where attribution appears in the running app
 
@@ -90,6 +91,26 @@ Flags:
 - Suggested acknowledgement text (not yet in the app): `Fire station and hospital locations: MD iMAP (State of Maryland), retrieved 2026-09-26.`
 - Not endorsed by the State of Maryland.
 
+### Maryland Transportation Authority (hazardous-materials tunnel rule)
+
+- Hazardous-materials tunnel rule: Maryland Transportation Authority, cited and linked, not affiliated. Rule page:
+  https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits (accessed 2026-09-26): vehicles carrying the listed hazardous
+  materials are prohibited from the Fort McHenry Tunnel (I-95) and the Baltimore Harbor Tunnel (I-895), citing COMAR 11.07.01.
+  The page does not mention the Key Bridge. MDTA's Key Bridge news page (https://mdta.maryland.gov/keybridgenews) names the
+  western section of I-695 as the alternate route.
+- Use: paraphrase and link, at most one quoted sentence. Not endorsed by the MDTA. The license of the page text is unverified
+  (State of Maryland web content, cited only). See `docs/LEGAL.md` rule 11 for the required framing ("Simulation, not route guidance").
+
+### Published reporting (news citations)
+
+- "Baltimore residents face daily disruptions after Key Bridge collapse", 28 March 2025 (Baltimore Fishbowl copy: 27 March 2025). Byline
+  verified on both syndicated copies read 2026-09-26: Charlotte Kanner and Mira Beinart, Capital News Service. The project has been
+  citing this piece as "Maryland Matters"; **unverified:** neither copy names Maryland Matters, and its canonical URL was not
+  confirmed (`docs/METHODOLOGY.md` section 6.1). The republishing license is reported as CC BY-NC-ND 4.0 (**unverified**): in the app
+  keep any quote to one clause and link out. Until confirmed, credit it as "Capital News Service, via Baltimore Fishbowl".
+- Census Reporter: keep the "obtained via Census Reporter" credit. The OSRM demo server is never called from the running app; the ODbL
+  credit stays on derived travel times.
+
 ### WorldSeed scenario catalog
 
 `candidates.json` and `candidate_effects.json` are WorldSeed's own hypothetical options and modeled effects. No entry was
@@ -133,8 +154,10 @@ exact ID strings for Ultra and Nano were not printed on the public docs pages re
 | parser, narrator, extractor (primary) | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` | No. The spike guessed `nvidia/Nemotron-3-Nano-30B-A3B`; the code uses a different string. Unverified. |
 | parser, extractor (fallback) | `nvidia/Nemotron-3_5-Lightning` | Yes: in the same deprecation notice (as the recommended replacement for several models). Access on our key unverified. |
 
-Model licenses. Read from the Hugging Face model cards' `license` metadata on 2026-09-26 (BF16 repositories only; the
-FP8/NVFP4 variants and the copies Nebius serves were not checked, so applying these to the hosted models is **unverified**):
+Model licenses as named on the Hugging Face model cards (BF16 repositories, read 2026-09-26): Nemotron 3 Nano and Nemotron 3 Super,
+NVIDIA Nemotron Open Model License (last modified 2025-12-15); Nemotron 3 Ultra and Nemotron 3.5 Lightning, OpenMDW License
+Agreement, version 1.1 (OpenMDW-1.1). WorldSeed calls these models through an API and does not distribute model weights or
+derivatives. Whether the copies Nebius serves carry the same terms is **unverified** (the FP8/NVFP4 variants were not checked either).
 
 | Model (Hugging Face repository) | License named on the card |
 |---|---|
@@ -174,6 +197,7 @@ produces a displayed metric.
 ## Open items
 
 - Confirm licenses of the model copies Nebius serves (hosted Ultra, Super, Nano, Lightning) once a key can list them.
+- MDTA page-text license, and the news piece's publisher (Maryland Matters vs Capital News Service), canonical URL and republishing license (see the news citations entry): unverified.
 - Census Reporter terms, OpenFreeMap glyph font license, Tavily attribution wording: unverified.
 - Frontend (owned elsewhere): add the State of Maryland acknowledgement to the About dialog, and link `THIRD_PARTY_LICENSES.md` from it
   (the dialog currently says "under the licenses below" without listing them).

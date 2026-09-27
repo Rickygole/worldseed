@@ -205,7 +205,9 @@ boundaries.
 
 ## 10. Freight and hazmat trips (round 3)
 
-**Why.** Both harbor tunnels prohibit vehicles carrying listed hazardous materials; the Key Bridge did not. A hazmat
+**Why.** Both harbor tunnels prohibit vehicles carrying listed hazardous materials; the MDTA rule does not cover the Key
+Bridge, and MDTA's post-collapse advisory sends tunnel-prohibited hazmat vehicles to western I-695
+(https://mdta.maryland.gov/keybridgenews); the model assumes the bridge carried them. A hazmat
 truck therefore loses its only short harbor crossing when the bridge is removed, while a car can still use a
 tunnel. This is the strongest true effect found so far, so it gets its own point-to-point trip set. The set was
 defined before results were seen (`pipeline/trips.yaml`).

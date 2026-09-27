@@ -541,7 +541,7 @@ transit routing, native tool-calling dependence, and any vision model.
   (EMS lens unchanged), and what the bridge loss changes is cross-harbor job access. That loss is
   NOT concentrated on low-wage workers: in `data/snapshot/golden.json` (`xharbor`, `keybridge_removed`),
   1.8% of low-wage workers and 1.9% of all residents lose more than 10% of their cross-harbor jobs
-  within 30 minutes. Freight and hazmat routing are planned (COULD, section 3) and are not yet in the product.
+  within 30 minutes. The freight and hazmat trip lens (simulated hazmat-truck detours under the MDTA tunnel rule) has since been built; see docs/DATA_SOURCES.md section 10.
 - **Idea**: the LLM searches a space it cannot score. It never produces a number.
 
 ---

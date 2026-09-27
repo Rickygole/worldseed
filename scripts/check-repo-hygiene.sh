@@ -6,7 +6,8 @@
 #   - files that must never be committed (agent config, real .env files)
 #   - likely secrets (API keys, private keys)
 #   - submission-readiness gaps: missing LICENSE/NOTICE/THIRD_PARTY_LICENSES.md, a filled-in secret in
-#     .env.example, a NEXT_PUBLIC_ variable that looks like a key; warns when THIRD_PARTY_LICENSES.md is stale
+#     .env.example, a NEXT_PUBLIC_ variable that looks like a key; a workflow that uses repository secrets or an
+#     unpinned action; warns when THIRD_PARTY_LICENSES.md is stale (skipped when dependencies are not installed)
 #
 # Usage:
 #   scripts/check-repo-hygiene.sh                    # tracked files + commit messages
@@ -23,7 +24,7 @@ INCLUDE_UNTRACKED=0
 for arg in "$@"; do
   case "$arg" in
     --include-untracked) INCLUDE_UNTRACKED=1 ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -128,6 +129,22 @@ if [ -f scripts/gen-third-party-licenses.mjs ] && command -v node >/dev/null 2>&
   if ! node scripts/gen-third-party-licenses.mjs --check >/dev/null 2>&1; then
     warn "THIRD_PARTY_LICENSES.md is stale. Run: node scripts/gen-third-party-licenses.mjs"
   fi
+fi
+
+# GitHub Actions workflows: no repository secrets (the health ping and the CI need none), and every third-party
+# action is pinned to a major version tag or a commit, never a branch name.
+if [ -d .github/workflows ]; then
+  for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+    [ -f "$wf" ] || continue
+    sec=$(grep -En 'secrets\.' "$wf" | grep -v 'secrets\.GITHUB_TOKEN' | cut -d: -f1 | head -5 | tr '\n' ' ')
+    if [ -n "$sec" ]; then
+      report "workflow $wf references repository secrets (line(s): ${sec}); none should be needed"
+    fi
+    unpinned=$(grep -En '^[[:space:]-]*uses:[[:space:]]*[^./[:space:]]' "$wf" | grep -Ev 'uses:[[:space:]]*[^@[:space:]]+@(v[0-9]+([.][0-9]+)*|[0-9a-f]{40})([[:space:]]|$)' | cut -d: -f1 | head -5 | tr '\n' ' ')
+    if [ -n "$unpinned" ]; then
+      report "workflow $wf has an action that is not pinned to a version tag or commit (line(s): ${unpinned})"
+    fi
+  done
 fi
 
 if [ "$fail" -eq 0 ]; then

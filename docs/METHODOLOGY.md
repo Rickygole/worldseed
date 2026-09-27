@@ -370,7 +370,7 @@ Only sources that were actually fetched are cited. All were accessed on 2026-09-
 
 ### 6.1 Reported detour
 
-- Maryland Matters, "Baltimore residents face daily disruptions after Key Bridge collapse" (2025-03-28, per the URL; the original returned HTTP 403 to our fetch, so the text was read in two syndicated copies):
+- Charlotte Kanner and Mira Beinart (Capital News Service), "Baltimore residents face daily disruptions after Key Bridge collapse", 28 March 2025 (Baltimore Fishbowl copy dated 27 March 2025). We have cited this piece as "Maryland Matters" (the original returned HTTP 403 to our fetch, so the text was read in two syndicated copies). **Unverified:** neither copy names Maryland Matters; both give the byline above and credit Capital News Service (read 2026-09-26). The canonical marylandmatters.org URL was not confirmed, and the republishing license is reported as CC BY-NC-ND 4.0 (unverified). Until a canonical URL and publisher are confirmed, cite it as "Capital News Service, via Baltimore Fishbowl" and keep any quote to one clause with a link out. Copies read:
   https://baltimorefishbowl.com/stories/baltimore-residents-face-daily-disruptions-after-key-bridge-collapse/ and
   https://thedailyrecord.com/2025/03/28/baltimore-residents-face-daily-disruptions-after-key-bridge-collapse/.
   Quoted: "A study by the Baltimore Metropolitan Council said the Francis Scott Key Bridge averaged 39,000 crossings per weekday" and "a 20-minute commute from Dundalk to Ferndale in northern Anne Arundel County has doubled to 41 minutes."
