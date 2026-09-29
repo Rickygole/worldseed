@@ -154,6 +154,14 @@ camera cuts (`goToScene(id, { instant: true })`), no orbit, no shimmer.
   tools; the right planner (360 px) showing one step at a time; a bottom ribbon of five KPIs (96 px);
   the map in between (never less than 60% of the width at 1366).
 
+### Pages
+
+Real URLs (App Router): `/` intro, `/story/<slug>` one scene each, `/explore` Expert mode, `/about` and `/methodology`
+documents. The map, simulator and worker pool are mounted once in the root layout and persist across pages; each page
+renders only its overlay. Document pages cover the map with a dim scrim in a 720 px reading column and leave the bottom
+36 px strip clear for the map attribution. The mode switch is a link (story to `/explore`, Expert back to the last
+scene); arrow keys and the story bar navigate by URL, so the browser's back and forward buttons work.
+
 ## 8. Components (in `components/ui/`)
 
 Every interactive component has default, hover, focus-visible, active/pressed, disabled and loading states.
