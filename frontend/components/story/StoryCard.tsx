@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, ArrowRight, ArrowUp, Check, Eye, HelpCircle, LayoutPanelLeft, Loader2, Route, Search, ShieldCheck, Square, Unlink } from "lucide-react";
 import { announceText, type ActionId, type Chip, type SceneView } from "@/lib/ui/storyFigures";
-import { askApplyTop, goScene, nextScene, removeBridgeInStory, revealScene, runStorySearch, showRoute, stepIndex, STORY_STEPS, stopStorySearch, type StoryScene } from "@/lib/ui/story";
-import { setUiMode } from "@/lib/ui/modes";
+import { askApplyTop, nextScene, removeBridgeInStory, revealScene, runStorySearch, showRoute, stepIndex, STORY_STEPS, stopStorySearch, type StoryScene } from "@/lib/ui/story";
+import { goToStory, setUiMode } from "@/lib/ui/modes";
 import { HOW, SIMULATED, T } from "@/lib/ui/storyCopy";
 import BigNumber, { TONE_COLOR } from "../ui/BigNumber";
 import Popover, { CaveatBody } from "../ui/Popover";
@@ -49,7 +49,7 @@ function runAction(id: ActionId): void {
       return;
     case "next": {
       const n = nextScene();
-      if (n) void goScene(n);
+      if (n) goToStory(n);
       return;
     }
     case "expert":

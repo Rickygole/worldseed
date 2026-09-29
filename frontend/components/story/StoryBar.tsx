@@ -3,7 +3,8 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { goScene, nextScene, prevScene, stepIndex, STORY_STEPS } from "@/lib/ui/story";
+import { nextScene, prevScene, stepIndex, STORY_STEPS } from "@/lib/ui/story";
+import { goToStory } from "@/lib/ui/modes";
 import { STEPS, T } from "@/lib/ui/storyCopy";
 
 /**
@@ -20,7 +21,7 @@ export default function StoryBar({ variant = "header" }: { variant?: "header" | 
 
   return (
     <nav aria-label="Guided story" className="flex items-center gap-1">
-      <button type="button" className="btn-icon shrink-0" aria-label={`${T.common.back} (Left arrow)`} disabled={!prev} onClick={() => prev && void goScene(prev)}>
+      <button type="button" className="btn-icon shrink-0" aria-label={`${T.common.back} (Left arrow)`} disabled={!prev} onClick={() => prev && goToStory(prev)}>
         <ChevronLeft size={18} aria-hidden />
       </button>
       <ol className={`flex items-center ${sheet ? "gap-1.5" : "gap-1"}`}>
@@ -33,7 +34,7 @@ export default function StoryBar({ variant = "header" }: { variant?: "header" | 
               <motion.button
                 layout={!reduced}
                 type="button"
-                onClick={() => void goScene(id)}
+                onClick={() => goToStory(id)}
                 aria-current={on ? "step" : undefined}
                 aria-label={`Scene ${i + 1} of ${STORY_STEPS.length}: ${label}`}
                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
@@ -60,7 +61,7 @@ export default function StoryBar({ variant = "header" }: { variant?: "header" | 
           );
         })}
       </ol>
-      <button type="button" className="btn-icon shrink-0" aria-label={`${T.common.next} (Right arrow)`} disabled={!next} onClick={() => next && void goScene(next)}>
+      <button type="button" className="btn-icon shrink-0" aria-label={`${T.common.next} (Right arrow)`} disabled={!next} onClick={() => next && goToStory(next)}>
         <ChevronRight size={18} aria-hidden />
       </button>
       {sheet && cur !== null && (

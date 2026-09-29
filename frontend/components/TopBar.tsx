@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Command, FileText, Info, Keyboard, Sprout, Unlink, GitBranch } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Command, FileText, Keyboard, Sprout, Unlink, GitBranch } from "lucide-react";
 import { useApp, isBridgeRemoved } from "@/lib/store";
 import { useSearch } from "@/lib/ui/search";
 import { shortModel } from "@/lib/ui/agentBridge";
 import { useStory } from "@/lib/ui/story";
 import ModeToggle from "./ui/ModeToggle";
 import StoryBar from "./story/StoryBar";
+import type { PageKind } from "@/lib/ui/routes";
 
 /** Real system state from /api/health: whether the AI planner is available, and why not. */
 export function SystemState() {
@@ -53,38 +56,58 @@ export function SystemState() {
 function Wordmark({ sub }: { sub?: React.ReactNode }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div className="flex items-center gap-2">
+      <Link href="/" className="flex items-center gap-2 rounded-md" aria-label="WorldSeed, start page">
         <Sprout size={18} className="text-ok" aria-hidden />
-        <h1 className="display text-base font-semibold tracking-[0.02em]">WorldSeed</h1>
-      </div>
+        <span className="display text-base font-semibold tracking-[0.02em]">WorldSeed</span>
+      </Link>
       {sub}
     </div>
   );
 }
 
-/** The header: story bar in the guided story; scenario, system state and tools in Expert mode. */
-export default function TopBar() {
-  const mode = useApp((s) => s.mode);
-  const scene = useApp((s) => s.scene);
+/** Quiet links to the two documents. */
+function DocLinks() {
+  const pathname = usePathname();
+  const cls = (href: string) => `rounded-full px-3 py-1.5 text-sm transition-colors duration-150 ${pathname === href ? "text-text" : "text-text-2 hover:text-text"}`;
+  return (
+    <nav aria-label="Documents" className="flex items-center">
+      <Link href="/methodology" className={cls("/methodology")} aria-current={pathname === "/methodology" ? "page" : undefined}>
+        Methodology
+      </Link>
+      <Link href="/about" className={cls("/about")} aria-current={pathname === "/about" ? "page" : undefined}>
+        About
+      </Link>
+    </nav>
+  );
+}
+
+/** The header: story bar on story pages; scenario, system state and tools in Expert mode; links everywhere. */
+export default function TopBar({ page }: { page: PageKind }) {
   const presentation = useApp((s) => s.presentation);
   const removed = useApp(isBridgeRemoved);
   const mutated = useApp((s) => (s.scenario.mutations?.length ?? 0) > 0);
   const setAssumptionsOpen = useApp((s) => s.setAssumptionsOpen);
   const setCommandOpen = useApp((s) => s.setCommandOpen);
-  const setAboutOpen = useApp((s) => s.setAboutOpen);
 
-  if (mode === "story") {
+  if (page !== "explore") {
     return (
       <header className="scrim-top pointer-events-none relative z-30 flex h-14 shrink-0 items-center justify-between gap-4 px-4 md:px-6">
         <div className="pointer-events-auto">
           <Wordmark />
         </div>
-        {scene !== "intro" && (
+        {page === "story" && (
           <div className="pointer-events-auto absolute left-1/2 hidden -translate-x-1/2 md:block">
             <StoryBar />
           </div>
         )}
-        <div className="pointer-events-auto">{scene !== "intro" && <ModeToggle compact={false} />}</div>
+        <div className="pointer-events-auto flex items-center gap-1">
+          {page !== "intro" && (
+            <div className="max-md:hidden">
+              <DocLinks />
+            </div>
+          )}
+          {page !== "intro" && <ModeToggle />}
+        </div>
       </header>
     );
   }
@@ -112,12 +135,10 @@ export default function TopBar() {
           <span className="kbd">K</span>
         </button>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <DocLinks />
         <ModeToggle />
         <button type="button" className="btn-icon" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)" onClick={() => useStory.setState({ keysOpen: true })}>
           <Keyboard size={16} aria-hidden />
-        </button>
-        <button type="button" className="btn-icon" aria-label="About, sources and intended use" title="About, sources and intended use" onClick={() => setAboutOpen(true)}>
-          <Info size={16} aria-hidden />
         </button>
       </div>
     </header>

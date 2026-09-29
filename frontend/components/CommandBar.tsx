@@ -13,7 +13,7 @@ import type { GazetteerEntry } from "@/lib/agent/catalog";
 import type { MutationRecord } from "@/lib/sim";
 import { lensLabel, metricLabel } from "./planner/labels";
 import { setUiMode } from "@/lib/ui/modes";
-import { goScene } from "@/lib/ui/story";
+import { navigate } from "@/lib/ui/nav";
 
 interface Cmd {
   id: string;
@@ -72,10 +72,11 @@ function CommandBarInner() {
       { id: "present", label: "Toggle presentation mode (Expert)", hint: "P", run: () => s.togglePresentation() },
       { id: "orbit", label: "Toggle camera orbit", run: () => s.toggleOrbit() },
       { id: "assume", label: "Open data and assumptions", run: () => s.setAssumptionsOpen(true) },
-      { id: "about", label: "About and intended use", run: () => s.setAboutOpen(true) },
+      { id: "about", label: "About and intended use", run: () => navigate("/about") },
+      { id: "methodology", label: "Methodology: how far to trust the numbers", run: () => navigate("/methodology") },
       { id: "story", label: "Guided story", hint: "E", run: () => void setUiMode("story") },
       { id: "expert", label: "Expert mode", hint: "E", run: () => void setUiMode("expert") },
-      { id: "intro", label: "Replay intro", run: () => { s.setMode("story"); void goScene("intro"); } },
+      { id: "intro", label: "Replay intro", run: () => navigate("/?intro=1") },
     ];
   }, []);
 

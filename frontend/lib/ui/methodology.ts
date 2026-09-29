@@ -60,3 +60,28 @@ export const FAST_ERR = { defaultPct: 2, futuresPct: { lo: 9, hi: 11 } };
 
 /** How study-derived figures are labeled wherever they appear. */
 export const STUDY_LABEL = "From our sensitivity study";
+
+// ---- the /methodology page (checked against pipeline/sensitivity/out by test/ui/story.test.ts) ----------------
+
+/** The reference run of the study: Key Bridge removed, 30-minute budget, free-flow. */
+export const STUDY_REFERENCE = { peopleGt10: 19705, meanAddedS: 13.6, regionalAddedS: 2.9, emsP90S: 367.5, popCovered: 1056263, variants: 51 };
+
+/** The six conclusions fixed before the variants ran, and in how many of the 51 variants each held. */
+export const STUDY_CONCLUSIONS: { id: string; plain: string; held: number }[] = [
+  { id: "C1", plain: "The regional average barely moves (under 30 seconds)", held: 51 },
+  { id: "C2", plain: "Time to the nearest station does not change (under 1 second)", held: 51 },
+  { id: "C3", plain: "Only a minority is hit (0.5% to 10% of people)", held: 47 },
+  { id: "C4", plain: "The typical resident is unaffected (median under 5 seconds)", held: 48 },
+  { id: "C5", plain: "Low-wage workers are hit at about the same rate as everyone", held: 51 },
+  { id: "C6", plain: "The same places stay worst-hit (7 of the top 10)", held: 50 },
+];
+
+/** Selected variants (sensitivity.json names) and what they did to the people count and the added time. */
+export const STUDY_VARIANTS: { name: string; plain: string; peopleGt10: number; meanAddedS: number; medianAddedS: number }[] = [
+  { name: "speed x1.2: all edges", plain: "All drive speeds 20% faster", peopleGt10: 6667, meanAddedS: 11.4, medianAddedS: 0.2 },
+  { name: "speed x0.8: all edges", plain: "All drive speeds 20% slower", peopleGt10: 96277, meanAddedS: 17.0, medianAddedS: 0.2 },
+  { name: "T = 36 min", plain: "A 36-minute limit instead of 30", peopleGt10: 6422, meanAddedS: 13.6, medianAddedS: 0.2 },
+  { name: "T = 24 min", plain: "A 24-minute limit instead of 30", peopleGt10: 96450, meanAddedS: 13.6, medianAddedS: 0.2 },
+  { name: "tunnel time x1.25 only AFTER bridge closure (diversion)", plain: "Tunnels 25% slower after the closure (diverted traffic)", peopleGt10: 39893, meanAddedS: 21.0, medianAddedS: 10.9 },
+  { name: "tunnel time x1.5 only AFTER bridge closure (diversion)", plain: "Tunnels 50% slower after the closure", peopleGt10: 76221, meanAddedS: 28.1, medianAddedS: 17.3 },
+];

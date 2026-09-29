@@ -19,6 +19,8 @@ import { withBundle } from "./agentBridge";
 import { isBaseline, type StoryFacts } from "./storyFigures";
 import { budgetMinutes, loadAssumptions, loadAux, loadFacilities, shoresWithStations, stationCounts } from "./snapshotAux";
 import { STEPS } from "./storyCopy";
+import { navigate } from "./nav";
+import { pathForScene, rememberScene } from "./routes";
 import { emsShowsChange, setEmsChangeBase } from "./lenses";
 
 export type StoryScene = Exclude<SceneId, "intro">;
@@ -59,6 +61,8 @@ interface StoryState {
   keysOpen: boolean;
   /** Expert mode was opened from the story (shows the one-time "Nothing was reset" note). */
   expertFromStory: boolean;
+  /** A short note after a deep link had to rebuild or redirect ("Continuing from the start"). */
+  routeNote: string | null;
 }
 
 export const useStory = create<StoryState>(() => ({
@@ -72,6 +76,7 @@ export const useStory = create<StoryState>(() => ({
   facts: { shoresWithStations: null, fireStations: null, ambulanceStations: null, anchorCount: null, budgetMin: null },
   keysOpen: false,
   expertFromStory: false,
+  routeNote: null,
 }));
 
 export const stepIndex = (id: SceneId): number | null => {
@@ -146,6 +151,7 @@ export async function goScene(id: SceneId, opts: { instant?: boolean; auto?: boo
   const app = useApp.getState();
   const prev = app.scene;
   app.setScene(id);
+  if (id !== "intro") rememberScene(id);
   if (prev === "freight" && id !== "freight") clearRoute();
   const deferMap = REVEAL_ON_ACTION.has(id) && !useStory.getState().revealed.has(id);
   useStory.setState({ settling: true });
@@ -157,6 +163,22 @@ export async function goScene(id: SceneId, opts: { instant?: boolean; auto?: boo
     await ensureWorld(id, opts.auto ?? true);
   } finally {
     if (seq === enterSeq) useStory.setState({ settling: false });
+  }
+}
+
+/**
+ * A deep link or a refresh lands on a scene before the snapshot has loaded: once the world is ready, make it
+ * the world the scene describes (idempotent; the camera does not fly again).
+ */
+export async function ensureSceneWorld(id: SceneId): Promise<void> {
+  if (useApp.getState().scene !== id) return;
+  useStory.setState({ settling: true });
+  try {
+    const deferMap = REVEAL_ON_ACTION.has(id) && !useStory.getState().revealed.has(id);
+    if (!deferMap || LENS_ON_ENTER.has(id)) await setSceneLens(id);
+    await ensureWorld(id, true);
+  } finally {
+    useStory.setState({ settling: false });
   }
 }
 
@@ -284,7 +306,7 @@ export async function replayStory(): Promise<void> {
   useSearch.getState().resetSearch();
   useStory.setState({ appliedScenario: null, topWorld: null, revealed: new Set(), stoppedAt: null });
   await useApp.getState().resetWorld();
-  await goScene("crossing");
+  navigate(pathForScene("crossing"));
 }
 
 // ---------------------------------------------------------------------------------------------- subscriptions

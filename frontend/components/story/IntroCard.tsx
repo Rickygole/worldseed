@@ -4,15 +4,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useDialog } from "@/lib/ui/useDialog";
 import { INTRO } from "@/lib/ui/storyCopy";
-import { goScene } from "@/lib/ui/story";
-
-export const INTRO_SEEN_KEY = "worldseed.intro.seen";
-
-function markSeen() {
-  try {
-    sessionStorage.setItem(INTRO_SEEN_KEY, "1");
-  } catch {}
-}
+import { goToStory } from "@/lib/ui/modes";
+import { markStarted } from "@/lib/ui/routes";
 
 /**
  * The first screen: the map, the name (header), the dedication line, ONE sentence and ONE button. Escape skips.
@@ -21,8 +14,8 @@ function markSeen() {
 export default function IntroCard() {
   const reduced = !!useReducedMotion();
   const start = () => {
-    markSeen();
-    void goScene("crossing");
+    markStarted();
+    goToStory("crossing");
   };
   const ref = useDialog<HTMLDivElement>(true, start, { trap: false });
 

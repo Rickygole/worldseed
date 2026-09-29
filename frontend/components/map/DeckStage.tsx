@@ -16,7 +16,7 @@ import * as maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
 
 import { BASE_VIEW } from "@/lib/geo";
-import { BUILDING_LAYER_IDS, FALLBACK_STYLE, MAP_STYLE } from "@/lib/mapStyle";
+import { BUILDING_LAYER_IDS, SATELLITE_ENABLED, STYLE_CHAIN } from "@/lib/mapStyle";
 import {
   interruptCamera,
   markMapReady,
@@ -71,7 +71,12 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
   const mapRef = useRef<MapRef>(null);
   const [size, setSize] = useState({ width: 1280, height: 720 });
   const [quality, setQuality] = useState<QualityLevel>(qualityLevel());
-  const [styleMode, setStyleMode] = useState<"live" | "fallback">("live");
+  // Quality-tier aware: a session already known to be low-tier skips the heavier satellite imagery and starts
+  // on the vector style (index 1 of the chain when satellite is enabled, else index 0). Reduced motion needs
+  // no special case here: every style swap below is an instant cut, never an animated crossfade.
+  const [styleIndex, setStyleIndex] = useState(() => (SATELLITE_ENABLED && qualityLevel() >= 2 ? 1 : 0));
+  const styleEntry = STYLE_CHAIN[styleIndex] ?? STYLE_CHAIN[STYLE_CHAIN.length - 1];
+  const isLastStyle = styleIndex >= STYLE_CHAIN.length - 1;
   const [lost, setLost] = useState(false);
   const hooked = useRef(false);
   const [trailT, setTrailT] = useState(0);
@@ -107,26 +112,70 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
     return () => ro.disconnect();
   }, []);
 
-  // ---- style fallback ----
+  // ---- style fallback chain: satellite -> vector -> Census shapes, never a blank map ----
   const failures = useRef(0);
   const tilesSeen = useRef(false);
   const mapLoaded = useRef(false);
+  // Two hero styles share a source id ("openmaptiles"): once it has proven reachable under one style, a
+  // transient blip right after switching to the other must never re-litigate that (a real outage keeps
+  // erroring well past a moment; one late straggler from the just-torn-down previous style must not count).
+  const provenGood = useRef(new Set<string>());
+  // A source that a later style also declares by the same id is torn down and re-added when `setStyle` swaps
+  // in the new style object; that teardown can itself fire a spurious "error" for an in-flight request with no
+  // `tile` attached. Ignore errors for a moment after every switch so that noise is never mistaken for the new
+  // style's own tiles failing.
+  const styleSwitchedAt = useRef(0);
+  const SETTLE_MS = 2000;
+  // A burst of tile requests can all reject in the same synchronous turn (one `abort`-style network failure
+  // fires once per pending tile). Each of those calls still closes over the render's `styleEntry`/`isLastStyle`
+  // and reads the same `failures` ref, so without a guard here every one of them past the threshold would call
+  // `advanceStyle` again; React batches the resulting `setStyleIndex` calls and would apply all of them before
+  // the next render, skipping straight past the intermediate style. `advancing` makes the decision idempotent:
+  // only the first call in a burst (or ever, per attempt) actually moves the index.
+  const advancing = useRef(false);
+  // Only a real failure sets this (not the quality-tier's own choice to skip satellite): it drives the banner.
+  const [degraded, setDegraded] = useState(false);
+  const advanceStyle = useCallback(() => {
+    if (advancing.current) return;
+    advancing.current = true;
+    setDegraded(true);
+    setStyleIndex((i) => Math.min(i + 1, STYLE_CHAIN.length - 1));
+  }, []);
+  // A new style attempt starts its own failure count (each style has its own source to watch), seeded as
+  // already-healthy if that exact source id was proven good under a previous style.
   useEffect(() => {
-    if (styleMode !== "live") return;
+    failures.current = 0;
+    tilesSeen.current = provenGood.current.has(styleEntry.watchSourceId ?? "");
+    styleSwitchedAt.current = performance.now();
+    advancing.current = false;
+    // styleEntry is derived from styleIndex; re-running per source id would be equivalent and noisier
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styleIndex]);
+  useEffect(() => {
+    if (isLastStyle) return;
     // Slow is not broken: fall back only when requests actually failed and no tile ever arrived.
     const t = window.setTimeout(() => {
-      if (!tilesSeen.current && failures.current > 0) setStyleMode("fallback");
+      if (!tilesSeen.current && failures.current > 0) advanceStyle();
     }, 20000);
     return () => window.clearTimeout(t);
-  }, [styleMode]);
+  }, [styleIndex, isLastStyle, advanceStyle]);
+  // A later auto-downgrade to the low quality tier also drops satellite imagery, the heavier of the two hero
+  // looks; it only ever moves toward the lighter style, matching the one-way auto quality ratchet elsewhere.
+  useEffect(
+    () =>
+      subscribeQuality(() => {
+        if (SATELLITE_ENABLED && qualityLevel() >= 2) setStyleIndex((i) => Math.max(i, 1));
+      }),
+    [],
+  );
 
-  // ---- quality: buildings are the first thing to go ----
+  // ---- quality: buildings are the first thing to go (vector style only; satellite has none) ----
   const setBuildings = useCallback(() => {
     const m = mapRef.current?.getMap();
-    if (!m || styleMode !== "live") return;
+    if (!m) return;
     for (const id of BUILDING_LAYER_IDS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", qualityLevel() === 0 ? "visible" : "none");
-  }, [styleMode]);
-  useEffect(setBuildings, [quality, setBuildings]);
+  }, []);
+  useEffect(setBuildings, [quality, styleIndex, setBuildings]);
 
   // ---- trail clock (only while trails are showing) ----
   const trailsOn = !!trails && trails.routes.length > 0 && trails.alpha > 0.01;
@@ -208,10 +257,10 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
     [apply],
   );
 
-  const style: StyleSpecification = styleMode === "live" ? MAP_STYLE : FALLBACK_STYLE;
+  const style: StyleSpecification = styleEntry.style;
 
   return (
-    <div ref={wrapRef} className="absolute inset-0" data-quality={quality} data-style={styleMode}>
+    <div ref={wrapRef} className="absolute inset-0" data-quality={quality} data-style={style.name}>
       <DeckGL
         ref={deckRef}
         viewState={viewState}
@@ -239,6 +288,10 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
           ref={mapRef}
           mapLib={maplibregl}
           mapStyle={style}
+          // A static OSM baseline credit; MapLibre's own AttributionControl additionally lists whichever
+          // sources are actually in use by the current style (each source below declares its own
+          // `attribution`) and re-derives that list on every style swap, so the Esri credit appears only
+          // while satellite imagery is the active source and disappears the moment it falls back.
           attributionControl={{ compact: false, customAttribution: "© OpenStreetMap contributors" }}
           reuseMaps
           onLoad={(e) => {
@@ -248,16 +301,23 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
           }}
           onData={(e) => {
             const ev = e as unknown as { dataType?: string; sourceId?: string; tile?: unknown };
-            if (ev.dataType === "source" && ev.tile) tilesSeen.current = true;
+            if (ev.dataType !== "source" || !ev.tile || !ev.sourceId) return;
+            // Any source succeeding is remembered (the satellite style's own road/label overlay already uses
+            // "openmaptiles", so it gets proven good before the vector style ever becomes the active one).
+            provenGood.current.add(ev.sourceId);
+            // Only the style's own hero source counts toward "this style is alive": a road/label overlay
+            // failing on its own is not "the map is blank".
+            if (ev.sourceId === styleEntry.watchSourceId) tilesSeen.current = true;
           }}
           onError={(e) => {
             const ev = e as unknown as { sourceId?: string; tile?: unknown; error?: { message?: string; status?: number } };
-            if (styleMode !== "live" || tilesSeen.current) return;
+            if (isLastStyle || tilesSeen.current) return;
+            if (performance.now() - styleSwitchedAt.current < SETTLE_MS) return;
             // The tile source itself failing (its TileJSON) is fatal at once; single tile errors need a run of them.
             // Glyph and sprite failures carry no source and never take the base map down.
-            if (ev.sourceId !== "openmaptiles") return;
+            if (ev.sourceId !== styleEntry.watchSourceId) return;
             failures.current += ev.tile ? 1 : 3;
-            if (failures.current >= 3) setStyleMode("fallback");
+            if (failures.current >= 3) advanceStyle();
           }}
         />
       </DeckGL>
@@ -287,9 +347,11 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
         </p>
       )}
 
-      {styleMode === "fallback" && (
+      {degraded && (
         <p className="pointer-events-none absolute rounded-md px-2 py-1 text-xs" style={{ left: padding.left + 16, bottom: padding.bottom + 44, maxWidth: 340, color: "#a4b0c0", background: "rgba(10,14,20,0.82)" }} role="status">
-          Street map unavailable. Showing block-group outlines instead; the data on the map is unchanged.
+          {style === STYLE_CHAIN[STYLE_CHAIN.length - 1].style
+            ? "Street map unavailable. Showing block-group outlines instead; the data on the map is unchanged."
+            : "Satellite imagery unavailable. Showing the street map instead; the data on the map is unchanged."}
         </p>
       )}
 

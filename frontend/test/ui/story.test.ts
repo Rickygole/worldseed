@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CONGESTED_MEDIAN_ADDED_S, FAST_ERR, MEAN_ADDED_RANGE_S, PEOPLE_GT10_RANGE, REPORTED_DETOUR, SPEED_VARIANT_PCT } from "../../lib/ui/methodology";
+import { CONGESTED_MEDIAN_ADDED_S, FAST_ERR, MEAN_ADDED_RANGE_S, PEOPLE_GT10_RANGE, REPORTED_DETOUR, SPEED_VARIANT_PCT, STUDY_CONCLUSIONS, STUDY_REFERENCE, STUDY_VARIANTS } from "../../lib/ui/methodology";
 import { fmtPct2, isBridgeOnly, recoveredPct, sceneView, worstAreaLabel, PENINSULA_LABEL, type SearchSnapshot, type StoryInput } from "../../lib/ui/storyFigures";
 import { PRIVACY_RETENTION_DAYS, T } from "../../lib/ui/storyCopy";
 import type { SimOutput } from "../../lib/sim/types";
@@ -28,6 +28,23 @@ describe("study constants match the sensitivity study outputs (pipeline/sensitiv
   it.skipIf(!have)("CONGESTED_MEDIAN_ADDED_S: tunnel time x1.25 / x1.5 only after the closure", () => {
     expect(v("tunnel time x1.25 only AFTER bridge closure (diversion)")!.xhAddedP50S).toBeCloseTo(CONGESTED_MEDIAN_ADDED_S.lo, 1);
     expect(v("tunnel time x1.5 only AFTER bridge closure (diversion)")!.xhAddedP50S).toBeCloseTo(CONGESTED_MEDIAN_ADDED_S.hi, 1);
+  });
+  it.skipIf(!have)("/methodology tables: reference run, conclusion scoreboard and selected variants", () => {
+    const d = JSON.parse(readFileSync(sensPath, "utf8"));
+    const r = d.reference;
+    expect(Math.round(r.popLossGt10)).toBe(STUDY_REFERENCE.peopleGt10);
+    expect(Math.round(r.xhAddedMeanS * 10) / 10).toBe(STUDY_REFERENCE.meanAddedS);
+    expect(Math.round(r.regAddedMeanS * 10) / 10).toBe(STUDY_REFERENCE.regionalAddedS);
+    expect(Math.round(r.emsBaseP90S * 10) / 10).toBe(STUDY_REFERENCE.emsP90S);
+    expect(Math.round(r.popCovered)).toBe(STUDY_REFERENCE.popCovered);
+    expect(d.variants.length).toBe(STUDY_REFERENCE.variants);
+    for (const c of STUDY_CONCLUSIONS) expect(d.variants.filter((x: { C: Record<string, boolean> }) => x.C[c.id]).length, c.id).toBe(c.held);
+    for (const row of STUDY_VARIANTS) {
+      const x = v(row.name)!;
+      expect(Math.round(x.popLossGt10), row.name).toBe(row.peopleGt10);
+      expect(Math.round(x.xhAddedMeanS * 10) / 10, row.name).toBe(row.meanAddedS);
+      expect(Math.round(x.xhAddedP50S * 10) / 10, row.name).toBe(row.medianAddedS);
+    }
   });
   const valPath = path.join(OUT, "validation.json");
   it.skipIf(!existsSync(valPath))("REPORTED_DETOUR.modelAddedMin: Dundalk to Ferndale in validation.json", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useApp } from "@/lib/store";
 
 /** The planning notice. It lives only in this file (the wording checker whitelists it here); import it elsewhere. */
@@ -13,7 +14,6 @@ export const AI_TEXT_NOTE = "AI-generated text may be inaccurate";
  * opens the full intended-use text, data sources and licenses in one click.
  */
 export default function NoticeLine({ compact = false }: { compact?: boolean }) {
-  const setAboutOpen = useApp((s) => s.setAboutOpen);
   const simKind = useApp((s) => s.simKind);
   return (
     <p className="flex min-w-0 items-center gap-x-3 text-xs text-muted" role="note" aria-label="Intended use">
@@ -21,9 +21,9 @@ export default function NoticeLine({ compact = false }: { compact?: boolean }) {
       {!compact && <span className="min-w-0 truncate max-[1599px]:hidden">{NOTICE_REST}</span>}
       {!compact && <span className="shrink-0 max-[1023px]:hidden">{AI_TEXT_NOTE}.</span>}
       {simKind === "mock" && <span className="shrink-0 text-warn">Demo data</span>}
-      <button type="button" className="link shrink-0 text-text-2" onClick={() => setAboutOpen(true)}>
+      <Link href="/about" className="link shrink-0 text-text-2">
         About and sources
-      </button>
+      </Link>
     </p>
   );
 }

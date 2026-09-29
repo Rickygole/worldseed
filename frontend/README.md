@@ -43,8 +43,18 @@ tools (hazmat and car trips, closure notices, reality check), the planner one st
 apply) with the futures fan, finalist cards, exhaustive check and decision log, a comparison strip over the map, the
 neighborhood inspector (click a hexagon) and a ribbon of five numbers.
 
-URLs: `?mode=expert` opens Expert mode; `?scene=averages` (or any scene id: crossing, averages, held, freight, fix,
-explore, intro) opens the story at that scene.
+Pages (Next.js App Router; the map, the simulator and the worker pool live in the root layout, `components/AppShell.tsx`,
+so they load once per visit and never remount when you move between pages):
+
+| URL | Page |
+| --- | --- |
+| `/` | Intro. A visitor who already started continues at their last scene; `/?intro=1` always shows it. |
+| `/story/crossing`, `/story/local-impact`, `/story/held`, `/story/freight`, `/story/help`, `/story/your-turn` | One story scene each. Deep links and refreshes rebuild the world the scene needs (the bridge removed for scenes 2 to 6). |
+| `/explore` | Expert mode. |
+| `/about` | Intended use, AI text, privacy, sources, licenses. |
+| `/methodology` | The sensitivity study in plain language (figures from `lib/ui/methodology.ts`, checked against `pipeline/sensitivity/out`). |
+
+What a URL cannot rebuild (a finished search, an applied idea, a revealed map view) starts over in that scene with correct numbers.
 
 Keys: `Right` / `Left` next and previous scene, `E` story or Expert mode, `?` shortcuts, `R` reset, `P` presentation
 mode (Expert), `Cmd/Ctrl-K` command bar, `Esc` closes popovers, dialogs and the inspector (and skips the intro).

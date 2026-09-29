@@ -271,6 +271,10 @@ body {
   outline: 2px solid var(--color-ai);
   outline-offset: 3px;
 }
+/* Headings that receive focus programmatically (scene changes) are read, not operated: no ring. */
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
 
 ::selection {
   background: rgb(76 141 255 / 0.35);

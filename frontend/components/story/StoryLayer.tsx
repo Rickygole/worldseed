@@ -6,10 +6,12 @@ import { ChevronDown } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { setViewportPadding } from "@/lib/ui/mapDirector";
 import type { StoryScene } from "@/lib/ui/story";
+import type { SceneId } from "@/lib/ui/mapDirector";
 import NoticeLine from "../DisclaimerBanner";
 import IntroCard from "./IntroCard";
 import StoryBar from "./StoryBar";
 import StoryCard from "./StoryCard";
+import { useStory } from "@/lib/ui/story";
 
 const CARD_W = 460;
 const GAP = 24;
@@ -31,8 +33,7 @@ function useIsPhone(): boolean {
  * sheet on phones), a compact legend, and the footer line. Tells the map director which part of the map the
  * card covers, so the camera frames the free area.
  */
-export default function StoryLayer() {
-  const scene = useApp((s) => s.scene);
+export default function StoryLayer({ scene }: { scene: SceneId }) {
   const status = useApp((s) => s.status);
   const phone = useIsPhone();
   const reduced = !!useReducedMotion();
@@ -69,11 +70,17 @@ export default function StoryLayer() {
   }, [phone, scene, collapsed]);
 
   const intro = scene === "intro";
+  const note = useStory((s) => s.routeNote);
   const loading = status !== "ready";
 
   return (
     <>
       <AnimatePresence>{intro && <IntroCard key="intro" />}</AnimatePresence>
+      {note && !intro && (
+        <p role="status" className="pop pointer-events-none absolute left-1/2 top-16 z-30 -translate-x-1/2 px-4 py-2 text-sm text-text-2">
+          {note}
+        </p>
+      )}
 
       {!intro && !phone && (
         <motion.div

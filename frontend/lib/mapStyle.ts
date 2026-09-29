@@ -1,18 +1,45 @@
 import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from "maplibre-gl";
 
 /**
- * Premium dark MapLibre style on OpenFreeMap vector tiles (https://openfreemap.org, no API key, no OSM tile
- * servers). Colors are drawn from the WorldSeed tokens and stay in a blue-slate family so the data (teal,
- * amber, magenta) is the only color on screen.
+ * Base map styles. Two hero looks share one vector overlay (roads, place and water labels, from OpenFreeMap
+ * vector tiles, https://openfreemap.org, no API key, no OSM tile servers) and one Census-shapes fallback:
  *
- *   - water is deep navy; a blurred, water-side shoreline band fakes depth (lighter shallows, darker deeps)
- *   - land is near-black slate, roads are hairlines, highways slightly brighter
- *   - labels are minimal: big places and the water names (the map's own deck layer labels the key places)
- *   - low-contrast extruded buildings appear only at high zoom, and are the first thing the quality tier drops
- *   - a sky/fog layer softens the horizon at high pitch
+ *   - `VECTOR_STYLE`: the original premium dark look. Land near-black slate, hairline roads, deep navy water
+ *     with a shoreline depth band, faint high-zoom buildings, minimal labels, a sky/fog atmosphere.
+ *   - `SATELLITE_STYLE`: real aerial/satellite imagery (Esri World Imagery, see below) under a dark scrim, with
+ *     the same road and label overlay and the same sky. The scrim keeps the imagery from competing with the
+ *     extruded terrain, glowing crossings and freight trails, which stay the thing the eye reads.
+ *   - `FALLBACK_STYLE`: land shapes from the study area's own Census block groups (already in the snapshot),
+ *     used only when even the vector tiles cannot be fetched.
  *
- * Labels use OpenFreeMap's hosted glyphs. The attribution stays on (see MapStage): (c) OpenStreetMap
- * contributors, (c) OpenMapTiles, OpenFreeMap.
+ * `SATELLITE_ENABLED` is the one switch between the two hero looks; `STYLE_CHAIN` is what actually loads,
+ * falling further down the chain (never to a blank map) as each source proves unreachable. See DeckStage for
+ * the runtime fallback logic; it is quality-tier aware (a low-tier session skips the heavier raster imagery
+ * and starts on the vector style) and treats every style swap as an instant cut, never an animated crossfade,
+ * so it stays correct under `prefers-reduced-motion` without any extra branching.
+ *
+ * Esri World Imagery (`SATELLITE_STYLE`'s source): `https://server.arcgisonline.com/ArcGIS/rest/services/
+ * World_Imagery/MapServer`, tile pattern `.../MapServer/tile/{z}/{y}/{x}`. Free, keyless, no sign-in, CORS
+ * open (`Access-Control-Allow-Origin: *`), served over CloudFront. Verified 2026-09-28:
+ *   - `GET .../World_Imagery/MapServer?f=json` -> 200, `copyrightText`: "Source: Esri, Vantor, Earthstar
+ *     Geographics, and the GIS User Community" (the live credit line, used in `SATELLITE_ATTRIBUTION` below).
+ *   - A tile fetch -> 200 `image/jpeg`, `Access-Control-Allow-Origin: *`.
+ *   - Esri's own basemap-citation guidance (support.esri.com/en/technical-article/000012040) says the
+ *     acceptable way to attribute an ArcGIS Online basemap in a web map is to show the service's credit text
+ *     near the map, which is what the always-on MapLibre attribution control does; it does not mandate one
+ *     fixed string (the credit line changes as Esri's imagery providers change), so this uses the live value
+ *     fetched on the verification date above rather than an older list quoted on that same page. Each source
+ *     below carries its own `attribution`; MapLibre's built-in AttributionControl re-derives the visible
+ *     credit list from whichever sources the *current* style actually uses every time the style changes (see
+ *     `_updateAttributions` in maplibre-gl's `attribution_control.ts`), so the Esri credit is shown only while
+ *     satellite imagery is the active source and drops on its own the moment the map falls back to the vector
+ *     style — no extra code needed here to keep that correct.
+ *   - ArcGIS Online's general terms describe this shared content as "typically available for your personal
+ *     or noncommercial use" (doc.arcgis.com/en/arcgis-online/reference/terms-of-use.htm); this project is a
+ *     $0, non-commercial hackathon demo (see docs/LEGAL.md), which fits. No rate limit is published for this
+ *     specific keyless endpoint; this is the same endpoint leaflet-providers' `Esri.WorldImagery` entry and
+ *     countless other free demo maps use without a key, as distinct from Esri's newer Location Platform APIs,
+ *     which do require one. Re-check before any redeploy expecting heavy, sustained traffic.
  */
 
 export const C = {
@@ -33,8 +60,9 @@ export const C = {
 } as const;
 
 const GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
+const OSM_ATTRIBUTION = "© OpenStreetMap contributors";
 
-/** Layers of the live style that the quality tier can hide: buildings first. */
+/** Layers of the vector style that the quality tier can hide: buildings first. Not present in the satellite style. */
 export const BUILDING_LAYER_IDS = ["building-3d"] as const;
 
 /** The ocean/bay polygon is one huge ring: its shoreline is drawn by the fill alone (a line layer over it exceeds the tile vertex limit). */
@@ -217,33 +245,99 @@ const layers: LayerSpecification[] = [
   },
 ];
 
-export const MAP_STYLE: StyleSpecification = {
+const OPENMAPTILES_SOURCE = { type: "vector", url: "https://tiles.openfreemap.org/planet", attribution: OSM_ATTRIBUTION } as const;
+
+/** The horizon fades into the background at high pitch instead of ending in a hard edge. Shared by both hero styles. */
+const SKY: StyleSpecification["sky"] = {
+  "sky-color": "#04070d",
+  "horizon-color": "#0b1524",
+  "fog-color": "#08101b",
+  "sky-horizon-blend": 0.7,
+  "horizon-fog-blend": 0.8,
+  "fog-ground-blend": 0.85,
+  "atmosphere-blend": 0,
+};
+
+/** The premium dark vector style: the original hero look, and the safety net under satellite imagery. */
+export const VECTOR_STYLE: StyleSpecification = {
   version: 8,
   name: "worldseed-dark",
   glyphs: GLYPHS,
-  sources: {
-    openmaptiles: {
-      type: "vector",
-      url: "https://tiles.openfreemap.org/planet",
-    },
-  },
-  // Atmosphere: the horizon fades into the background at high pitch instead of ending in a hard edge.
-  sky: {
-    "sky-color": "#04070d",
-    "horizon-color": "#0b1524",
-    "fog-color": "#08101b",
-    "sky-horizon-blend": 0.7,
-    "horizon-fog-blend": 0.8,
-    "fog-ground-blend": 0.85,
-    "atmosphere-blend": 0,
-  },
+  sources: { openmaptiles: OPENMAPTILES_SOURCE },
+  sky: SKY,
   layers,
 };
 
+// ---------------------------------------------------------------------------------------------------------
+// Satellite
+// ---------------------------------------------------------------------------------------------------------
+
+/** See the file-level doc comment for the source, its terms and the verification date. */
+export const SATELLITE_ATTRIBUTION = "Esri, Vantor, Earthstar Geographics, and the GIS User Community";
+const SATELLITE_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+
 /**
- * The fallback when the tiles cannot be fetched: land shapes from the study area's own Census block groups
- * (shoreline-clipped TIGER cartographic boundaries, already shipped in the snapshot) on the water background.
- * Roads and labels are missing; the terrain, crossings and labels the app draws itself are unaffected.
+ * Dark scrim over the imagery so the extruded terrain, glowing crossings and freight trails still read as the
+ * hero and real photographic clutter (parking lots, roofs, ship wakes) does not compete with them. Tunable
+ * 0.45 to 0.65; raise it if a future imagery refresh comes in brighter.
+ */
+export const SATELLITE_SCRIM_OPACITY = 0.6;
+
+/**
+ * Config-level switch between the two hero looks. Flip to `false` to go back to the flat dark vector map (for
+ * example if the owner prefers that look for the demo video's hero shot); nothing else in the map depends on
+ * which one is active.
+ */
+export const SATELLITE_ENABLED = true;
+
+const byId = new Map(layers.map((l) => [l.id, l]));
+/** A subset of the vector style's own layers, reused as-is (same paint, same minzoom) as the road and label
+ * overlay on top of the imagery. Land, water and building fills are dropped: the photograph already shows them. */
+const pick = (...ids: string[]): LayerSpecification[] => ids.map((id) => byId.get(id)).filter((l): l is LayerSpecification => l !== undefined);
+const satelliteOverlay = pick("road-minor", "road-secondary", "road-primary", "road-motorway", "water-label", "place-label");
+
+const satelliteLayers: LayerSpecification[] = [
+  // Shown only for an instant before the first imagery tiles paint (or outside their coverage, which is
+  // effectively never for Web Mercator zoom 0-19).
+  { id: "background", type: "background", paint: { "background-color": C.water } },
+  {
+    id: "satellite-imagery",
+    type: "raster",
+    source: "esri-imagery",
+    paint: { "raster-opacity": 1, "raster-fade-duration": 0 },
+  },
+  {
+    id: "satellite-scrim",
+    type: "background",
+    paint: { "background-color": "#04070d", "background-opacity": SATELLITE_SCRIM_OPACITY },
+  },
+  ...satelliteOverlay,
+];
+
+/** Esri World Imagery under a dark scrim, with the vector style's road and label overlay on top. */
+export const SATELLITE_STYLE: StyleSpecification = {
+  version: 8,
+  name: "worldseed-satellite",
+  glyphs: GLYPHS,
+  sources: {
+    "esri-imagery": {
+      type: "raster",
+      tiles: [SATELLITE_TILE_URL],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: SATELLITE_ATTRIBUTION,
+    },
+    openmaptiles: OPENMAPTILES_SOURCE,
+  },
+  sky: SKY,
+  layers: satelliteLayers,
+};
+
+/**
+ * The fallback when even the vector tiles cannot be fetched: land shapes from the study area's own Census
+ * block groups (shoreline-clipped TIGER cartographic boundaries, already shipped in the snapshot) on the
+ * water background. Roads and labels are missing; the terrain, crossings and labels the app draws itself
+ * are unaffected.
  */
 export const FALLBACK_STYLE: StyleSpecification = {
   version: 8,
@@ -261,6 +355,35 @@ export const FALLBACK_STYLE: StyleSpecification = {
     { id: "land-edge", type: "line", source: "land", paint: { "line-color": C.shore, "line-width": 0.6, "line-opacity": 0.5 } },
   ],
 };
+
+// ---------------------------------------------------------------------------------------------------------
+// The runtime fallback chain
+// ---------------------------------------------------------------------------------------------------------
+
+export interface MapStyleEntry {
+  style: StyleSpecification;
+  /** The source whose repeated failure means "this style is unusable"; null = the last resort (never falls further). */
+  watchSourceId: string | null;
+}
+
+/**
+ * What DeckStage actually tries, in order: the hero look first (satellite, if enabled), the dark vector map
+ * next, and the Census-shapes style last. Each step only falls to the next on a real failure (a source that
+ * never returned a single tile after repeated errors), never merely on slow loading.
+ */
+export const STYLE_CHAIN: readonly MapStyleEntry[] = SATELLITE_ENABLED
+  ? [
+      { style: SATELLITE_STYLE, watchSourceId: "esri-imagery" },
+      { style: VECTOR_STYLE, watchSourceId: "openmaptiles" },
+      { style: FALLBACK_STYLE, watchSourceId: null },
+    ]
+  : [
+      { style: VECTOR_STYLE, watchSourceId: "openmaptiles" },
+      { style: FALLBACK_STYLE, watchSourceId: null },
+    ];
+
+/** The style that loads first. Kept for callers that just want "the current hero look". */
+export const MAP_STYLE: StyleSpecification = STYLE_CHAIN[0].style;
 
 /** Ids of every layer in a style (used by tests). */
 export const styleLayerIds = (s: StyleSpecification): string[] => s.layers.map((l) => l.id);

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import AppShell from "@/components/AppShell";
 
 // All three faces are SIL OFL 1.1 and self-hosted by next/font (downloaded at build time, served from this origin).
 const inter = Inter({
@@ -24,7 +25,7 @@ const grotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "WorldSeed - Key Bridge Region",
+  title: { default: "WorldSeed - Key Bridge Region", template: "%s" },
   description:
     "Don't predict the future. Simulate it. A counterfactual planning simulator for the Key Bridge region of Baltimore: remove a road link and see who is affected, computed in your browser on historical open data.",
 };
@@ -39,7 +40,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} ${grotesk.variable} h-full`}>
-      <body className="h-full">{children}</body>
+      <body className="h-full">
+        {/* The persistent shell (map, simulator, worker pool) wraps every page; pages render only their overlay. */}
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }
