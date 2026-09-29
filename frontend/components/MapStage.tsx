@@ -18,7 +18,7 @@ import { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useApp, simInfo, scenarioKey } from "@/lib/store";
-import { BASE_VIEW, PLACES, distKm, focusView } from "@/lib/geo";
+import { BASE_VIEW, BRIDGE, PLACES, distKm, focusView } from "@/lib/geo";
 import { easeOutCubic, fmtMin, fmtPct1 } from "@/lib/format";
 import { TerrainAnimator } from "@/lib/ui/terrainAnimator";
 import { encode, MAGENTA, type LensId } from "@/lib/ui/lenses";
@@ -57,9 +57,13 @@ import {
 import { optionName } from "./planner/labels";
 import CompareSlider from "./CompareSlider";
 import DeckStage from "./map/DeckStage";
-import { hatchChords, type Path3, type RGBA } from "./map/geometry";
+import { drawPrefix, hatchChords, type Path3, type RGBA } from "./map/geometry";
 import { bridgeLayers, loadTunnels, optionLayers, tunnelLayers, type TunnelGeo } from "./map/crossings";
-import { glowLayer, hexOutline, ON_TOP, rimLayer, RIM_MIN_ELEV, tallHexes, terrainLayer, type HexDatum } from "./map/terrainLayers";
+import { glowLayer, hexOutline, ON_TOP, rimLayer, RIM_MIN_ELEV, tallHexes, terrainAOLayer, terrainLayer, type HexDatum } from "./map/terrainLayers";
+import { buildAdjacency, applyJitter, smoothField, type Adjacency } from "./map/terrainSmoothing";
+import { buildHexEdges, type HexEdge } from "./map/terrainEdges";
+import { originPulseLayer, shockwaveLayers, travelingPulseLayer } from "./map/disruption";
+import { buildTinTopology, refreshTinNormals, tinTerrainLayer, TIN_OPTION_KEY, type TinMeshTopology } from "./map/TinTerrainLayer";
 import { loadFacilities, stationLayers, FACILITY_LABEL, type Facility } from "./map/stations";
 import { loadTrailRoutes } from "./map/trails";
 import type { TrailRoute } from "./map/trailModel";
@@ -71,6 +75,14 @@ setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 const ANIM_MS = 1500;
 const STAGGER_FRAC = 0.6;
 const FLY_MS = 2200;
+
+/**
+ * Debug-only time scale for the choreography (terrain rise, shockwave, option draw-in), so a slow real GPU's
+ * sparse frame rate does not make the sub-second effects impossible to see or screenshot in review. 1 in
+ * production always; only settable via the `?mapdebug` hook, never from any user-facing control.
+ */
+let debugSlowMo = 1;
+const slow = (ms: number) => ms * debugSlowMo;
 
 const LEGACY_PANEL_TOP = 72;
 const NO_ROUTES: TrailRoute[] = [];
@@ -166,9 +178,33 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
 
   const hexData = useMemo<HexDatum[]>(() => (world ? world.cells.map((c, i) => ({ i, id: c.id })) : []), [world]);
   const chords = useMemo(() => (world ? world.cells.map((c) => hatchChords(c.id)) : []), [world]);
+  const cellIds = useMemo(() => (world ? world.cells.map((c) => c.id) : []), [world]);
+
+  // Neighbor topology, computed once per world: which hex touches which. Drives the color blend across shared
+  // edges, the AO groove at real height steps, and (prototype) the TIN mesh's triangulation.
+  const adjacency = useMemo<Adjacency | null>(() => (cellIds.length ? buildAdjacency(cellIds) : null), [cellIds]);
+  const hexEdges = useMemo<HexEdge[]>(() => (adjacency ? buildHexEdges(cellIds, adjacency) : []), [cellIds, adjacency]);
+
+  // PROTOTYPE, off by default: a continuous triangulated surface instead of extruded hexes, toggled only by
+  // `?terrain=tin` for the design comparison (see components/map/TinTerrainLayer.ts). Never the production path.
+  const [tinMode] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get(TIN_OPTION_KEY) === "tin");
+  const tinTopo = useMemo<TinMeshTopology | null>(() => (tinMode && world ? buildTinTopology(world.cells) : null), [tinMode, world]);
+
+  // The rendered field: the real per-hex numbers (elevation untouched) with color blended toward the neighbor
+  // average and a tiny, hash-seeded height jitter on top of real relief only (see terrainSmoothing.ts) — the
+  // treatment that makes the field read as continuous terrain instead of flat painted blocks.
+  const renderTarget = useMemo(() => {
+    if (!target || !adjacency) return target;
+    const smoothed = smoothField(target, adjacency);
+    return { elev: applyJitter(cellIds, smoothed.elev, new Float32Array(smoothed.elev.length)), rgb: smoothed.rgb, hatch: smoothed.hatch };
+  }, [target, adjacency, cellIds]);
+
+  // The real max distance from the bridge (a fixed property of the region, not the scenario): what the
+  // disruption shockwave's radius is normalized against, so its radius always means the same real distance.
+  const maxBridgeKm = useMemo(() => (world ? world.cells.reduce((m, c) => Math.max(m, c.bridgeKm), 0) : 0), [world]);
 
   useEffect(() => {
-    if (!world || !target || !buffers) return;
+    if (!world || !renderTarget || !buffers) return;
     const cells = world.cells;
     // Ripple origin: an applied option's location, else the bridge.
     const dist = new Float32Array(cells.length);
@@ -176,16 +212,19 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
       dist[i] = staggerFrom ? distKm(cells[i].lat, cells[i].lng, staggerFrom.lat, staggerFrom.lng) : cells[i].bridgeKm;
     }
     buffers.start(
-      target,
+      renderTarget,
       dist,
-      { ms: reduced ? 400 : ANIM_MS, stagger: reduced ? 0 : STAGGER_FRAC, linear: reduced },
+      { ms: reduced ? 400 : slow(ANIM_MS), stagger: reduced ? 0 : STAGGER_FRAC, linear: reduced },
       () => setTick((v) => v + 1),
-      () => setHatchTick((v) => v + 1),
+      () => {
+        setHatchTick((v) => v + 1);
+        if (tinMode && tinTopo) refreshTinNormals(tinTopo, cells.length, buffers.elev);
+      },
     );
     return () => buffers.stop();
     // staggerFrom is read at the start of each change on purpose
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world, target, reduced, buffers]);
+  }, [world, renderTarget, reduced, buffers]);
 
   // ---------- camera: the change, a selected trip, the toolbar ----------
   /** Where the change is: the cross-harbor added-time field, whatever lens is showing. */
@@ -235,6 +274,28 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
     setOrbit(orbit && !reduced ? true : null);
   }, [orbit, reduced]);
 
+  // ---------- disruption choreography: a one-shot shockwave + flash exactly at the moment the bridge is
+  // removed, timed to lead the staggered terrain rise (see disruption.ts for why the radius is a real distance,
+  // not a decorative animation with its own pace) ----------
+  const prevRemoved = useRef(removed);
+  const [shockProgress, setShockProgress] = useState(0);
+  useEffect(() => {
+    const justRemoved = removed && !prevRemoved.current;
+    prevRemoved.current = removed;
+    if (!justRemoved || reduced) return;
+    const t0 = performance.now();
+    const durMs = slow(650);
+    let raf = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / durMs);
+      setShockProgress(t);
+      if (t < 1) raf = requestAnimationFrame(step);
+      else setShockProgress(0);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [removed, reduced]);
+
   // ---------- fonts, selection ----------
   const [fontFamily] = useState(() => {
     if (typeof document === "undefined") return "sans-serif";
@@ -268,10 +329,10 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
 
   // Columns worth a rim and a glow: recomputed when the target changes (not per frame).
   const tall = useMemo(() => {
-    if (!buffers || !target) return [];
-    return tallHexes(hexData, buffers.elev, target.elev, RIM_MIN_ELEV);
+    if (!buffers || !renderTarget) return [];
+    return tallHexes(hexData, buffers.elev, renderTarget.elev, RIM_MIN_ELEV);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hexData, target, buffers, hatchTick]);
+  }, [hexData, renderTarget, buffers, hatchTick]);
 
   // ---------- options on the map: applied (steady, the latest draws itself), preview ghost ----------
   const catalog = useSearch((s) => s.catalog);
@@ -322,7 +383,7 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
     const t0 = performance.now();
     let raf = 0;
     const step = (now: number) => {
-      const t = Math.min(1, (now - t0) / 1100);
+      const t = Math.min(1, (now - t0) / slow(1100));
       setDrawAnim(easeOutCubic(t));
       if (t < 1) raf = requestAnimationFrame(step);
     };
@@ -465,11 +526,20 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
     const out: Layer[] = [];
     const terrainOpacity = visual.terrain;
 
-    out.push(terrainLayer("terrain", hexData, S.elev, S.rgb, world.cells, tick, { pickable: true, selected: selectedBgHexes, opacity: terrainOpacity, shade: qLevel < 2 }));
-    if (tall.length && qLevel < 2) {
-      out.push(rimLayer(tall, S.elev, S.rgb, tick, terrainOpacity));
-      if (glow) out.push(glowLayer(tall, S.elev, S.rgb, tick, terrainOpacity));
+    if (tinMode && tinTopo) {
+      // The visible surface is the continuous mesh; an invisible copy of the usual hex layer stays pickable so
+      // hover/click/tooltip and selection keep working exactly as in hex mode.
+      out.push(tinTerrainLayer(world.cells, S.elev, S.rgb, tinTopo, terrainOpacity));
+      out.push(terrainLayer("terrain-pick", hexData, S.elev, S.rgb, world.cells, tick, { pickable: true, selected: selectedBgHexes, opacity: 0, shade: false }));
+    } else {
+      out.push(terrainLayer("terrain", hexData, S.elev, S.rgb, world.cells, tick, { pickable: true, selected: selectedBgHexes, opacity: terrainOpacity, shade: qLevel < 2 }));
     }
+    if (tall.length && qLevel < 2 && !tinMode) out.push(rimLayer(tall, S.elev, S.rgb, tick, terrainOpacity, S.vel));
+    if (tall.length && glow) out.push(glowLayer(tall, S.elev, S.rgb, tick, terrainOpacity));
+    // AO groove at real height steps between neighbors: a new, heavier per-frame layer, so it is the first
+    // thing the quality tier drops (same tier as the severity glow above), and it makes no sense once the
+    // surface is already a continuous mesh with no hex seams to shadow.
+    if (hexEdges.length && glow && !tinMode) out.push(terrainAOLayer(hexEdges, S.elev, tick, terrainOpacity));
     if (hatchData.length && visual.hatch > 0.02) {
       out.push(
         new PathLayer<{ path: Path3 }>({
@@ -512,6 +582,19 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
     // Crossings.
     out.push(...tunnelLayers(tunnels, closedTunnels, visual.tunnels, glow));
     out.push(...optionLayers(appliedGeo, appliedFx?.candidateIds ?? [], drawT, glow));
+
+    // Recovery: a traveling pulse of light rides the tip of an applied option's line as it draws itself in.
+    if (appliedFx && drawT < 1) {
+      const latest = appliedGeo.find((g) => appliedFx.candidateIds.includes(g.candidateId) && g.kind !== "site");
+      if (latest) out.push(...travelingPulseLayer(drawPrefix(latest.paths, drawT, 30, latest.point), drawT, [45, 212, 191], glow));
+    }
+
+    // Disruption: a shockwave ring expanding from the bridge at the instant it is removed, leading the terrain
+    // stagger, plus a brief bright flash at the origin.
+    if (shockProgress > 0) {
+      out.push(...shockwaveLayers([BRIDGE.lng, BRIDGE.lat], shockProgress, maxBridgeKm, [MAGENTA[0], MAGENTA[1], MAGENTA[2]], glow));
+      out.push(...originPulseLayer([BRIDGE.lng, BRIDGE.lat], shockProgress, [MAGENTA[0], MAGENTA[1], MAGENTA[2]], glow));
+    }
 
     // A trip from another world (freight finalist compare): steady lines, the car route bright, the hazmat route amber.
     if (freightSel && !sameWorldSel) {
@@ -563,7 +646,7 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
     return out;
     // `visualVersion` stands in for the mutable scene visual state
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world, buffers, hexData, tick, hatchData, tall, glow, selectedBgHexes, hover, selectedHex, previewEnc, tunnels, closedTunnels, appliedGeo, appliedFx, drawT, freightSel, sameWorldSel, inspection, facilities, removed, visualVersion, stationsA, hospitalsA, qLevel]);
+  }, [world, buffers, hexData, tick, hatchData, tall, hexEdges, tinMode, tinTopo, glow, selectedBgHexes, hover, selectedHex, previewEnc, tunnels, closedTunnels, appliedGeo, appliedFx, drawT, shockProgress, maxBridgeKm, freightSel, sameWorldSel, inspection, facilities, removed, visualVersion, stationsA, hospitalsA, qLevel]);
 
   const compareLayers = useMemo(() => {
     if (!world || !compareEnc) return [];
@@ -635,6 +718,9 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
       store: useApp,
       search: useSearch,
       quality: qualityLevel,
+      setSlowMo: (factor: number) => {
+        debugSlowMo = factor > 0 ? factor : 1;
+      },
       visual: () => JSON.parse(JSON.stringify(getVisual())),
       camera: getCamera,
       isUserControlled,

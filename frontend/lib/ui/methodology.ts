@@ -27,6 +27,15 @@ export const REPORTED_DETOUR = {
   source: "Capital News Service (via Baltimore Fishbowl), 28 March 2025",
 };
 
+/** The news piece behind REPORTED_DETOUR (METHODOLOGY section 6.1 and "News citations"; one clause only, link out). */
+export const REPORTED_DETOUR_ARTICLE = {
+  title: "Baltimore residents face daily disruptions after Key Bridge collapse",
+  byline: "Charlotte Kanner and Mira Beinart, Capital News Service",
+  publisher: "Capital News Service, via Baltimore Fishbowl",
+  date: "27 March 2025",
+  url: "https://baltimorefishbowl.com/stories/baltimore-residents-face-daily-disruptions-after-key-bridge-collapse/",
+};
+
 /** Cross-check against the public OSRM router on current OpenStreetMap (section 6.2). */
 export const ROUTER_CHECK = { spearman: 0.98, medianRatio: 0.78 };
 

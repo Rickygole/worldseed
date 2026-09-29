@@ -87,6 +87,8 @@ export interface SearchSnapshot {
   costTier: string;
   finalists: { bundleId: string; title: string; costTier: string; pGoal: number | null }[];
   appliedBundleId: string | null;
+  /** The shown finalist's change in the goal measure versus doing nothing, one value per what-if run (seconds). */
+  bestVsNothing: number[] | null;
   /** The last search was stopped before finalists. */
   stopped: boolean;
 }
@@ -175,6 +177,18 @@ export function recoveredPct(intact: number, removed: number, withOption: number
 }
 
 /**
+ * The stress test after an idea is applied: how much of the idea's benefit survives when a tunnel also closes. The
+ * benefit is the drop in people affected (the same measure as the recovery): without and with the idea, in the
+ * bridge-removed world and in the same world with the stress link closed. Null when the idea has no benefit to keep.
+ */
+export function stressKeep(p: { base: number; withIdea: number; stressBase: number; stressWithIdea: number }): { keepPct: number; benefit: number; stressedBenefit: number } | null {
+  const benefit = p.base - p.withIdea;
+  if (!(benefit >= 0.5)) return null;
+  const stressedBenefit = p.stressBase - p.stressWithIdea;
+  return { keepPct: (100 * stressedBenefit) / benefit, benefit, stressedBenefit };
+}
+
+/**
  * Reviewed place-label table for the hardest-hit block groups. The OSM place nearest to each block group is
  * mapped to a reviewed area name when it lies on the Sparrows Point and Edgemere peninsula (east of Bear
  * Creek, south of North Point Boulevard); other names pass through unchanged.
@@ -247,10 +261,31 @@ function lowerBound(reference: boolean): CaveatCopy {
   };
 }
 
-function range(reference: boolean): CaveatCopy {
+function range(reference: boolean, value?: number): CaveatCopy {
   if (!reference) return CAVEATS.rangeNotTested;
   const c = CAVEATS.range;
-  return { ...c, body: fill(c.body, { speedPct: String(SPEED_VARIANT_PCT), lo: fmtAbout(PEOPLE_GT10_RANGE.lo), hi: fmtAbout(PEOPLE_GT10_RANGE.hi) }) };
+  return {
+    ...c,
+    body: fill(c.body, { speedPct: String(SPEED_VARIANT_PCT), lo: fmtAbout(PEOPLE_GT10_RANGE.lo), hi: fmtAbout(PEOPLE_GT10_RANGE.hi) }),
+    visual:
+      value === undefined
+        ? undefined
+        : { kind: "range", lo: PEOPLE_GT10_RANGE.lo, hi: PEOPLE_GT10_RANGE.hi, value, loLabel: `about ${fmtAbout(PEOPLE_GT10_RANGE.lo)}`, hiLabel: `about ${fmtAbout(PEOPLE_GT10_RANGE.hi)}`, valueLabel: `this map: about ${fmtAbout(value)}` },
+  };
+}
+
+/** "How do we know?" for a finalist: its spread across the what-if runs, drawn (futuresMath ridge). */
+function spread(values: number[] | null): CaveatCopy | null {
+  if (!values || values.length < 2) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const better = values.filter((v) => v < -0.5).length;
+  return {
+    id: "spread",
+    label: "Across the what-if runs",
+    title: "The best idea across the what-if runs",
+    body: `Each what-if run adds its own jams and closures. The shape shows how much the slowest trips across the river change with the idea, compared with doing nothing in the same run: left of the dashed line is faster. It is faster in ${better} of ${values.length} runs.`,
+    visual: { kind: "ridge", values: sorted, unit: "s", caption: "change in the slowest trips, seconds" },
+  };
 }
 
 /** The range chip: study range in the reference world only; elsewhere "Range not tested for this scenario". */
@@ -335,7 +370,7 @@ export function sceneView(id: SceneView["id"], inp: StoryInput): SceneView {
         caption: fill(T.averages.caption, { lossPct: String(DEF.lossPct) }),
         chip: rangeChip(reference),
         sentence,
-        how: present<CaveatCopy>([range(reference), worstBody && { ...CAVEATS.worstSpots, body: worstBody }, CAVEATS.places, reference && fast(), lowerBound(false)]),
+        how: present<CaveatCopy>([range(reference, c.v.xhPeople), worstBody && { ...CAVEATS.worstSpots, body: worstBody }, lowerBound(reference), CAVEATS.places, reference && fast()]),
       };
     }
 
@@ -447,7 +482,7 @@ function fixView(inp: StoryInput, b: ReturnType<typeof ribbonValues>): SceneView
       chip: { text: fill(T.fix.stillAffected, { residual }), tone: "neutral", caveat: measure },
       sentence,
       note: modeLine,
-      how: present<CaveatCopy>([measure, (!applied || !pureOption) && CAVEATS.rangeNotTested, ...baseHow, lowerBound(false)]),
+      how: present<CaveatCopy>([spread(s.bestVsNothing), measure, (!applied || !pureOption) && CAVEATS.rangeNotTested, ...baseHow, lowerBound(false)]),
     };
   }
 

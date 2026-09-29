@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Minus, ShieldCheck } from "lucide-react";
 import { useApp, simInfo } from "@/lib/store";
 import { fmtDur, fmtMin, fmtPct1 } from "@/lib/format";
 import { fmtAbout, PEOPLE_GT10_RANGE } from "@/lib/ui/methodology";
-import { equityWording, RIBBON_LENS, ribbonValues, type RibbonKey } from "@/lib/ui/ribbon";
+import { deltaTone, equityWording, RIBBON_LENS, ribbonValues, type RibbonKey } from "@/lib/ui/ribbon";
 import { isBridgeOnly } from "@/lib/ui/storyFigures";
 import RollingNumber from "./RollingNumber";
 import Sparkline from "./Sparkline";
@@ -25,6 +25,8 @@ interface TileModel {
   tone: Tone;
   caption: string;
   history?: number[];
+  /** One history value (natural unit) as the tile shows it, for the sparkline readout. */
+  spark: (v: number) => string;
   onClick: () => void;
   active: boolean;
 }
@@ -51,8 +53,8 @@ function DeltaChip({ text, tone }: { text: string | null; tone: Tone }) {
   return (
     <span className="chip num h-6 shrink-0 px-2 text-xs font-medium" style={{ color, background: bg }}>
       <Arrow size={12} aria-hidden />
-      {text.replace(/^[+-]/, "")}
-      <span className="sr-only">{text.startsWith("-") ? " lower" : " higher"} than baseline</span>
+      {text}
+      <span className="sr-only">{text.startsWith("-") ? " lower" : " higher"} than baseline, {worse ? "worse" : tone === "better" ? "better" : "a change"}</span>
     </span>
   );
 }
@@ -74,7 +76,7 @@ function Tile({ t, first }: { t: TileModel; first: boolean }) {
       </span>
       <span aria-hidden className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-text transition-opacity duration-200" style={{ opacity: t.active ? 1 : 0 }} />
       <span className="flex items-center justify-between gap-2">
-        <span className={`label truncate ${t.active ? "!text-text" : ""}`}>{t.label}</span>
+        <span className={`truncate text-xs font-medium ${t.active ? "text-text" : "text-muted"}`}>{t.label}</span>
         {t.value !== null && <DeltaChip text={t.delta} tone={t.tone} />}
       </span>
       <span className="flex items-baseline justify-between gap-2">
@@ -82,7 +84,7 @@ function Tile({ t, first }: { t: TileModel; first: boolean }) {
           {t.value !== null ? (
             <>
               {t.prefix && <span className="text-xs text-muted">{t.prefix}</span>}
-              <span className="display text-xl font-medium leading-none text-text">
+              <span className="display text-xl font-medium leading-none text-text" style={{ fontVariantNumeric: "proportional-nums", fontFeatureSettings: '"pnum" 1' }}>
                 <RollingNumber value={t.value} format={t.format} mono={false} duration={0.9} delay={0.1} />
               </span>
               {t.unit && <span className="text-xs text-muted">{t.unit}</span>}
@@ -94,9 +96,9 @@ function Tile({ t, first }: { t: TileModel; first: boolean }) {
             <span className="skeleton h-6 w-28" aria-hidden />
           )}
         </span>
-        {t.history && t.history.length > 1 && (
-          <span className="shrink-0 max-[1439px]:hidden">
-            <Sparkline values={t.history} width={40} height={16} />
+        {t.history && t.history.length > 1 && t.value !== null && (
+          <span className="shrink-0 self-center">
+            <Sparkline values={t.history} width={56} height={20} accent={ACCENT[t.tone]} format={t.spark} label={t.label} />
           </span>
         )}
       </span>
@@ -104,6 +106,18 @@ function Tile({ t, first }: { t: TileModel; first: boolean }) {
     </button>
   );
 }
+
+/** The sparkline's current point takes the tile's status: worse, better or held, else neutral. */
+const ACCENT: Record<Tone, string> = {
+  worse: "var(--color-critical)",
+  better: "var(--color-ok)",
+  held: "var(--color-ok)",
+  flat: "var(--color-text-2)",
+  neutral: "var(--color-text-2)",
+};
+
+/** A signed change in seconds shown in minutes, for tiles whose value is in minutes (one unit per tile). */
+const signedMinOf = (s: number) => `${s > 0 ? "+" : s < 0 ? "-" : ""}${fmtMin(Math.abs(s) / 60)} min`;
 
 const signedDur = (s: number) => {
   const d = fmtDur(Math.abs(s));
@@ -129,7 +143,8 @@ export default function MetricsRibbon() {
   const hz = trips?.summary.hazmat_truck;
   const car = trips?.summary.car;
 
-  const tone = (d: number, flat: number): Tone => (Math.abs(d) < flat ? "flat" : d > 0 ? "worse" : "better");
+  // Every ribbon number is lower-is-better, so up is worse (critical) and down is better (ok).
+  const tone = (d: number, flat: number): Tone => deltaTone(d, flat);
   const lensTile = (key: RibbonKey) => ({ onClick: () => void setLens(RIBBON_LENS[key]), active: RIBBON_LENS[key] === lens, history: history[key] });
 
   const tiles: TileModel[] = [
@@ -147,6 +162,7 @@ export default function MetricsRibbon() {
         base: b && changed ? fmtAbout(b.v.xhPeople) : null,
         delta: `${d > 0 ? "+" : d < 0 ? "-" : ""}${fmtAbout(Math.abs(d))}`,
         tone: tone(d, 0.5),
+        spark: (v: number) => `about ${fmtAbout(v)}`,
         caption: [range, eq ? `low-wage: ${eq.text.toLowerCase().replace("all residents", "everyone")}` : ""].filter(Boolean).join(" · ") || (c ? `${fmtPct1(c.x.peopleSharePct)}% of residents` : ""),
         ...lensTile("xhPeople"),
       };
@@ -163,13 +179,15 @@ export default function MetricsRibbon() {
         base: null,
         delta: signedDur(d),
         tone: tone(d, 0.5),
+        spark: signedDur,
         caption: c ? `slow end (p90) ${fmtMin(c.x.regionalP90S / 60)} min` : "",
         ...lensTile("regional"),
       };
     })(),
     (() => {
       const d = c && b ? c.v.ems - b.v.ems : 0;
-      const t = tone(d, 1);
+      // Flat below 3 s: a change that rounds to 0.0 min is not shown as a change.
+      const t = tone(d, 3);
       return {
         id: "ems",
         label: "Station time",
@@ -178,8 +196,9 @@ export default function MetricsRibbon() {
         format: (v: number) => fmtMin(v),
         unit: "min",
         base: b && changed && t !== "flat" ? fmtMin(b.v.ems / 60) : null,
-        delta: signedDur(d),
+        delta: signedMinOf(d),
         tone: changed && t === "flat" ? "held" : t,
+        spark: (v: number) => `${fmtMin(v / 60)} min`,
         caption: c ? `${fmtPct1(c.x.emsPctWithin)}% of people within ${info ? Math.round(info.params.emsThresholdS / 60) : 8} min` : "",
         ...lensTile("ems"),
       };
@@ -194,8 +213,9 @@ export default function MetricsRibbon() {
         format: (v: number) => fmtMin(v),
         unit: "min",
         base: b && changed ? fmtMin(b.v.xhTime / 60) : null,
-        delta: signedDur(d),
-        tone: tone(d, 0.5),
+        delta: signedMinOf(d),
+        tone: tone(d, 3),
+        spark: (v: number) => `${fmtMin(v / 60)} min`,
         caption: c ? (c.x.xhAddedMaxPopS < 3 ? "no added time where people live" : `worst spot +${fmtMin(c.x.xhAddedMaxPopS / 60)} min`) : "",
         ...lensTile("xhTime"),
       };
@@ -210,6 +230,7 @@ export default function MetricsRibbon() {
       base: null,
       delta: hz ? `${hz.crossHarborMeanAddedMinutes >= 0 ? "+" : "-"}${fmtMin(Math.abs(hz.crossHarborMeanAddedMinutes))} min` : null,
       tone: hz ? tone(hz.crossHarborMeanAddedMinutes, 0.05) : "flat",
+      spark: (v: number) => `${v >= 0 ? "+" : "-"}${fmtMin(Math.abs(v))} min`,
       caption: hz && car ? `cars +${fmtMin(car.crossHarborMeanAddedMinutes)} min · ${hz.crossHarborOver5Min} of ${hz.crossHarborTrips} trips over 5 min` : "",
       history: tripsHistory,
       onClick: () => setFreightOpen(true),

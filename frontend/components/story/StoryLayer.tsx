@@ -11,6 +11,8 @@ import NoticeLine from "../DisclaimerBanner";
 import IntroCard from "./IntroCard";
 import StoryBar from "./StoryBar";
 import StoryCard from "./StoryCard";
+import ExplorePreview from "./ExplorePreview";
+import StressCard from "./StressCard";
 import { useStory } from "@/lib/ui/story";
 
 const CARD_W = 460;
@@ -95,6 +97,25 @@ export default function StoryLayer({ scene }: { scene: SceneId }) {
         </motion.div>
       )}
 
+      {/* Scene 5 after Apply, on wider screens: the stress test in its own panel beside the card. */}
+      {scene === "fix" && !phone && !loading && (
+        <div className="pointer-events-auto absolute bottom-12 z-20" style={{ left: CARD_W + GAP * 2, width: 400 }}>
+          <StressCard className="panel story-card !rounded-[24px] p-5" />
+        </div>
+      )}
+
+      {/* Scene 6 on wider screens: what Expert mode offers, in its own panel beside the card. */}
+      {scene === "explore" && !phone && !loading && (
+        <motion.div
+          className="panel story-card pointer-events-auto absolute bottom-12 z-20 max-h-[calc(100dvh-var(--story-top)-48px)] overflow-y-auto !rounded-[24px] p-5"
+          style={{ left: CARD_W + GAP * 2, width: 540 }}
+          initial={reduced ? { opacity: 0 } : { opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1], delay: 0.2 } }}
+        >
+          <ExplorePreview />
+        </motion.div>
+      )}
+
       {!intro && phone && (
         <motion.div
           ref={sheetRef}
@@ -108,7 +129,7 @@ export default function StoryLayer({ scene }: { scene: SceneId }) {
               <ChevronDown size={18} className="transition-transform duration-200" style={{ transform: collapsed ? "rotate(180deg)" : "none" }} aria-hidden />
             </button>
           </div>
-          <div className={`min-h-0 overflow-y-auto overscroll-contain px-5 pb-3 pt-1 ${collapsed ? "max-h-[132px]" : ""}`}>{loading ? <LoadingCard /> : <StoryCard id={scene as StoryScene} />}</div>
+          <div className={`min-h-0 overflow-y-auto overscroll-contain px-5 pb-3 pt-1 ${collapsed ? "max-h-[132px]" : ""}`}>{loading ? <LoadingCard /> : <StoryCard id={scene as StoryScene} inlinePreview />}</div>
           <div className="border-t border-border px-6 py-2">
             <NoticeLine compact />
           </div>

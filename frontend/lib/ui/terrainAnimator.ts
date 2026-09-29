@@ -16,6 +16,13 @@ export class TerrainAnimator {
   readonly elev: Float32Array;
   readonly rgb: Float32Array;
   readonly hatch: Uint8Array;
+  /**
+   * How fast each hex's displayed elevation is currently changing (m per animation-frame, always >= 0). This
+   * is the real instantaneous rate of the value on screen, not a decorative effect: it peaks mid-animation and
+   * returns to exactly 0 once a hex settles, by construction, with no separate decay timer. A renderer can use
+   * it to draw a brief brighter highlight on a column that is actively rising or sinking right now.
+   */
+  readonly vel: Float32Array;
   /** Start values of the running animation: allocated once and reused, so `start` allocates nothing. */
   private readonly fromE: Float32Array;
   private readonly fromC: Float32Array;
@@ -26,6 +33,7 @@ export class TerrainAnimator {
     this.elev = new Float32Array(n);
     this.rgb = new Float32Array(n * 3);
     this.hatch = new Uint8Array(n);
+    this.vel = new Float32Array(n);
     this.fromE = new Float32Array(n);
     this.fromC = new Float32Array(n * 3);
   }
@@ -55,12 +63,15 @@ export class TerrainAnimator {
       const tt = (now - t0) / ms;
       const e = this.elev;
       const c = this.rgb;
+      const v = this.vel;
       for (let i = 0; i < n; i++) {
         const delay = maxD > 0 ? (dist[i] / maxD) * stagger : 0;
         const local = clamp((tt - delay) / (1 - stagger), 0, 1);
         const sinking = target.elev[i] < fromE[i];
         const p = linear ? local : sinking ? easeOutQuart(local) : easeOutCubic(local);
+        const prevE = e[i];
         e[i] = fromE[i] + (target.elev[i] - fromE[i]) * p;
+        v[i] = Math.abs(e[i] - prevE);
         const k = i * 3;
         c[k] = fromC[k] + (target.rgb[k] - fromC[k]) * p;
         c[k + 1] = fromC[k + 1] + (target.rgb[k + 1] - fromC[k + 1]) * p;
@@ -72,6 +83,7 @@ export class TerrainAnimator {
       } else {
         this.raf = 0;
         this.hatch.set(target.hatch);
+        v.fill(0);
         onFrame();
         onSettle();
       }

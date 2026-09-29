@@ -67,7 +67,7 @@ icon or shape (never hue alone).
 | `ok` | `#2DD4BF` | held / improved / baseline | 10.6 |
 | `warn` | `#F5A524` | caution, hazmat route, assumptions | 9.7 |
 | `critical` | `#FF3D71` | worse / removed link / hard-hit | 5.8 / 5.4 |
-| `ai` | `#4C8DFF` | the planner (AI or deterministic search), focus ring | 6.2 |
+| `ai` | `#4C8DFF` | content or actions the AI model actually produced; input focus ring | 6.2 |
 | `future` | `#A78BFA` | futures, options, previews | 7.2 |
 
 Rules:

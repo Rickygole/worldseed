@@ -10,6 +10,8 @@ import { HOW, SIMULATED, T } from "@/lib/ui/storyCopy";
 import BigNumber, { TONE_COLOR } from "../ui/BigNumber";
 import Popover, { CaveatBody } from "../ui/Popover";
 import { useSceneView } from "./useSceneView";
+import StressCard from "./StressCard";
+import ExplorePreview from "./ExplorePreview";
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 const EASE_IN = [0.4, 0, 1, 1] as const;
@@ -133,7 +135,8 @@ function HowDoWeKnow({ v }: { v: SceneView }) {
   );
 }
 
-export default function StoryCard({ id }: { id: StoryScene }) {
+/** `inlinePreview`: scene 6's tool tiles inside the card (phones); on wider screens they sit in their own panel. */
+export default function StoryCard({ id, inlinePreview = false }: { id: StoryScene; inlinePreview?: boolean }) {
   const v = useSceneView(id);
   const reduced = !!useReducedMotion();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -231,6 +234,12 @@ export default function StoryCard({ id }: { id: StoryScene }) {
             </button>
             <HowDoWeKnow v={v} />
           </motion.div>
+          {id === "fix" && v.state === "applied" && inlinePreview && <StressCard />}
+          {id === "explore" && inlinePreview && (
+            <div className="mt-6">
+              <ExplorePreview />
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
     </section>

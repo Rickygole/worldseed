@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useApp } from "@/lib/store";
+import { useSearch } from "@/lib/ui/search";
+import { navigate } from "@/lib/ui/nav";
 import { setViewportPadding } from "@/lib/ui/mapDirector";
 import { enterExpert, expertNoteSeen, markExpertNoteSeen, setUiMode } from "@/lib/ui/modes";
 import { useStory } from "@/lib/ui/story";
@@ -46,11 +49,43 @@ function ExpertNote() {
   );
 }
 
+const NEEDS_SEARCH = "Run a search first: press Find a better future in the planner. Then this tool opens on its finalists.";
+
+/**
+ * /explore?open=<tool>: the scene-6 tiles land on one tool. Drawers open directly; the exhaustive check and the
+ * compare slider need finalists, so without a search the planner stays on its goal step with a one-line note.
+ */
+function useOpenParam(setNote: (v: string | null) => void) {
+  const params = useSearchParams();
+  const open = params.get("open");
+  const ready = useApp((s) => s.status === "ready");
+  const machineReady = useSearch((s) => s.m !== null);
+  useEffect(() => {
+    if (!open || !ready || !machineReady) return;
+    const app = useApp.getState();
+    const search = useSearch.getState();
+    const finalists = search.m?.phase === "finalists" ? search.m.finalists : [];
+    if (open === "freight") app.setFreightOpen(true);
+    else if (open === "closures") app.setClosuresOpen(true);
+    else if (open === "command") app.setCommandOpen(true);
+    else if (open === "exhaustive") {
+      if (finalists.length > 0) void search.runExhaustive();
+      else setNote(NEEDS_SEARCH);
+    } else if (open === "compare") {
+      if (finalists.length > 0) void search.setCompare(finalists[0].bundleId);
+      else setNote(NEEDS_SEARCH);
+    }
+    navigate("/explore", { replace: true });
+  }, [open, ready, machineReady, setNote]);
+}
+
 /** /explore: the analyst workspace over the persistent map (rail, planner, comparison strip; ribbon in the shell). */
 export default function ExplorePage() {
   const presentation = useApp((s) => s.presentation);
   const reduced = !!useReducedMotion();
   const panels = !presentation;
+  const [note, setNote] = useState<string | null>(null);
+  useOpenParam(setNote);
 
   useEffect(() => {
     enterExpert();
@@ -96,8 +131,16 @@ export default function ExplorePage() {
         </div>
       )}
       {panels && (
-        <div className="pointer-events-none absolute top-4 z-10 flex justify-center" style={{ left: 312, right: 392 }}>
+        <div className="pointer-events-none absolute top-4 z-10 flex flex-col items-center gap-2" style={{ left: 312, right: 392 }}>
           <ExpertNote />
+          {note && (
+            <p role="status" className="pop pointer-events-auto flex items-center gap-3 !rounded-full py-1.5 pl-4 pr-1.5 text-sm text-text-2">
+              {note}
+              <button type="button" className="btn-icon !h-8 !w-8" aria-label="Dismiss" onClick={() => setNote(null)}>
+                <X size={14} aria-hidden />
+              </button>
+            </p>
+          )}
         </div>
       )}
     </>

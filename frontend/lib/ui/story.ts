@@ -19,6 +19,9 @@ import { withBundle } from "./agentBridge";
 import { isBaseline, type StoryFacts } from "./storyFigures";
 import { budgetMinutes, loadAssumptions, loadAux, loadFacilities, shoresWithStations, stationCounts } from "./snapshotAux";
 import { STEPS } from "./storyCopy";
+import { ribbonValues } from "./ribbon";
+import { STRESS_LINKS } from "../agent/stress";
+import type { MutationRecord } from "../sim/contract";
 import { navigate } from "./nav";
 import { pathForScene, rememberScene } from "./routes";
 import { emsShowsChange, setEmsChangeBase } from "./lenses";
@@ -63,6 +66,20 @@ interface StoryState {
   expertFromStory: boolean;
   /** A short note after a deep link had to rebuild or redirect ("Continuing from the start"). */
   routeNote: string | null;
+  /** The stress test of the applied idea (scene 5, after Apply). */
+  stressCheck: StressCheck | null;
+}
+
+export interface StressCheck {
+  status: "running" | "ready" | "error" | "dismissed";
+  /** Plain name of the closed link ("Harbor Tunnel"). */
+  link: string;
+  /** Where the stress came from: the search's own critic, or the default tunnel closure. */
+  source: "search" | "default";
+  base?: number;
+  withIdea?: number;
+  stressBase?: number;
+  stressWithIdea?: number;
 }
 
 export const useStory = create<StoryState>(() => ({
@@ -77,6 +94,7 @@ export const useStory = create<StoryState>(() => ({
   keysOpen: false,
   expertFromStory: false,
   routeNote: null,
+  stressCheck: null,
 }));
 
 export const stepIndex = (id: SceneId): number | null => {
@@ -300,6 +318,35 @@ export function askApplyTop(): void {
   if (f) useSearch.getState().askApply(f.bundleId);
 }
 
+/**
+ * After an idea is applied: one real stress evaluation of it. The link closed is the one the search's own critic
+ * attacked with (its first link stress), or the Harbor Tunnel when the search ran none. Four deterministic
+ * cross-harbor runs (cached): the bridge-removed world with and without the idea, and both again with the link
+ * closed. Never blocks the story; the card can be dismissed.
+ */
+export async function runStressCheck(): Promise<void> {
+  const app = useApp.getState();
+  const applied = app.scenario;
+  const ideas = (applied.mutations ?? []).filter((m) => m.m.kind === "apply_candidate");
+  if (ideas.length === 0) return;
+  const critic = (useSearch.getState().m?.stresses ?? []).find((s) => s.spec.kind !== "time_of_day");
+  const linkId = critic && critic.spec.kind !== "time_of_day" ? critic.spec.linkId : "L-HARBORTUNNEL";
+  const link = STRESS_LINKS.find((l) => l.id === linkId)?.label ?? linkId;
+  const source = critic ? "search" : "default";
+  useStory.setState({ stressCheck: { status: "running", link, source } });
+  const stress: MutationRecord = { id: `story-stress-${linkId}`, m: { kind: "close_link", linkId }, origin: "user", label: `Stress test: ${link} closed`, confirmedAt: new Date().toISOString() };
+  const base: Scenario = { removedLinks: applied.removedLinks, mutations: (applied.mutations ?? []).filter((m) => m.m.kind !== "apply_candidate") };
+  const withStress = (s: Scenario): Scenario => ({ removedLinks: s.removedLinks, mutations: [...(s.mutations ?? []), stress] });
+  try {
+    const [b, w, sb, sw] = await Promise.all([base, applied, withStress(base), withStress(applied)].map((s) => app.peek(s, "xharbor")));
+    const people = (o: SimOutput) => ribbonValues(o)?.v.xhPeople ?? NaN;
+    if (useStory.getState().stressCheck?.status !== "running") return;
+    useStory.setState({ stressCheck: { status: "ready", link, source, base: people(b), withIdea: people(w), stressBase: people(sb), stressWithIdea: people(sw) } });
+  } catch {
+    useStory.setState({ stressCheck: { status: "error", link, source } });
+  }
+}
+
 /** Replay: the pre-collapse world, no search, back to the first scene. */
 export async function replayStory(): Promise<void> {
   clearRoute();
@@ -318,7 +365,10 @@ useSearch.subscribe((s) => {
   // Remember the world an option was applied in, so the fix scene can be revisited after going back.
   if (phase !== lastPhase) {
     lastPhase = phase;
-    if (phase === "applied") useStory.setState({ appliedScenario: useApp.getState().scenario });
+    if (phase === "applied") {
+      useStory.setState({ appliedScenario: useApp.getState().scenario });
+      void runStressCheck();
+    } else useStory.setState({ stressCheck: null });
   }
   // The top finalist's free-flow world, for the recovery shown before anything is applied.
   const top = phase === "finalists" ? s.m?.finalists[0] : undefined;

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ExternalLink, Truck, X } from "lucide-react";
+import { ChevronDown, ChevronsUpDown, ChevronUp, ExternalLink, Truck, X } from "lucide-react";
 import { useApp, snapshotSimulator } from "@/lib/store";
 import { useSearch } from "@/lib/ui/search";
 import { withBundle } from "@/lib/ui/agentBridge";
 import type { TripClassResult, TripResult, TripsResult } from "@/lib/sim/trips";
+import type { Scenario } from "@/lib/sim/types";
 import { fmtMin } from "@/lib/format";
 import { optionName, optionTitle } from "./planner/labels";
 import { FREIGHT_DISCLAIMER } from "@/lib/ui/storyCopy";
@@ -15,33 +16,135 @@ import { eligibleCandidates } from "@/lib/agent/catalog";
 export const MDTA_URL = "https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits";
 export const MDTA_NEWS_URL = "https://mdta.maryland.gov/keybridgenews";
 export { FREIGHT_DISCLAIMER };
-const CLASSES = ["car", "hazmat_truck"] as const;
 const CLASS_LABEL: Record<string, string> = { car: "Car", hazmat_truck: "Hazmat truck" };
 
 const signed = (m: number | null) => (m === null ? "--" : `${m >= 0 ? "+" : "-"}${fmtMin(Math.abs(m))}`);
 
-function Cell({ c }: { c: TripClassResult | undefined }) {
-  if (!c) return <td className="num px-1 py-1 text-right text-muted">--</td>;
+/**
+ * Color of an added-time change, by direction and goodness (more time is worse): over 5 min critical, any other
+ * increase warn, a decrease ok, no change muted. The signed number always carries the direction too.
+ */
+function changeColor(d: number | null): string {
+  if (d === null || Math.abs(d) < 0.05) return "var(--color-muted)";
+  if (d < 0) return "var(--color-ok)";
+  return d > 5 ? "var(--color-critical)" : "var(--color-warn)";
+}
+
+const TD = "num py-1.5 pl-2 text-right";
+/** The first column of a class group: a wider gap on its left separates the car and hazmat groups. */
+const TD0 = "num py-1.5 pl-4 text-right";
+
+/** One vehicle class as three aligned columns: before (pre-collapse), now, change. */
+function Cells({ c }: { c: TripClassResult | undefined }) {
+  if (!c) {
+    return (
+      <>
+        <td className={`${TD0} text-muted`}>--</td>
+        <td className={`${TD} text-muted`}>--</td>
+        <td className={`${TD} text-muted`}>--</td>
+      </>
+    );
+  }
+  const before = <td className={`${TD0} text-muted`}>{c.baselineMinutes === null ? "--" : fmtMin(c.baselineMinutes)}</td>;
   if (c.unreachable || c.currentMinutes === null) {
     return (
-      <td className="num px-1 py-1 text-right text-critical" title="No route in this world">
-        no route
-      </td>
+      <>
+        {before}
+        <td className={`${TD} text-text`} colSpan={2}>
+          no route
+        </td>
+      </>
     );
   }
   const big = (c.addedMinutes ?? 0) > 5;
   return (
-    <td className="num px-1 py-1 text-right" title={`${fmtMin(c.baselineMinutes ?? 0)} -> ${fmtMin(c.currentMinutes)} min${c.ratio !== null ? `, x${c.ratio.toFixed(2)}` : ""}`}>
-      <span className="text-muted">{c.baselineMinutes === null ? "--" : fmtMin(c.baselineMinutes)}</span>
-      <span className="text-muted"> → </span>
-      <span>{fmtMin(c.currentMinutes)}</span>
-      <span className="ml-1" style={{ color: big ? "var(--color-critical)" : "var(--color-muted)" }}>
-        {signed(c.addedMinutes)}
+    <>
+      {before}
+      <td className={`${TD} text-text`}>{fmtMin(c.currentMinutes)}</td>
+      <td className={TD} style={{ color: changeColor(c.addedMinutes) }} title={c.ratio !== null ? `x${c.ratio.toFixed(2)} the pre-collapse time` : undefined}>
+        {c.addedMinutes !== null && Math.abs(c.addedMinutes) < 0.05 ? "0.0" : signed(c.addedMinutes)}
         {big && <span className="sr-only"> (more than 5 min added)</span>}
-      </span>
-    </td>
+      </td>
+    </>
   );
 }
+
+type SortKey = "trip" | "car" | "hazmat_truck";
+
+function SortHead({ k, label, sort, onSort, className }: { k: SortKey; label: string; sort: { k: SortKey; desc: boolean } | null; onSort: (k: SortKey) => void; className?: string }) {
+  const on = sort?.k === k;
+  const Icon = !on ? ChevronsUpDown : sort.desc ? ChevronDown : ChevronUp;
+  return (
+    <th scope="col" className={className} aria-sort={on ? (sort.desc ? "descending" : "ascending") : "none"}>
+      <button type="button" className={`inline-flex items-center gap-0.5 font-medium hover:text-text ${on ? "text-text" : ""}`} onClick={() => onSort(k)}>
+        {label}
+        <Icon size={12} aria-hidden className={on ? "" : "opacity-50"} />
+      </button>
+    </th>
+  );
+}
+
+/** A column-group label with a hairline under exactly its three columns (the gap on its left separates the groups). */
+function GroupHead({ label }: { label: string }) {
+  return (
+    <th scope="colgroup" colSpan={3} className="pb-1 pl-4 text-center font-medium text-text-2">
+      <span className="block border-b border-line-strong pb-0.5">{label}</span>
+    </th>
+  );
+}
+
+/** The two-row header shared by the trip tables: class groups over before / now / change. */
+function TripHead({ first, sort, onSort }: { first: string; sort?: { k: SortKey; desc: boolean } | null; onSort?: (k: SortKey) => void }) {
+  const H = "pb-1 pl-2 text-right font-medium";
+  const H0 = "pb-1 pl-4 text-right font-medium";
+  return (
+    <thead className="text-muted">
+      <tr>
+        <td />
+        <GroupHead label="Car, min" />
+        <GroupHead label="Hazmat truck, min" />
+      </tr>
+      <tr className="border-b border-line-strong">
+        {onSort ? (
+          <SortHead k="trip" label={first} sort={sort ?? null} onSort={onSort} className="pb-1 pr-2 text-left" />
+        ) : (
+          <th scope="col" className="pb-1 pr-2 text-left font-medium">
+            {first}
+          </th>
+        )}
+        {(["car", "hazmat_truck"] as const).map((c) => (
+          <Fragment key={c}>
+            <th scope="col" className={H0}>
+              Before
+            </th>
+            <th scope="col" className={H}>
+              Now
+            </th>
+            {onSort ? (
+              <SortHead k={c} label="Change" sort={sort ?? null} onSort={onSort} className={H} />
+            ) : (
+              <th scope="col" className={H}>
+                Change
+              </th>
+            )}
+          </Fragment>
+        ))}
+      </tr>
+    </thead>
+  );
+}
+
+const COLS = (
+  <colgroup>
+    <col />
+    <col className="w-[54px]" />
+    <col className="w-[46px]" />
+    <col className="w-[58px]" />
+    <col className="w-[54px]" />
+    <col className="w-[46px]" />
+    <col className="w-[58px]" />
+  </colgroup>
+);
 
 /** What the escorted hazmat windows would do, computed by runTrips in each option's world. */
 function EscortOptions() {
@@ -149,6 +252,7 @@ function Inner({ onClose }: { onClose: () => void }) {
   const catalog = useSearch((s) => s.catalog);
   const bundles = useSearch((s) => s.bundles);
   const removed = useApp((s) => s.scenario.removedLinks.includes("key_bridge"));
+  const [sort, setSort] = useState<{ k: SortKey; desc: boolean } | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -162,67 +266,70 @@ function Inner({ onClose }: { onClose: () => void }) {
   const hz = trips?.summary.hazmat_truck;
 
   const cmpById = new Map((cmp?.res.trips ?? []).map((t) => [t.id, t]));
-  const delta = (a: TripClassResult | undefined, b: TripClassResult | undefined) => {
-    if (!a || !b || a.addedMinutes === null || b.addedMinutes === null) return <span className="text-muted">--</span>;
-    const d = b.addedMinutes - a.addedMinutes;
+  /** Added minutes now, with the option, and the change between them (negative = the option helps). */
+  const cmpCells = (a: TripClassResult | undefined, b: TripClassResult | undefined) => {
+    const now = a?.addedMinutes ?? null;
+    const w = b?.addedMinutes ?? null;
+    const d = now !== null && w !== null ? w - now : null;
     return (
       <>
-        <span className="text-muted">{signed(a.addedMinutes)}</span>
-        <span className="text-muted"> → </span>
-        <span>{signed(b.addedMinutes)}</span>
-        {Math.abs(d) >= 0.05 && (
-          <span className="ml-1" style={{ color: d < 0 ? "var(--color-ok)" : "var(--color-critical)" }}>
-            ({d < 0 ? "-" : "+"}
-            {fmtMin(Math.abs(d))})
-          </span>
-        )}
+        <td className={`${TD0} text-muted`}>{signed(now)}</td>
+        <td className={`${TD} text-text`}>{signed(w)}</td>
+        <td className={TD} style={{ color: d !== null && d < -0.05 ? "var(--color-ok)" : d !== null && d > 0.05 ? "var(--color-critical)" : "var(--color-muted)" }}>
+          {d === null ? "--" : Math.abs(d) < 0.05 ? "0.0" : `${d < 0 ? "-" : "+"}${fmtMin(Math.abs(d))}`}
+        </td>
       </>
     );
   };
-  const cmpRows = (list: TripResult[]) => (
-    <>
-      {list.map((t) => {
-        const on = sel?.tripId === t.id;
-        const o = cmpById.get(t.id);
-        return (
-          <tr key={t.id} className="border-t border-border" style={on ? { background: "var(--color-surface-2)" } : undefined}>
-            <th scope="row" className="px-1 py-1 text-left font-normal">
-              <button
-                className="w-full truncate text-left hover:text-text"
-                aria-pressed={on}
-                onClick={() => void selectTrip(on ? null : t.id, cmp ? { scenario: cmp.scenario, label: `with ${cmp.bundleId}` } : undefined)}
-                title={`${t.names.origin} → ${t.names.destination} (show the route with ${cmp?.bundleId} on the map)`}
-              >
-                {t.names.origin} → {t.names.destination}
-              </button>
-            </th>
-            <td className="num px-1 py-1 text-right">{delta(t.classes.hazmat_truck, o?.classes.hazmat_truck)}</td>
-            <td className="num px-1 py-1 text-right">{delta(t.classes.car, o?.classes.car)}</td>
-          </tr>
-        );
-      })}
-    </>
+  const tripButton = (t: TripResult, on: boolean, world?: { scenario: Scenario; label: string }) => (
+    <button
+      className="w-full truncate text-left hover:text-text"
+      aria-pressed={on}
+      onClick={() => void selectTrip(on ? null : t.id, world)}
+      title={`${t.names.origin} → ${t.names.destination} (show ${world ? `the route with ${cmp?.bundleId}` : "it"} on the map)`}
+    >
+      {t.names.origin} → {t.names.destination}
+    </button>
   );
+  const cmpRows = (list: TripResult[]) =>
+    list.map((t) => {
+      const on = sel?.tripId === t.id;
+      const o = cmpById.get(t.id);
+      return (
+        <tr key={t.id} className="border-t border-border" style={on ? { background: "var(--color-surface-2)" } : undefined}>
+          <th scope="row" className="py-1.5 pr-2 text-left font-normal">
+            {tripButton(t, on, cmp ? { scenario: cmp.scenario, label: `with ${cmp.bundleId}` } : undefined)}
+          </th>
+          {cmpCells(t.classes.car, o?.classes.car)}
+          {cmpCells(t.classes.hazmat_truck, o?.classes.hazmat_truck)}
+        </tr>
+      );
+    });
 
-  const rows = (list: TripResult[]) => (
-    <>
-      {list.map((t) => {
-        const on = sel?.tripId === t.id;
-        return (
-          <tr key={t.id} className="border-t border-border" style={on ? { background: "var(--color-surface-2)" } : undefined}>
-            <th scope="row" className="px-1 py-1 text-left font-normal">
-              <button className="w-full truncate text-left hover:text-text" aria-pressed={on} onClick={() => void selectTrip(on ? null : t.id)} title={`${t.names.origin} → ${t.names.destination} (show on the map)`}>
-                {t.names.origin} → {t.names.destination}
-              </button>
-            </th>
-            {CLASSES.map((c) => (
-              <Cell key={c} c={t.classes[c]} />
-            ))}
-          </tr>
-        );
-      })}
-    </>
-  );
+  const onSort = (k: SortKey) => setSort((s) => (s?.k === k ? (s.desc ? { k, desc: false } : null) : { k, desc: k !== "trip" }));
+  const sorted = (list: TripResult[]) => {
+    if (!sort) return list;
+    const key = (t: TripResult) => (sort.k === "trip" ? `${t.names.origin} ${t.names.destination}` : (t.classes[sort.k]?.addedMinutes ?? Number.POSITIVE_INFINITY));
+    return [...list].sort((a, b) => {
+      const x = key(a);
+      const y = key(b);
+      const c = typeof x === "string" ? x.localeCompare(y as string) : x - (y as number);
+      return sort.desc ? -c : c;
+    });
+  };
+  const rows = (list: TripResult[]) =>
+    list.map((t) => {
+      const on = sel?.tripId === t.id;
+      return (
+        <tr key={t.id} className="border-t border-border hover:bg-[rgb(148_163_184/0.05)]" style={on ? { background: "var(--color-surface-2)" } : undefined}>
+          <th scope="row" className="py-1.5 pr-2 text-left font-normal">
+            {tripButton(t, on)}
+          </th>
+          <Cells c={t.classes.car} />
+          <Cells c={t.classes.hazmat_truck} />
+        </tr>
+      );
+    });
 
   return (
     <motion.section
@@ -251,8 +358,11 @@ function Inner({ onClose }: { onClose: () => void }) {
                 const s = trips.summary[c];
                 return (
                   <div key={c} className="card p-3">
-                    <p className="label">{CLASS_LABEL[c]}</p>
-                    <p className="num mt-1 text-2xl font-medium">{s ? `${signed(s.crossHarborMeanAddedMinutes)}` : "--"}<span className="ml-1 text-xs text-muted">min</span></p>
+                    <p className="text-xs font-medium text-muted">{CLASS_LABEL[c]}, added per trip</p>
+                    <p className="display mt-1 text-2xl font-medium" style={{ fontVariantNumeric: "proportional-nums", fontFeatureSettings: '"pnum" 1' }}>
+                      {s ? `${signed(s.crossHarborMeanAddedMinutes)}` : "--"}
+                      <span className="ml-1 font-sans text-xs font-normal text-muted">min</span>
+                    </p>
                     <p className="num text-xs text-muted">
                       mean over {s?.crossHarborTrips ?? 0} cross-harbor trips · {s?.crossHarborOver5Min ?? 0} add more than 5 min
                       {s && s.unreachableTrips > 0 ? ` · ${s.unreachableTrips} unreachable` : ""}
@@ -292,11 +402,31 @@ function Inner({ onClose }: { onClose: () => void }) {
                   {signed(cmp.res.summary.car?.crossHarborMeanAddedMinutes ?? null)} min. Added minutes versus the pre-collapse network; select a trip to see its routes with the option.
                 </p>
                 <table className="w-full table-fixed text-xs">
-                  <thead>
-                    <tr className="text-left text-muted">
-                      <th scope="col" className="w-[40%] px-1 pb-1 font-medium">Cross-harbor trip</th>
-                      <th scope="col" className="px-1 pb-1 text-right font-medium">Hazmat, added now → with</th>
-                      <th scope="col" className="px-1 pb-1 text-right font-medium">Car, added now → with</th>
+                  <caption className="sr-only">Added minutes versus the pre-collapse network, now and with {cmp.bundleId}</caption>
+                  {COLS}
+                  <thead className="text-muted">
+                    <tr>
+                      <td />
+                      <GroupHead label="Car, added min" />
+                      <GroupHead label="Hazmat truck, added min" />
+                    </tr>
+                    <tr className="border-b border-line-strong">
+                      <th scope="col" className="pb-1 pr-2 text-left font-medium">
+                        Cross-harbor trip
+                      </th>
+                      {["car", "hazmat"].map((c) => (
+                        <Fragment key={c}>
+                          <th scope="col" className="pb-1 pl-4 text-right font-medium">
+                            Now
+                          </th>
+                          <th scope="col" className="pb-1 pl-2 text-right font-medium">
+                            With
+                          </th>
+                          <th scope="col" className="pb-1 pl-2 text-right font-medium">
+                            Change
+                          </th>
+                        </Fragment>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>{cmpRows(cross)}</tbody>
@@ -304,23 +434,21 @@ function Inner({ onClose }: { onClose: () => void }) {
               </section>
             )}
             <table className="w-full table-fixed text-xs">
-              <caption className="label mb-1 text-left">Cross-harbor trips ({cross.length})</caption>
-              <thead>
-                <tr className="text-left text-muted">
-                  <th scope="col" className="w-[44%] px-1 pb-1 font-medium">Trip</th>
-                  <th scope="col" className="px-1 pb-1 text-right font-medium">Car, min</th>
-                  <th scope="col" className="px-1 pb-1 text-right font-medium">Hazmat truck, min</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows(cross)}
-              </tbody>
+              <caption className="mb-2 text-left text-sm font-medium text-text">
+                Cross-harbor trips <span className="num font-normal text-muted">({cross.length})</span>
+              </caption>
+              {COLS}
+              <TripHead first="Trip" sort={sort} onSort={onSort} />
+              <tbody>{rows(sorted(cross))}</tbody>
             </table>
             <table className="w-full table-fixed text-xs">
-              <caption className="label mb-1 text-left">Same-shore controls ({controls.length}): should not depend on the harbor crossings</caption>
-              <tbody>
-                {rows(controls)}
-              </tbody>
+              <caption className="mb-2 text-left text-sm font-medium text-text">
+                Same-shore controls <span className="num font-normal text-muted">({controls.length})</span>
+                <span className="block text-xs font-normal text-muted">These should not depend on the harbor crossings.</span>
+              </caption>
+              {COLS}
+              <TripHead first="Trip" />
+              <tbody>{rows(controls)}</tbody>
             </table>
             <section aria-labelledby="escort-h">
               <h3 id="escort-h" className="label mb-1">

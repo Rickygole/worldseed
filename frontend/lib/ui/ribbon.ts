@@ -53,6 +53,20 @@ export const RIBBON_LENS: Record<RibbonKey, LensId> = {
   ems: "ems",
 };
 
+/** Points a ribbon sparkline shows: the last twelve runs of the session. */
+export const SPARK_POINTS = 12;
+
+export const sparkTail = (values: readonly number[], n = SPARK_POINTS): number[] => values.slice(-n);
+
+/**
+ * Tone of a ribbon delta: direction times whether up is good for THAT metric. Every ribbon number today is
+ * lower-is-better (people affected, drive and response times, hazmat minutes), so up is worse unless told otherwise.
+ */
+export function deltaTone(d: number, flat: number, upIsGood = false): "worse" | "better" | "flat" {
+  if (!Number.isFinite(d) || Math.abs(d) < flat) return "flat";
+  return d > 0 === upIsGood ? "better" : "worse";
+}
+
 export function ribbonValues(out: SimOutput | null): { v: RibbonValues; x: RibbonExtras } | null {
   const L = out?.detail?.lenses;
   const xh = L?.xharbor.xharbor;

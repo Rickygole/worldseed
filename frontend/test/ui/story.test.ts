@@ -119,6 +119,7 @@ const search: SearchSnapshot = {
   costTier: "$$",
   finalists: [],
   appliedBundleId: null,
+  bestVsNothing: null,
   stopped: false,
 };
 
@@ -186,5 +187,38 @@ describe("scene views", () => {
     expect(applied.chip?.text).toBe("Still affected: about 15,000 people");
     expect(applied.sentence).toBe(T.fix.helps);
     expect(applied.how.some((c) => /Measure: people who reach over 10% fewer jobs/.test(c.body))).toBe(true);
+  });
+});
+
+describe("richer secondary content", () => {
+  it("stressKeep: share of the idea's benefit that survives the extra closure", async () => {
+    const { stressKeep } = await import("../../lib/ui/storyFigures");
+    expect(stressKeep({ base: 20000, withIdea: 15000, stressBase: 60000, stressWithIdea: 57000 })?.keepPct).toBeCloseTo(60);
+    expect(stressKeep({ base: 20000, withIdea: 15000, stressBase: 60000, stressWithIdea: 53000 })?.keepPct).toBeCloseTo(140);
+    expect(stressKeep({ base: 20000, withIdea: 20000, stressBase: 1, stressWithIdea: 0 })).toBeNull();
+  });
+  it("scene 2's range popover draws where the on-screen count sits; its commute caveat carries a real source card", () => {
+    const v = sceneView("averages", input({ aux: { hexes: {} as never, blockGroups: [], hexPlace: new Int32Array(0), places: [] } }));
+    const r = v.how.find((c) => c.id === "range");
+    expect(r?.visual).toMatchObject({ kind: "range", value: 20100 });
+    const lb = v.how.find((c) => c.id === "lowerBound");
+    expect(lb?.sources?.[0].href).toMatch(/^https:\/\/baltimorefishbowl\.com\/stories\//);
+  });
+  it("scene 4 cites the MDTA rule and alternate-route pages as source cards", async () => {
+    const { CAVEATS } = await import("../../lib/ui/storyCopy");
+    expect(CAVEATS.notGuidance.sources.map((s) => new URL(s.href).hostname)).toEqual(["mdta.maryland.gov", "mdta.maryland.gov"]);
+  });
+  it("scene 5's popover draws the finalist's spread across what-if runs", () => {
+    const v = sceneView(
+      "fix",
+      input({
+        bridgeOnly: out({ xhPeople: 20000, regional: 3, ems: 366 }),
+        topWorld: out({ xhPeople: 15000, regional: 1, ems: 366 }),
+        search: { ...search, phase: "finalists", finalists: [{ bundleId: "B1", title: "x", costTier: "$$", pGoal: 0.8 }], bestVsNothing: [-30, -20, 5, -10] },
+      }),
+    );
+    const sp = v.how.find((c) => c.id === "spread");
+    expect(sp?.visual).toMatchObject({ kind: "ridge", values: [-30, -20, -10, 5] });
+    expect(sp?.body).toMatch(/faster in 3 of 4 runs/);
   });
 });

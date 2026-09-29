@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Eye } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { useSearch } from "@/lib/ui/search";
-import { median } from "@/lib/ui/futuresMath";
+import { median, seriesColor } from "@/lib/ui/futuresMath";
 import { fmtMetricDelta } from "../planner/labels";
 
 /**
@@ -39,14 +39,16 @@ export default function ComparisonStrip() {
             <Eye size={14} aria-hidden /> Preview
           </span>
           {refs && (
-            <span className="flex flex-col justify-center rounded-full px-3 py-1 text-left">
+            <span className="flex flex-col justify-center whitespace-nowrap rounded-full px-3 py-1 text-left">
               <span className="text-xs text-text-2">Doing nothing</span>
-              <span className="num text-xs text-muted">{refs.nothingPGoal === null ? "--" : `${Math.round(refs.nothingPGoal * 100)}%`}</span>
+              <span className="num text-xs text-muted">{refs.nothingPGoal === null ? "--" : `${Math.round(refs.nothingPGoal * 100)}%`} chance</span>
             </span>
           )}
           {finalists.map((f, i) => {
             const b = bundles[f.bundleId];
             const on = preview?.bundleId === f.bundleId;
+            const pGoal = b?.pGoal == null ? "--" : `${Math.round(b.pGoal * 100)}%`;
+            const med = b ? fmtMetricDelta(metric, median(b.vsNothing)) : "--";
             return (
               <button
                 key={f.bundleId}
@@ -54,13 +56,18 @@ export default function ComparisonStrip() {
                 aria-pressed={on}
                 disabled={!b || busy}
                 onClick={() => void setPreview(f.bundleId)}
+                aria-label={`Preview finalist ${i + 1}, ${f.bundleId}, cost tier ${f.costTier}: ${pGoal} chance of meeting the goal, median change ${med}`}
                 className={`flex flex-col justify-center rounded-full px-4 py-1 text-left transition-colors duration-150 ${on ? "bg-[rgb(167_139_250/0.18)] shadow-[inset_0_0_0_1px_rgb(167_139_250/0.6)]" : "hover:bg-[rgb(148_163_184/0.1)]"}`}
               >
-                <span className={`text-xs font-medium ${on ? "text-future" : "text-text"}`}>
-                  #{i + 1} {f.bundleId} <span className="text-muted">{f.costTier}</span>
+                <span className="flex items-center gap-1.5 text-xs font-medium text-text">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: seriesColor(i) ?? "var(--color-faint)" }} aria-hidden />
+                  <span className="num">
+                    #{i + 1} {f.bundleId}
+                  </span>
+                  <span className="num font-normal text-muted">{f.costTier}</span>
                 </span>
-                <span className="num text-xs text-muted">
-                  {b?.pGoal == null ? "--" : `${Math.round(b.pGoal * 100)}%`} · {b ? fmtMetricDelta(metric, median(b.vsNothing)) : "--"}
+                <span className="num whitespace-nowrap text-xs text-muted">
+                  <span className="text-text-2">{pGoal}</span> chance · <span className="text-text-2">{med}</span>
                 </span>
               </button>
             );

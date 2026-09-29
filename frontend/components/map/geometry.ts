@@ -97,6 +97,12 @@ export function drawPrefix(paths: [number, number][][], t: number, z: number, fr
   return out;
 }
 
+/** The leading point of a `drawPrefix` reveal: where a traveling pulse riding the draw-in should sit right now. */
+export function tipOf(revealed: readonly Path3[]): Path3[number] | null {
+  const last = revealed[revealed.length - 1];
+  return last && last.length > 0 ? last[last.length - 1] : null;
+}
+
 /** Cumulative fraction (0..1) along a lng/lat polyline by km distance, one per vertex. */
 export function pathFractions(path: [number, number][]): number[] {
   const xy = path.map(([lng, lat]) => toLocalKm(lat, lng));

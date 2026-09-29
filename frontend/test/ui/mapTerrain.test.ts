@@ -93,4 +93,27 @@ describe("terrain animator", () => {
     expect(a.elev[0]).toBeGreaterThan(40);
     expect(a.elev[0]).toBeLessThan(60);
   });
+
+  it("vel is the real instantaneous rate of the displayed value: 0 before it starts, positive while moving, exactly 0 once settled", () => {
+    const c = clock();
+    const a = new TerrainAnimator(2);
+    // A 0.5-stagger fraction: hex 1 (far) is still delayed while hex 0 (near) is already moving.
+    a.start(enc([600, 600]), Float32Array.from([0, 10]), { ms: 1000, stagger: 0.5, linear: false }, () => {}, () => {});
+    c.run(16, 16);
+    expect(a.vel[0]).toBeGreaterThan(0);
+    expect(a.vel[1]).toBe(0); // still in its delay window, hasn't started yet
+    c.run(2000);
+    expect(a.vel[0]).toBe(0);
+    expect(a.vel[1]).toBe(0);
+  });
+
+  it("vel never reports motion for a hex that never changes value", () => {
+    const c = clock();
+    const a = new TerrainAnimator(1);
+    a.start(enc([250]), Float32Array.from([0]), { ms: 1, stagger: 0, linear: true }, () => {}, () => {});
+    c.run(50);
+    a.start(enc([250]), Float32Array.from([0]), { ms: 600, stagger: 0, linear: false }, () => {}, () => {});
+    c.run(16, 16);
+    expect(a.vel[0]).toBe(0);
+  });
 });

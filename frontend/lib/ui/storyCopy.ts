@@ -7,6 +7,7 @@
  * button per scene; detail behind "How do we know?"; sentences at grade 9 or below (test/ui/readability.test.ts).
  */
 import type { SceneId } from "./mapDirector";
+import { REPORTED_DETOUR_ARTICLE } from "./methodology";
 import { MIN_PER_SEC } from "../../components/map/trailModel";
 
 export interface CaveatCopy {
@@ -21,12 +22,30 @@ export interface CaveatCopy {
   link?: { href: string; text: string };
   /** A second link (e.g. the MDTA alternate-route page). */
   link2?: { href: string; text: string };
+  /** Real sources, shown as clickable cards (title, publisher, domain, date). */
+  sources?: SourceRef[];
+  /** One small real visual computed from the simulator or the study. */
+  visual?: CaveatVisual;
 }
+
+export interface SourceRef {
+  title: string;
+  publisher: string;
+  date?: string;
+  href: string;
+  /** A short label under the title ("Unverified news report", "Official rule page"). */
+  kind: string;
+}
+
+export type CaveatVisual =
+  /** Where the on-screen count sits inside the tested range (log scale: the range spans an order of magnitude). */
+  | { kind: "range"; lo: number; hi: number; value: number; loLabel: string; hiLabel: string; valueLabel: string }
+  /** The spread of a finalist's change versus doing nothing across the what-if runs (futuresMath ridge). */
+  | { kind: "ridge"; values: number[]; unit: "s"; caption: string };
 
 export const MDTA_URL = "https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits";
 export const MDTA_NEWS_URL = "https://mdta.maryland.gov/keybridgenews";
 export const METHODOLOGY_DOC = "https://github.com/Rickygole/worldseed/blob/main/docs/METHODOLOGY.md";
-export const FISHBOWL_URL = "https://baltimorefishbowl.com/";
 export const MDTA_ACCESSED = "26 September 2026";
 /** privacy.retentionDays: must equal the limiter's daily-cap key TTL (2 * DAY_MS in lib/server/ratelimit.ts; checked by test/ui/story.test.ts). */
 export const PRIVACY_RETENTION_DAYS = 2;
@@ -136,10 +155,24 @@ export const T = {
     actionFinalists: "Apply the best idea",
     actionApplied: "Continue",
   },
+  stress: {
+    eyebrow: "Stress test",
+    title: "What if the {{link}} closes too?",
+    keeps: "The idea keeps about {{pct}}% of its benefit with the {{link}} also closed.",
+    more: "The idea matters more when the {{link}} also closes: it spares about {{stressed}} people, against about {{normal}} with the tunnel open.",
+    moreUnit: "fewer people affected with both closed",
+    keepsUnit: "of its benefit kept",
+    lost: "With the {{link}} also closed, the idea no longer helps on this measure.",
+    detail: "People affected with both closed: about {{without}} without the idea, about {{with}} with it.",
+    method: "Simulated, free flow, one run per world. The search runs this kind of attack on every leading idea; the full log is in Expert mode.",
+    running: "Testing the idea with the {{link}} also closed.",
+    dismiss: "Dismiss the stress test",
+    open: "See the search's stress tests",
+  },
   explore: {
     unit: "people",
     caption: "Affected, as the map shows now",
-    sentence: "Now it is your turn: click the map, switch views, and check the assumptions.",
+    sentence: "Now it is your turn. Each tile opens one tool in expert mode.",
     action: "Open expert mode",
   },
   common: {
@@ -162,9 +195,17 @@ export const CAVEATS = {
     label: "Is this too small?",
     title: "Is this too small?",
     body: "Free-flow: no traffic jams, so delays can be larger. Capital News Service (via Baltimore Fishbowl) reported a Dundalk to Ferndale commute rising from about {{before}} to {{after}} minutes. The model adds about {{modelAdded}} minutes, or {{bothTunnels}} with both tunnels closed.",
-    source: "Capital News Service (via Baltimore Fishbowl), 28 March 2025. Methodology, section 6.1. From our sensitivity study.",
-    link: { href: FISHBOWL_URL, text: "Baltimore Fishbowl" },
-    link2: { href: METHODOLOGY_DOC, text: "Methodology" },
+    source: "The model comparison is from our sensitivity study (Methodology, section 6.1).",
+    link: { href: METHODOLOGY_DOC, text: "Methodology" },
+    sources: [
+      {
+        title: REPORTED_DETOUR_ARTICLE.title,
+        publisher: REPORTED_DETOUR_ARTICLE.publisher,
+        date: REPORTED_DETOUR_ARTICLE.date,
+        href: REPORTED_DETOUR_ARTICLE.url,
+        kind: "News report (unverified; one clause cited)",
+      },
+    ],
   },
   lowerBound: {
     id: "lowerBound",
@@ -249,9 +290,10 @@ export const CAVEATS = {
     label: "Simulation, not route guidance",
     title: "Simulation, not route guidance",
     body: "Simulation, not route guidance. Drive times are simulated at free-flow speeds on the pre-collapse ({{snapshotDate}}) road network. Carriers must follow posted and designated hazardous-materials routes. Not affiliated with or endorsed by the MDTA.",
-    source: `MDTA rule, accessed ${MDTA_ACCESSED}. Alternate route: MDTA Key Bridge news, accessed ${MDTA_ACCESSED}.`,
-    link: { href: MDTA_URL, text: "MDTA rule" },
-    link2: { href: MDTA_NEWS_URL, text: "MDTA Key Bridge news" },
+    sources: [
+      { title: "Transporting Hazardous Materials Across Our Toll Facilities", publisher: "Maryland Transportation Authority", date: `accessed ${MDTA_ACCESSED}`, href: MDTA_URL, kind: "The tunnel rule" },
+      { title: "Key Bridge news: the alternate route for tunnel-prohibited loads", publisher: "Maryland Transportation Authority", date: `accessed ${MDTA_ACCESSED}`, href: MDTA_NEWS_URL, kind: "The alternate route" },
+    ],
   },
   hazmatAssumption: {
     id: "hazmatAssumption",
@@ -297,6 +339,16 @@ export const CAVEATS = {
     body: "Keep the slowest trips across the river within {{target}} of before the collapse, using ideas that cost up to {{tier}}. Change it in Expert mode. {{mode}}.",
   },
 } satisfies Record<string, CaveatCopy>;
+
+/** Scene 6: what Expert mode offers, one tile per tool (each opens it at /explore?open=<id>). {{n}} slots are computed. */
+export const EXPLORE_TILES = [
+  { id: "freight", title: "Freight and hazmat trips", hint: "{{trips}} trips across the river, car against truck, with routes on the map" },
+  { id: "exhaustive", title: "Test an idea against every possibility", hint: "Score every mix of ideas and see where the search's pick ranks" },
+  { id: "compare", title: "Compare two futures side by side", hint: "Swipe between the map now and the map with an idea" },
+  { id: "command", title: "Close any road", hint: "Type \"close harbor tunnel\" in the command bar (Ctrl or Cmd K)" },
+  { id: "closures", title: "Live closure and source lookups", hint: "News reports and published sources, confirmed one at a time" },
+] as const;
+export type ExploreTileId = (typeof EXPLORE_TILES)[number]["id"];
 
 /** Expert-mode toggle and keyboard help (STORY.md section 8). */
 export const TOGGLE = {

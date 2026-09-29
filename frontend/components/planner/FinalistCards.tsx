@@ -1,29 +1,139 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Columns2, Eye, ListOrdered, Trophy, Wand2, X, HelpCircle } from "lucide-react";
 import { exhaustiveSummaryLine, rankOf } from "@/lib/agent/exhaustive";
 import { fmtAbout } from "@/lib/ui/methodology";
 import { scenarioKey, useApp } from "@/lib/store";
 import { getMachine, useSearch } from "@/lib/ui/search";
-import { dist3, median, ridge } from "@/lib/ui/futuresMath";
+import { dist3, durationTicks, median, niceTicks, ridge, seriesColor, shareAtOrBelow } from "@/lib/ui/futuresMath";
+import type { GoalMetric } from "@/lib/agent/tools";
 import type { BundleFutures } from "@/lib/ui/agentBridge";
-import { fmtMetric, fmtMetricDelta, metricLabel, optionName, TIER_COLOR } from "./labels";
+import { fmtMetric, fmtMetricDelta, isCountMetric, metricLabel, optionName } from "./labels";
 import Popover from "../ui/Popover";
 import { GLOSSARY } from "@/lib/ui/storyCopy";
 
-function Ridge({ values, lo, hi, color }: { values: number[]; lo: number; hi: number; color: string }) {
-  const w = 120;
-  const h = 28;
-  const pts = ridge(values, lo, hi, 32);
-  const x = (i: number) => (i / (pts.length - 1)) * w;
-  const d = `M0,${h} ` + pts.map((p, i) => `L${x(i).toFixed(1)},${(h - 2 - p * (h - 4)).toFixed(1)}`).join(" ") + ` L${w},${h} Z`;
-  const zx = ((0 - lo) / (hi - lo)) * w;
+const RW = 300;
+const ROW = 30;
+
+/**
+ * The spread of each finalist's change across the what-if runs, as stacked ridgelines: one row per finalist, the
+ * same x domain for all (so they compare like small multiples), a 10% wash with its density outline and a 2 px
+ * median tick in the finalist's fixed color. The name sits beside its ridge; a crosshair reads off, for every
+ * finalist, the share of runs at least as good as the value under the pointer.
+ */
+function FinalistRidges({
+  rows,
+  lo,
+  hi,
+  metric,
+}: {
+  rows: { id: string; rank: number; name: string; values: number[]; color: string | null }[];
+  lo: number;
+  hi: number;
+  metric: GoalMetric;
+}) {
+  const [px, setPx] = useState<number | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const xOf = (v: number) => ((v - lo) / (hi - lo)) * RW;
+  const count = isCountMetric(metric);
+  const t = count ? { unit: "count" as const, ticks: niceTicks(lo, hi, 4) } : durationTicks(lo, hi, 4);
+  const unitWord = t.unit === "count" ? "block groups" : t.unit === "min" ? "min" : "s";
+  const tick = (v: number) => {
+    if (Math.abs(v) < 1e-9) return "0";
+    const a = Number((Math.abs(v) / (t.unit === "min" ? 60 : 1)).toPrecision(3));
+    return `${v > 0 ? "+" : "-"}${a}`;
+  };
+  const at = px === null ? null : lo + (px / 100) * (hi - lo);
+  const zx = (100 * xOf(0)) / RW;
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden className="shrink-0">
-      <path d={d} fill={color} opacity={0.35} stroke={color} strokeWidth={1} />
-      {zx >= 0 && zx <= w && <line x1={zx} x2={zx} y1={0} y2={h} stroke="var(--color-muted)" strokeDasharray="2 2" />}
-    </svg>
+    <figure className="mb-4" aria-labelledby="ridges-cap">
+      <figcaption id="ridges-cap" className="mb-2 flex items-baseline justify-between gap-2 text-xs text-muted">
+        <span className="text-text-2">Spread across {rows[0]?.values.length ?? 0} what-if runs</span>
+        <span className="shrink-0">{unitWord}, left is better</span>
+      </figcaption>
+      <div
+        ref={box}
+        className="relative cursor-crosshair"
+        onPointerMove={(e) => {
+          const r = box.current?.getBoundingClientRect();
+          if (r) setPx(Math.min(100, Math.max(0, (100 * (e.clientX - r.left)) / r.width)));
+        }}
+        onPointerLeave={() => setPx(null)}
+      >
+        {rows.map((r) => {
+          const pts = ridge(r.values, lo, hi, 48);
+          const x = (i: number) => (i / (pts.length - 1)) * RW;
+          const yv = (p: number) => ROW - 1 - p * (ROW - 6);
+          const top = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${yv(p).toFixed(1)}`).join(" ");
+          const med = median(r.values);
+          const mi = Math.round(((med - lo) / (hi - lo)) * (pts.length - 1));
+          const c = r.color ?? "var(--color-faint)";
+          const d = dist3(r.values);
+          return (
+            <div key={r.id} className="mb-1.5">
+              <p className="flex items-center gap-1.5 text-xs leading-4">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: c }} aria-hidden />
+                <span className="num shrink-0 text-muted">#{r.rank + 1}</span>
+                <span className="min-w-0 truncate text-text-2" title={r.name}>
+                  {r.name}
+                </span>
+                <span className="num ml-auto shrink-0 text-text">{fmtMetricDelta(metric, med)}</span>
+              </p>
+              <svg
+                width="100%"
+                height={ROW}
+                viewBox={`0 0 ${RW} ${ROW}`}
+                preserveAspectRatio="none"
+                role="img"
+                aria-label={`Finalist ${r.rank + 1}: median ${fmtMetricDelta(metric, med)}, middle 80% of runs ${fmtMetricDelta(metric, d.p10)} to ${fmtMetricDelta(metric, d.p90)}, ${r.values.length} runs`}
+                className="block chart-fade"
+              >
+                <path d={`${top} L${RW},${ROW - 0.5} L0,${ROW - 0.5} Z`} fill={c} opacity={0.1} />
+                <path d={top} fill="none" stroke={c} strokeWidth={2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                <line x1={0} x2={RW} y1={ROW - 0.5} y2={ROW - 0.5} stroke="var(--color-border)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+                {zx >= 0 && zx <= 100 && <line x1={xOf(0)} x2={xOf(0)} y1={0} y2={ROW} stroke="var(--color-muted)" strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
+                <line x1={xOf(med)} x2={xOf(med)} y1={ROW - 0.5} y2={yv(pts[Math.min(pts.length - 1, Math.max(0, mi))])} stroke={c} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+              </svg>
+            </div>
+          );
+        })}
+        {px !== null && at !== null && (
+          <>
+            <div aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-text-2" style={{ left: `${px}%` }} />
+            <div
+              role="tooltip"
+              className="pop pointer-events-none absolute top-0 z-10 w-52 px-3 py-2 text-xs leading-4"
+              style={px > 50 ? { right: `calc(${100 - px}% + 8px)` } : { left: `calc(${px}% + 8px)` }}
+            >
+              <p className="num text-text">
+                {tick(at)} {unitWord} or better
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {rows.map((r) => (
+                  <li key={r.id} className="flex items-center gap-1.5 text-text-2">
+                    <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: r.color ?? "var(--color-faint)" }} aria-hidden />
+                    <span className="num">#{r.rank + 1}</span>
+                    <span className="num ml-auto text-text">{Math.round(100 * shareAtOrBelow(r.values, at))}% of runs</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+      </div>
+      {/* shared x axis */}
+      <div className="relative mt-0.5 h-4 text-2xs text-muted" aria-hidden>
+        {t.ticks.map((v) => {
+          const p = (100 * xOf(v)) / RW;
+          return p < 0 || p > 100 ? null : (
+            <span key={v} className="num absolute top-0 -translate-x-1/2" style={{ left: `${Math.min(96, Math.max(4, p))}%` }}>
+              {tick(v)}
+            </span>
+          );
+        })}
+      </div>
+    </figure>
   );
 }
 
@@ -125,11 +235,11 @@ export default function FinalistCards() {
 
   const range = useMemo(() => {
     const vals = finalists.flatMap((f) => bundles[f.bundleId]?.vsNothing ?? []);
-    if (vals.length === 0) return { lo: -1, hi: 1 };
+    if (vals.length === 0) return { lo: -1, hi: 1, has: false };
     const lo = Math.min(0, ...vals);
     const hi = Math.max(0, ...vals);
     const pad = Math.max(1, (hi - lo) * 0.1);
-    return { lo: lo - pad, hi: hi + pad };
+    return { lo: lo - pad, hi: hi + pad, has: true };
   }, [finalists, bundles]);
 
   if (finalists.length === 0) {
@@ -185,6 +295,7 @@ export default function FinalistCards() {
               <tr key={f.bundleId} className="border-t border-border">
                 <th scope="row" className="py-1 pr-2 text-left font-normal">
                   <a href={`#card-${f.bundleId}`} className="block truncate hover:text-text" title={name}>
+                    <span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-[3px] align-[-1px]" style={{ background: seriesColor(rank) ?? "var(--color-faint)" }} aria-hidden />
                     <span className="num text-muted">#{rank + 1} {f.bundleId}</span> <span className="text-text">{name}</span>
                   </a>
                 </th>
@@ -206,12 +317,23 @@ export default function FinalistCards() {
           )}
         </tbody>
       </table>
+      {range.has && (
+        <FinalistRidges
+          rows={finalists.flatMap((f, rank) => {
+            const b = bundles[f.bundleId];
+            return b ? [{ id: f.bundleId, rank, name: f.candidateIds.map((id) => optionName(catalog, id)).join(" + "), values: b.vsNothing, color: seriesColor(rank) }] : [];
+          })}
+          lo={range.lo}
+          hi={range.hi}
+          metric={metric}
+        />
+      )}
       <ExhaustiveCheck />
       <ol className="space-y-3">
         {finalists.map((f, rank) => {
           const b: BundleFutures | undefined = bundles[f.bundleId];
           const card = machine?.card(f.bundleId);
-          const color = TIER_COLOR[f.costTier] ?? "var(--color-future)";
+          const color = seriesColor(rank) ?? "var(--color-faint)";
           const nothingGoal = refs?.nothing.goal ?? [];
           const worst = b ? dist3(b.goal).p90 : NaN;
           const worstNothing = nothingGoal.length ? dist3(nothingGoal).p90 : NaN;
@@ -226,17 +348,21 @@ export default function FinalistCards() {
               key={f.bundleId}
               id={`card-${f.bundleId}`}
               className="card scroll-mt-2 p-3"
-              style={rank === 0 ? { boxShadow: "0 0 0 1px rgb(76 141 255 / 0.45), 0 0 24px -6px rgb(76 141 255 / 0.45)" } : undefined}
+              // The top pick: a neutral ring (text token), never the ai blue, which would misattribute a no-AI result
+              // and sit next to finalist 1's identity blue.
+              style={rank === 0 ? { boxShadow: "0 0 0 1px rgb(238 242 247 / 0.32), 0 0 24px -6px rgb(255 255 255 / 0.18)" } : undefined}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="num text-xs text-muted">
+                  <p className="num flex items-center gap-1.5 text-xs text-muted">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: color }} aria-hidden />
                     #{rank + 1} · {f.bundleId}
                     {applied ? " · applied" : ""}
                   </p>
                   <h3 className="text-sm font-medium leading-5">{f.candidateIds.map((id) => optionName(catalog, id)).join(" + ")}</h3>
                 </div>
-                <span className="chip num h-6 shrink-0 px-2 text-xs" style={{ borderColor: color, color }}>
+                <span className="chip num h-6 shrink-0 px-2 text-xs text-text-2" title="Cost tier">
+                  <span className="sr-only">Cost tier </span>
                   {f.costTier}
                 </span>
               </div>
@@ -262,15 +388,6 @@ export default function FinalistCards() {
                   {freight.nothing.carMeanAdded.toFixed(1)} min). Free-flow, {freight.nothing.trips} cross-harbor trips.
                 </p>
               )}
-              {b && (
-                <div className="mt-2 flex items-center gap-2">
-                  <Ridge values={b.vsNothing} lo={range.lo} hi={range.hi} color={color} />
-                  <p className="text-xs leading-4 text-muted">
-                    Change in each of the <span className="num">{b.vsNothing.length}</span> futures (dashed: no change; left is better).
-                  </p>
-                </div>
-              )}
-
               {card && card.stressLines.length > 0 && (
                 <div className="mt-2 rounded-ctl border border-border p-2">
                   <p className="label mb-1">Stress tests</p>
@@ -323,7 +440,6 @@ export default function FinalistCards() {
                 </button>
                 <button
                   className="btn h-8 px-2 text-xs"
-                  style={{ borderColor: "rgb(76 141 255 / 0.6)" }}
                   disabled={phase !== "finalists" || !sameWorld || worldBusy}
                   onClick={() => askApply(f.bundleId)}
                   title={!sameWorld ? "The world changed since this search ran." : undefined}

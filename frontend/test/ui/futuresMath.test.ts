@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LensMetrics } from "../../lib/sim/contract";
 import { EvaluatedRowSchema } from "../../lib/agent/tools";
-import { dist3, dominatedIds, goalValue, paired, pairedPGoal, quantile, rate, ridge, rowFromSamples } from "../../lib/ui/futuresMath";
+import { dist3, dominatedIds, durationTicks, goalValue, niceTicks, paired, pairedPGoal, quantile, rate, ridge, rowFromSamples, SERIES_COLORS, seriesColor, shareAtOrBelow } from "../../lib/ui/futuresMath";
 
 const m = (p50S: number, p90S: number, iso = 0, eq = 0, pct = 90): LensMetrics => ({
   lens: "xharbor",
@@ -85,5 +85,33 @@ describe("ridge and rate", () => {
   it("rate is futures per second, null before any work", () => {
     expect(rate(0, 100)).toBeNull();
     expect(rate(30, 1500)).toBeCloseTo(20);
+  });
+});
+
+describe("chart helpers", () => {
+  it("finalist colors are fixed by rank, never cycled, and never a status token", () => {
+    expect(seriesColor(0)).toBe("#3987e5");
+    expect(seriesColor(1)).toBe("#d95926");
+    expect(seriesColor(2)).toBe("#199e70");
+    expect(seriesColor(5)).toBeNull();
+    expect(seriesColor(-1)).toBeNull();
+    const status = ["#2dd4bf", "#f5a524", "#ff3d71", "#4c8dff", "#a78bfa"];
+    for (const c of SERIES_COLORS) expect(status).not.toContain(c.toLowerCase());
+  });
+  it("share of runs at or below a value (lower is better)", () => {
+    expect(shareAtOrBelow([1, 2, 3, 4], 2)).toBe(0.5);
+    expect(shareAtOrBelow([1, 2, 3, 4], 0)).toBe(0);
+    expect(shareAtOrBelow([], 3)).toBe(0);
+  });
+  it("nice ticks include zero and use 1-2-5 steps", () => {
+    expect(niceTicks(-23, 7, 4)).toEqual([-20, -10, 0]);
+    expect(niceTicks(-0.9, 0.9, 4)).toContain(0);
+  });
+  it("duration ticks never mix seconds and minutes on one axis", () => {
+    expect(durationTicks(-40, 10).unit).toBe("s");
+    const m = durationTicks(-300, 60);
+    expect(m.unit).toBe("min");
+    for (const t of m.ticks) expect(Number.isInteger(Math.round(t * 1e6) / 1e6)).toBe(true);
+    expect(m.ticks).toContain(0);
   });
 });

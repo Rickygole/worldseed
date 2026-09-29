@@ -5,8 +5,9 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ExternalLink, HelpCircle, X } from "lucide-react";
 import type { CaveatCopy } from "@/lib/ui/storyCopy";
+import { CaveatVisualView, SourceCards } from "./CaveatExtras";
 
-const W = 320;
+const W = 360;
 
 interface Props {
   /** Trigger content. */
@@ -149,6 +150,8 @@ export function CaveatBody({ c }: { c: CaveatCopy }) {
   return (
     <>
       <p>{c.body}</p>
+      {c.visual && <CaveatVisualView v={c.visual} />}
+      {c.sources && c.sources.length > 0 && <SourceCards sources={c.sources} />}
       {c.source && <p className="mt-2 text-xs text-muted">{c.source}</p>}
       {(c.link || c.link2) && (
         <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">

@@ -160,6 +160,48 @@ export function ridge(values: readonly number[], lo: number, hi: number, bins = 
   return max > 0 ? out.map((d) => d / max) : out;
 }
 
+/**
+ * Categorical identity for finalists (fan, ridgelines, cards, compare strip), checked against the page ground
+ * #070b12. Slot n is always finalist n (by rank): never cycled, never reassigned when the set changes. These are
+ * NOT the status tokens (ok / warn / critical / ai / future), which keep their reserved meanings.
+ */
+export const SERIES_COLORS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"] as const;
+
+/** The fixed color of the finalist at `rank` (0-based), or null past the validated set (draw it neutral). */
+export function seriesColor(rank: number): string | null {
+  return Number.isInteger(rank) && rank >= 0 && rank < SERIES_COLORS.length ? SERIES_COLORS[rank] : null;
+}
+
+/** Share of values at or below `x` (lower is better, so: the share of runs at least this good). 0 when empty. */
+export function shareAtOrBelow(values: readonly number[], x: number): number {
+  if (values.length === 0) return 0;
+  let k = 0;
+  for (const v of values) if (v <= x + 1e-9) k++;
+  return k / values.length;
+}
+
+/**
+ * Axis ticks for a signed change in seconds: whole minutes when the span reaches 90 s, seconds otherwise, so one
+ * axis never mixes units. Returns the unit and tick values in seconds.
+ */
+export function durationTicks(lo: number, hi: number, count = 4): { unit: "s" | "min"; ticks: number[] } {
+  const span = Math.max(Math.abs(lo), Math.abs(hi));
+  const unit = span >= 90 ? "min" : "s";
+  const k = unit === "min" ? 60 : 1;
+  return { unit, ticks: niceTicks(lo / k, hi / k, count).map((t) => t * k) };
+}
+
+/** Round-number ticks inside [lo, hi] (1, 2, 5 steps), always including 0 when it is in range. */
+export function niceTicks(lo: number, hi: number, count = 4): number[] {
+  if (!(hi > lo)) return [lo];
+  const raw = (hi - lo) / Math.max(1, count);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 5, 10].map((s) => s * mag).find((s) => s >= raw) ?? 10 * mag;
+  const out: number[] = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) out.push(Math.abs(t) < step * 1e-6 ? 0 : Number(t.toPrecision(12)));
+  return out;
+}
+
 /** Futures completed per second, or null before there is anything to measure. */
 export function rate(done: number, ms: number): number | null {
   return done > 0 && ms > 0 ? (1000 * done) / ms : null;

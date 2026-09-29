@@ -398,6 +398,15 @@ body {
     stroke-dashoffset: 600;
   }
 }
+/* Chart marks that arrive without a draw-on (bands, and every mark under reduced motion): a short crossfade. */
+.chart-fade {
+  animation: ws-chart-fade 120ms ease-out;
+}
+@keyframes ws-chart-fade {
+  from {
+    opacity: 0;
+  }
+}
 
 /* Compare: the main terrain canvas shows only left of the split; the compare canvas only right of it. */
 .ws-map[data-compare="true"] #deckgl-overlay {

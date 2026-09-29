@@ -11,6 +11,8 @@ import { cellToLatLng } from "h3-js";
 import { hexRing, mixRgb, smoothstep, type Path3 } from "./geometry";
 import { TERRAIN_MATERIAL } from "./lighting";
 import SoftGlowLayer, { ADDITIVE } from "./SoftGlowLayer";
+import type { HexEdge } from "./terrainEdges";
+import { aoSegments } from "./terrainEdges";
 
 export interface HexDatum {
   i: number;
@@ -32,7 +34,7 @@ class BaseShade extends LayerExtension {
         "vs:#main-end": `
           float baseT = (positions.z + 1.0) / 2.0;
           float tallK = clamp(instanceElevations / 300.0, 0.0, 1.0);
-          vColor.rgb *= mix(1.0, mix(0.5, 1.08, baseT), tallK);
+          vColor.rgb *= mix(1.0, mix(0.4, 1.14, baseT), tallK);
         `,
       },
     };
@@ -69,7 +71,10 @@ export function terrainLayer(
     data: hexData,
     getHexagon: (h) => h.id,
     extruded: true,
-    coverage: 0.9,
+    // Near-full coverage closes the black seam between every hex (the biggest single reason the field read as
+    // discrete painted blocks instead of continuous relief): two neighbors at the same real value now touch
+    // almost edge to edge, and the only boundary line left is the AO groove drawn where they actually differ.
+    coverage: 0.985,
     opacity: opts.opacity ?? 1,
     pickable: opts.pickable ?? false,
     getElevation: (h) => elev[h.i],
@@ -115,8 +120,13 @@ export function tallHexes(hexData: HexDatum[], elevNow: Float32Array, elevTarget
   return out;
 }
 
-/** Thin bright edges on tall columns: the column silhouette catches the eye where the change is. */
-export function rimLayer(tall: HexDatum[], elev: Float32Array, rgb: Float32Array, tick: number, opacity: number): Layer {
+/**
+ * Thin bright edges on tall columns: the column silhouette catches the eye where the change is. `vel` (the
+ * animator's real per-hex rate of change, optional) brightens a column further while it is actively rising or
+ * sinking, so a column visibly in motion reads as "still moving" and fades back to its resting brightness the
+ * instant it settles, by construction (vel is exactly 0 at rest, never a separate decorative timer).
+ */
+export function rimLayer(tall: HexDatum[], elev: Float32Array, rgb: Float32Array, tick: number, opacity: number, vel?: Float32Array): Layer {
   return new H3HexagonLayer<HexDatum>({
     id: "terrain-rim",
     data: tall,
@@ -124,17 +134,20 @@ export function rimLayer(tall: HexDatum[], elev: Float32Array, rgb: Float32Array
     extruded: true,
     filled: false,
     wireframe: true,
-    coverage: 0.9,
+    coverage: 0.985,
     opacity,
     getElevation: (h) => elev[h.i],
     getLineColor: (h) => {
       const k = h.i * 3;
       const [r, g, b] = mixRgb([rgb[k], rgb[k + 1], rgb[k + 2]], [255, 255, 255], 0.5);
-      return [r, g, b, 34 + 150 * smoothstep(RIM_MIN_ELEV, 500, elev[h.i])];
+      const moving = vel ? smoothstep(0.15, 3, vel[h.i]) : 0;
+      return [r, g, b, 34 + 150 * smoothstep(RIM_MIN_ELEV, 500, elev[h.i]) + 70 * moving];
     },
+    getLineWidth: (h) => 1 + (vel ? 1.4 * smoothstep(0.15, 3, vel[h.i]) : 0),
+    lineWidthUnits: "pixels",
     lineWidthMinPixels: 1,
     pickable: false,
-    updateTriggers: { getElevation: tick, getLineColor: tick },
+    updateTriggers: { getElevation: tick, getLineColor: tick, getLineWidth: tick },
   });
 }
 
@@ -164,17 +177,39 @@ export function glowLayer(tall: HexDatum[], elev: Float32Array, rgb: Float32Arra
       const [lng, lat] = centerOf(h.id);
       return [lng, lat, elev[h.i]];
     },
-    getRadius: (h) => 230 + elev[h.i] * 0.42,
+    // Urgency reads in the glow's size, not only its opacity: the worst-hit peak should look, at a glance,
+    // like the one place on the map that needs attention. Both ends of the ramp scale with the real elevation.
+    getRadius: (h) => 260 + elev[h.i] * 0.62,
     radiusUnits: "meters",
     billboard: true,
     getFillColor: (h) => {
       const k = h.i * 3;
       const t = smoothstep(GLOW_MIN_ELEV, GLOW_FULL_ELEV, elev[h.i]);
-      return [rgb[k], rgb[k + 1], rgb[k + 2], 12 + 56 * t];
+      return [rgb[k], rgb[k + 1], rgb[k + 2], 16 + 150 * t * t];
     },
     opacity,
     parameters: ADDITIVE,
     updateTriggers: { getPosition: tick, getRadius: tick, getFillColor: tick },
+  });
+}
+
+/**
+ * The AO groove layer: dark lines along exactly the hex-boundary edges that currently have a real height gap,
+ * as dark as that gap is big (see terrainEdges.ts). Recomputed every animation frame from the live elevation,
+ * so the grooves appear and fade with the real transition, not as a static decal.
+ */
+export function terrainAOLayer(edges: readonly HexEdge[], elev: Float32Array, tick: number, opacity: number): Layer {
+  const segs = aoSegments(edges, elev);
+  return new PathLayer<{ path: Path3; a: number }>({
+    id: "terrain-ao",
+    data: segs,
+    getPath: (d) => d.path,
+    getColor: (d) => [5, 7, 11, d.a],
+    getWidth: 2,
+    widthUnits: "pixels",
+    opacity,
+    pickable: false,
+    updateTriggers: { getPath: tick, getColor: tick },
   });
 }
 

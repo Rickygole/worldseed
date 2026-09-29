@@ -66,6 +66,7 @@ export function useSceneView(id: StoryScene): SceneView {
       costTier: m?.mission?.constraints.maxCostTier ?? draft.maxCostTier,
       finalists: (m?.finalists ?? []).map((f) => ({ bundleId: f.bundleId, title: title(f.candidateIds), costTier: f.costTier, pGoal: bundles[f.bundleId]?.pGoal ?? null })),
       appliedBundleId: m?.appliedBundleId ?? null,
+      bestVsNothing: bundles[m?.appliedBundleId ?? m?.finalists[0]?.bundleId ?? ""]?.vsNothing ?? null,
       stopped: phase === "idle" && stoppedAt !== null && !RUNNING.has(phase),
     };
   }, [m, health, catalog, futuresDone, futuresPlanned, bundles, draft, stoppedAt]);
