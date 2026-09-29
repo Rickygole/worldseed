@@ -12,6 +12,8 @@ import { matchRoad } from "@/lib/server/gazetteerMatch";
 import type { GazetteerEntry } from "@/lib/agent/catalog";
 import type { MutationRecord } from "@/lib/sim";
 import { lensLabel, metricLabel } from "./planner/labels";
+import { setUiMode } from "@/lib/ui/modes";
+import { goScene } from "@/lib/ui/story";
 
 interface Cmd {
   id: string;
@@ -63,15 +65,17 @@ function CommandBarInner() {
       { id: "lens-x", label: "Lens: Cross-harbor access", run: () => void s.setLens("xharbor") },
       { id: "lens-a", label: "Lens: Regional access", run: () => void s.setLens("access") },
       { id: "lens-e", label: "Lens: First response (EMS)", run: () => void s.setLens("ems") },
-      { id: "find", label: "Find a better future", run: () => { s.setRightOpen(true); void search.find(s.goal); } },
+      { id: "find", label: "Find a better future", run: () => { void setUiMode("expert"); void search.find(s.goal); } },
       { id: "closures", label: "Check live closure notices", run: () => s.setClosuresOpen(true) },
       { id: "evidence", label: "Reality check: news sources", run: () => s.setEvidenceOpen(true) },
       { id: "freight", label: "Freight and hazmat trips", run: () => s.setFreightOpen(true) },
-      { id: "present", label: "Toggle presentation mode", hint: "P", run: () => s.togglePresentation() },
+      { id: "present", label: "Toggle presentation mode (Expert)", hint: "P", run: () => s.togglePresentation() },
       { id: "orbit", label: "Toggle camera orbit", run: () => s.toggleOrbit() },
       { id: "assume", label: "Open data and assumptions", run: () => s.setAssumptionsOpen(true) },
       { id: "about", label: "About and intended use", run: () => s.setAboutOpen(true) },
-      { id: "intro", label: "Replay intro", run: () => s.setIntroOpen(true) },
+      { id: "story", label: "Guided story", hint: "E", run: () => void setUiMode("story") },
+      { id: "expert", label: "Expert mode", hint: "E", run: () => void setUiMode("expert") },
+      { id: "intro", label: "Replay intro", run: () => { s.setMode("story"); void goScene("intro"); } },
     ];
   }, []);
 
@@ -132,7 +136,7 @@ function CommandBarInner() {
           const s = useSearch.getState();
           s.setDraft({ lens: p.lens, metric: p.goal.metric, maxCostTier: p.constraints.maxCostTier, targetDelta: p.goal.metric === "isolatedCount" ? 0 : p.lens === "freight" ? 600 : 60 });
           app.setGoal(t);
-          app.setRightOpen(true);
+          void setUiMode("expert");
           useSearch.setState({ stage: "confirm" });
         },
       });
@@ -151,7 +155,7 @@ function CommandBarInner() {
       transition={{ duration: 0.15 }}
       onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
     >
-      <div ref={ref} role="dialog" aria-modal="true" aria-label="Command bar" className="panel w-[560px] overflow-hidden">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label="Command bar" className="sheet w-[560px] overflow-hidden">
         <div className="flex items-center gap-2 border-b border-border px-4">
           {parsing ? <Loader2 size={16} className="animate-spin text-muted motion-reduce:animate-none" aria-hidden /> : <Search size={16} className="text-muted" aria-hidden />}
           <input

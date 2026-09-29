@@ -10,10 +10,12 @@ interface Props {
   duration?: number;
   delay?: number;
   className?: string;
+  /** Mono face (default) or inherit the parent's face (display numbers). */
+  mono?: boolean;
 }
 
 /** Tabular mono counter that rolls to its new value (instant under reduced motion). */
-export default function RollingNumber({ value, format, duration = 1.5, delay = 0.2, className }: Props) {
+export default function RollingNumber({ value, format, duration = 1.5, delay = 0.2, className, mono = true }: Props) {
   const reduced = useReducedMotion();
   const mv = useMotionValue(value);
   const text = useTransform(mv, format);
@@ -27,5 +29,5 @@ export default function RollingNumber({ value, format, duration = 1.5, delay = 0
     return () => controls.stop();
   }, [value, reduced, duration, delay, mv]);
 
-  return <motion.span className={`num ${className ?? ""}`}>{text}</motion.span>;
+  return <motion.span className={`${mono ? "num" : ""} ${className ?? ""}`}>{text}</motion.span>;
 }

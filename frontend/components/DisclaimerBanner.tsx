@@ -1,48 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Info, X } from "lucide-react";
 import { useApp } from "@/lib/store";
 
-export const DISCLAIMER = "Planning simulation, not dispatch. Simulated times on historical open data. Not affiliated with any agency or hospital.";
-const ACK_KEY = "worldseed.disclaimer.ack";
+/** The planning notice. It lives only in this file (the wording checker whitelists it here); import it elsewhere. */
+export const NOTICE_SHORT = "Planning simulation, not dispatch.";
+export const NOTICE_REST = "Simulated times on historical open data. Not affiliated with any agency or hospital.";
+export const DISCLAIMER = `${NOTICE_SHORT} ${NOTICE_REST}`;
+export const AI_TEXT_NOTE = "AI-generated text may be inaccurate";
 
 /**
- * First-run banner with the full disclaimer. Dismissal is remembered (localStorage, guarded); the short form
- * stays visible afterwards in the top bar, and the full text in About.
+ * The always-visible slim notice (footer line in both modes; inside the sheet on phones). "About and sources"
+ * opens the full intended-use text, data sources and licenses in one click.
  */
-export default function DisclaimerBanner() {
-  const [open, setOpen] = useState(false);
+export default function NoticeLine({ compact = false }: { compact?: boolean }) {
   const setAboutOpen = useApp((s) => s.setAboutOpen);
-
-  useEffect(() => {
-    let seen = false;
-    try {
-      seen = localStorage.getItem(ACK_KEY) === "1";
-    } catch {}
-    // Reading storage must wait for the client; this runs once after mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!seen) setOpen(true);
-  }, []);
-
-  if (!open) return null;
-  const dismiss = () => {
-    try {
-      localStorage.setItem(ACK_KEY, "1");
-    } catch {}
-    setOpen(false);
-  };
-
+  const simKind = useApp((s) => s.simKind);
   return (
-    <div role="note" aria-label="Disclaimer" className="flex shrink-0 items-center justify-center gap-4 border-b border-border bg-surface-2 px-4 py-2 text-sm">
-      <Info size={16} className="shrink-0 text-muted" aria-hidden />
-      <p className="text-text">{DISCLAIMER}</p>
-      <button className="text-sm text-muted underline decoration-border underline-offset-2 hover:text-text" onClick={() => setAboutOpen(true)}>
-        Intended use
+    <p className="flex min-w-0 items-center gap-x-3 text-xs text-muted" role="note" aria-label="Intended use">
+      <span className="shrink-0 font-medium text-text-2">{NOTICE_SHORT}</span>
+      {!compact && <span className="min-w-0 truncate max-[1599px]:hidden">{NOTICE_REST}</span>}
+      {!compact && <span className="shrink-0 max-[1023px]:hidden">{AI_TEXT_NOTE}.</span>}
+      {simKind === "mock" && <span className="shrink-0 text-warn">Demo data</span>}
+      <button type="button" className="link shrink-0 text-text-2" onClick={() => setAboutOpen(true)}>
+        About and sources
       </button>
-      <button className="btn-icon !h-7 !w-7" aria-label="Dismiss disclaimer" onClick={dismiss}>
-        <X size={14} aria-hidden />
-      </button>
-    </div>
+    </p>
   );
 }

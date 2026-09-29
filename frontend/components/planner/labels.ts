@@ -77,3 +77,18 @@ export const stripHypothetical = (title: string): string => {
 
 /** Cost tiers: shade plus the tier text itself (never color alone). */
 export const TIER_COLOR: Record<string, string> = { $: "#c4b5fd", $$: "#a78bfa", $$$: "#7c5cf0" };
+
+/** Legal review 2: every escorted hazmat window is labeled as hypothetical and not an MDTA program, wherever it is shown. */
+export const ESCORT_SUFFIX = " (hypothetical; not an MDTA program)";
+
+/** An option's display title: the catalog title without its prefix, plus the escort suffix for hazmat windows. */
+export function optionTitle(title: string, type?: string): string {
+  const t = stripHypothetical(title);
+  return type === "hazmat_window" && !t.endsWith(ESCORT_SUFFIX) ? `${t}${ESCORT_SUFFIX}` : t;
+}
+
+/** Title of a catalog candidate by id (falls back to the id). */
+export function optionName(catalog: { byId: Map<string, { title: string; type: string }> } | null | undefined, id: string): string {
+  const c = catalog?.byId.get(id);
+  return c ? optionTitle(c.title, c.type) : id;
+}

@@ -25,8 +25,10 @@ export const EVIDENCE_QUERIES: Record<EvidenceTopic, string> = {
 };
 
 /**
- * Tavily news search is limited to a recent window by default, so the lookback is stated explicitly
- * (about four years). Whether the API honors a window this large is a live check (see the report).
+ * Tavily news search is limited to a recent window by default, so the request states the lookback
+ * explicitly (about four years). Tavily's terms bar publishing performance information about the
+ * service, so this code and its documentation describe only what the request sends, never how the
+ * service behaves or responds to it (including whether a parameter is honored).
  */
 export const EVIDENCE_PARAMS: QueryParams = {
   topic: "news",

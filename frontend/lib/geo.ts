@@ -87,3 +87,31 @@ export function focusView(cells: { lat: number; lng: number }[], addedMin: Array
     bearing: 28,
   };
 }
+
+export type PlaceId = "sparrows" | "edgemere" | "dundalk" | "curtis" | "hawkins" | "keybridge" | "fortmchenry" | "harbortunnel";
+
+export interface Place {
+  id: PlaceId;
+  /** Typeset uppercase on the map. */
+  text: string;
+  lat: number;
+  lng: number;
+  /** Neighborhoods are OSM place nodes (gazetteer); links are the crossing labels. */
+  kind: "place" | "link";
+}
+
+/**
+ * The few place names the map labels itself (drawn in the deck layer with collision handling). Neighborhood
+ * positions are the OSM place nodes in data/snapshot/gazetteer.json; the link labels sit on the crossings.
+ * Listed in priority order: an earlier label wins a screen collision.
+ */
+export const PLACES: readonly Place[] = [
+  { id: "keybridge", text: "KEY BRIDGE", lat: BRIDGE.lat, lng: BRIDGE.lng, kind: "link" },
+  { id: "sparrows", text: "SPARROWS POINT", lat: 39.2193, lng: -76.4761, kind: "place" },
+  { id: "edgemere", text: "EDGEMERE", lat: 39.2421, lng: -76.448, kind: "place" },
+  { id: "dundalk", text: "DUNDALK", lat: 39.2574, lng: -76.5237, kind: "place" },
+  { id: "curtis", text: "CURTIS BAY", lat: 39.2252, lng: -76.59, kind: "place" },
+  { id: "hawkins", text: "HAWKINS POINT", lat: 39.2081, lng: -76.5569, kind: "place" },
+  { id: "fortmchenry", text: "FORT MCHENRY TUNNEL", lat: 39.2641, lng: -76.5781, kind: "link" },
+  { id: "harbortunnel", text: "HARBOR TUNNEL", lat: 39.2606, lng: -76.5664, kind: "link" },
+];

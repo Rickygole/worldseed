@@ -8,10 +8,13 @@ import { useSearch } from "@/lib/ui/search";
 import { withBundle } from "@/lib/ui/agentBridge";
 import type { TripClassResult, TripResult, TripsResult } from "@/lib/sim/trips";
 import { fmtMin } from "@/lib/format";
-import { stripHypothetical } from "./planner/labels";
+import { optionName, optionTitle } from "./planner/labels";
+import { FREIGHT_DISCLAIMER } from "@/lib/ui/storyCopy";
 import { eligibleCandidates } from "@/lib/agent/catalog";
 
 export const MDTA_URL = "https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits";
+export const MDTA_NEWS_URL = "https://mdta.maryland.gov/keybridgenews";
+export { FREIGHT_DISCLAIMER };
 const CLASSES = ["car", "hazmat_truck"] as const;
 const CLASS_LABEL: Record<string, string> = { car: "Car", hazmat_truck: "Hazmat truck" };
 
@@ -64,7 +67,7 @@ function EscortOptions() {
     void Promise.all(
       options.map(async (c) => ({
         id: c.id,
-        title: stripHypothetical(c.title),
+        title: optionTitle(c.title, "hazmat_window"),
         tier: c.costTier,
         applied: appliedIds.has(c.id),
         res: appliedIds.has(c.id) ? null : await sb.runTrips(withBundle(scenario, `HW${c.id}`, [c.id], "user", catalog)).catch(() => null),
@@ -81,7 +84,7 @@ function EscortOptions() {
   const now = trips?.summary.hazmat_truck;
   return (
     <ul className="space-y-2">
-      {(rows ?? options.map((c) => ({ id: c.id, title: stripHypothetical(c.title), tier: c.costTier, res: null, applied: appliedIds.has(c.id) }))).map((r) => {
+      {(rows ?? options.map((c) => ({ id: c.id, title: optionTitle(c.title, "hazmat_window"), tier: c.costTier, res: null, applied: appliedIds.has(c.id) }))).map((r) => {
         const s = r.res?.summary.hazmat_truck;
         return (
           <li key={r.id} className="card p-3 text-xs">
@@ -224,7 +227,7 @@ function Inner({ onClose }: { onClose: () => void }) {
   return (
     <motion.section
       aria-labelledby="freight-h"
-      className="panel fixed bottom-[148px] left-4 top-[104px] z-30 flex w-[560px] flex-col overflow-hidden"
+      className="sheet fixed bottom-[144px] left-4 top-[72px] z-30 flex w-[560px] flex-col overflow-hidden"
       initial={reduced ? { opacity: 0 } : { opacity: 0, x: -32 }}
       animate={{ opacity: 1, x: 0 }}
       exit={reduced ? { opacity: 0, transition: { duration: 0.15 } } : { opacity: 0, x: -32, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}
@@ -259,26 +262,25 @@ function Inner({ onClose }: { onClose: () => void }) {
               })}
             </div>
             {removed && car && hz && hz.crossHarborMeanAddedMinutes > car.crossHarborMeanAddedMinutes + 0.5 && (
-              <p className="text-sm leading-5">
-                Hazmat vehicles are prohibited in both Baltimore tunnels (
-                <a className="underline decoration-border underline-offset-2 hover:text-text" href={MDTA_URL} target="_blank" rel="noreferrer">
+              <p className="text-sm leading-5 text-text-2">
+                Vehicles carrying the hazardous materials MDTA lists are barred from both harbor tunnels (
+                <a className="link" href={MDTA_URL} target="_blank" rel="noreferrer">
                   MDTA <ExternalLink size={10} className="inline" aria-hidden />
                 </a>
-                , accessed 26 September 2026), so with the bridge closed they must use the western Beltway arc: a hazmat truck adds{" "}
-                <span className="num text-critical">{fmtMin(hz.crossHarborMeanAddedMinutes)} min</span> on average across the harbor, a car{" "}
-                <span className="num">{fmtMin(car.crossHarborMeanAddedMinutes)} min</span>.
+                , accessed 26 September 2026). With the bridge removed, in the model they take the western I-695 arc, the alternate route MDTA names: a hazmat truck adds{" "}
+                <span className="num text-warn">{fmtMin(hz.crossHarborMeanAddedMinutes)} min</span> on average, a car <span className="num text-text">{fmtMin(car.crossHarborMeanAddedMinutes)} min</span>.
               </p>
             )}
             <p className="text-xs text-muted">
-              Free-flow node-to-node drive times between real road anchors (no signals, congestion, loading or dwell). Hazmat truck = a vehicle carrying material the
-              tunnels prohibit, not every truck. Baseline = the pre-collapse network. Select a trip to show it on the map.
+              Free-flow drive times between real road points (no signals, congestion, loading or dwell). Hazmat truck = a vehicle carrying material the tunnels bar, not every truck. Baseline = the
+              pre-collapse network. Select a trip to show it on the map.
             </p>
             {cmp && (
               <section aria-labelledby="cmp-h" className="card space-y-2 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <h3 id="cmp-h" className="text-sm font-medium">
                     Doing nothing vs with {cmp.bundleId}:{" "}
-                    {cmp.bundleId && (bundles[cmp.bundleId]?.candidateIds ?? []).map((id) => stripHypothetical(catalog?.byId.get(id)?.title ?? id)).join(" + ")}
+                    {cmp.bundleId && (bundles[cmp.bundleId]?.candidateIds ?? []).map((id) => optionName(catalog, id)).join(" + ")}
                   </h3>
                   <button className="btn h-7 shrink-0 px-2 text-xs" onClick={() => setCmp(null)}>
                     Close comparison
@@ -325,18 +327,29 @@ function Inner({ onClose }: { onClose: () => void }) {
                 Options that act on hazmat trips
               </h3>
               <p className="mb-2 text-xs text-muted">
-                The catalog options eligible for a freight mission (hypothetical escorted windows through a tunnel). A freight search in the Planner scores them the
-                same way; this list applies one directly, after a confirmation.
+                Hypothetical escorted windows through a tunnel, not an MDTA program. The planner scores them the same way; this list applies one directly, after a
+                confirmation.
               </p>
               <EscortOptions />
             </section>
-            <p className="num text-xs text-muted">
-              {trips.meta.ms.toFixed(0)} ms, computed locally in your browser. Source for the tunnel rule: Maryland Transportation Authority,{" "}
-              <a className="underline decoration-border underline-offset-2 hover:text-text" href={MDTA_URL} target="_blank" rel="noreferrer">
-                Transporting Hazardous Materials Across Our Toll Facilities
-              </a>
-              , accessed 2026-09-26.
-            </p>
+            <div className="space-y-2 border-t border-border pt-3 text-xs text-muted">
+              <p className="num">{trips.meta.ms.toFixed(0)} ms, computed in your browser.</p>
+              <p>
+                Tunnel rule: Maryland Transportation Authority,{" "}
+                <a className="link" href={MDTA_URL} target="_blank" rel="noreferrer">
+                  Transporting Hazardous Materials Across Our Toll Facilities
+                </a>
+                , accessed 26 September 2026.
+              </p>
+              <p>
+                Alternate route: MDTA Key Bridge news,{" "}
+                <a className="link" href={MDTA_NEWS_URL} target="_blank" rel="noreferrer">
+                  https://mdta.maryland.gov/keybridgenews
+                </a>
+                , accessed 26 September 2026.
+              </p>
+              <p>{FREIGHT_DISCLAIMER}</p>
+            </div>
           </>
         )}
       </div>

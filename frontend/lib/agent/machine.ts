@@ -40,7 +40,7 @@ import {
 } from "./protocol";
 import { rationaleLogSentence, renderRationale, type Rationale } from "./rationale";
 import { metricLabel } from "./lenses";
-import { REASONING_LABEL, reasoningWithheldSentence, screenReasoning, type ReasoningEntry } from "./reasoning";
+import { REASONING_LABEL, buildReasoningAllowlist, reasoningWithheldSentence, screenReasoning, type ReasoningEntry } from "./reasoning";
 import { cardLines, figureLines, fillSlots, makeSlotResolver, stressBenefitLine } from "./slots";
 import { stressContext, stressLabel, type StressSpec } from "./stress";
 import {
@@ -1073,7 +1073,7 @@ export class AgentMachine {
 
   /** Model reasoning from the server, screened again here; a failing field is blanked and the log says so. */
   private onReasoning(d: StepMetrics & { text: string }): void {
-    const v = screenReasoning(d.text);
+    const v = screenReasoning(d.text, buildReasoningAllowlist(this.deps.catalog));
     if (!v.ok) {
       this.log("validator", reasoningWithheldSentence(v.problems), { model: d.model, errors: ["reasoning_withheld"] });
       return;

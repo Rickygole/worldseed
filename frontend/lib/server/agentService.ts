@@ -47,7 +47,7 @@ import {
   withReasoningField,
   type EvaluationRow,
 } from "../agent/tools";
-import { screenReasoning, reasoningWithheldSentence } from "../agent/reasoning";
+import { buildReasoningAllowlist, screenReasoning, reasoningWithheldSentence, type ReasoningAllowlist } from "../agent/reasoning";
 import { stressKey } from "../agent/stress";
 import {
   computeExcluded,
@@ -440,6 +440,8 @@ export interface StructuredSpec<T> {
   validate: (raw: unknown, budget: TokenBudget) => ValidationResult<T>;
   /** The reply may carry an optional `reasoning` string: split off before validation, screened on its own, emitted as a `reasoning` event. */
   takesReasoning?: boolean;
+  /** Names the reasoning screen accepts mid-sentence (catalog titles, gazetteer places, links, a fixed list). */
+  reasoningAllow?: ReasoningAllowlist;
 }
 
 const RATE_MESSAGE = "The model provider is rate limiting requests right now. Deterministic search (not AI) can continue.";
@@ -630,7 +632,7 @@ export async function runStructured<T>(s: StructuredSpec<T>): Promise<Outcome<T>
 
     if (verdict.ok) {
       if (reasoningRaw !== undefined) {
-        const r = screenReasoning(reasoningRaw);
+        const r = screenReasoning(reasoningRaw, s.reasoningAllow);
         if (r.ok && r.text !== "") {
           emit({ event: "reasoning", data: { role: s.role, model: res.model, inputTokens: lastUsage.inputTokens, outputTokens: lastUsage.outputTokens, latencyMs: callMs, text: r.text } });
         } else if (!r.ok) {
@@ -830,6 +832,7 @@ export const handlePlan: Handler = async (request, deps) => {
       deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "planner", toolName: action, schemaName: PLAN_SCHEMA_NAME, jsonSchema,
       messages: buildPlanMessages({ req, action, eligible: eligible.map(promptView), rows, baseline: req.baseline, excluded, jsonSchema, stresses: trustedStresses(catalog, req.stresses) }),
       takesReasoning: true,
+      reasoningAllow: buildReasoningAllowlist(catalog),
       maxOut: 1800, deadlineAt, signal: request.signal,
       validate: (raw, budget) =>
         validatePlannerOutput(raw, { catalog, mission: req.mission, phase: req.phase, round: req.round, known, excludedBundleIds: excluded, budget }),
@@ -874,6 +877,7 @@ export const handleCritique: Handler = async (request, deps) => {
       deps, emit, account: b.begun.account, clientKey: b.begun.clientKey, role: "critic", toolName: "critique", schemaName: CRITIQUE_SCHEMA_NAME, jsonSchema,
       messages: buildCritiqueMessages({ req, used: usedViews(catalog, rows), rows, baseline: req.baseline, jsonSchema, stresses: trustedStresses(catalog, req.stresses) }),
       takesReasoning: true,
+      reasoningAllow: buildReasoningAllowlist(catalog),
       maxOut: 1400, deadlineAt, signal: request.signal,
       validate: (raw, budget) => validateCritiqueOutput(raw, { catalog, known, tried, budget }),
     });

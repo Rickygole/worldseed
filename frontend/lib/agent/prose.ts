@@ -42,6 +42,8 @@
  * words (first, second) that carry no digits.
  */
 
+import { FORBIDDEN_PHRASES } from "./wording";
+
 /** Metrics a slot may name (slots exist only in application templates; commentary has none). */
 export const SLOT_METRICS = ["p50", "p90", "pctWithin", "isolated", "equityGap", "pGoal", "cost"] as const;
 export type SlotMetric = (typeof SLOT_METRICS)[number];
@@ -51,7 +53,7 @@ export type SlotMetric = (typeof SLOT_METRICS)[number];
  * cannot state a number": the screen is a filter with known limits, not a proof.
  */
 export const PROSE_CLAIM =
-  "Numbers, outcomes and finalist cards are produced by the application from simulator results. AI text appears only as clearly labeled rationale in the decision log and, in a collapsed raw section there, as optional model reasoning that is unverified, checked only for plain text, and never used for a decision.";
+  "Numbers, outcomes and finalist cards are produced by the application from simulator results. AI text appears only as clearly labeled rationale in the decision log and, in a collapsed raw section there, as optional model reasoning that is unverified, shown without human review, screened only for plain text and a word denylist, and never used for a decision.";
 
 const BUNDLE_SLOT_ID = "B(?:1[0-2]|[1-9])";
 const SLOT_BODY =
@@ -211,6 +213,8 @@ const BANNED_PHRASES: [string, RegExp][] = [
   [["real", " ", "time"].join(""), new RegExp(["real[- ]?", "time"].join(""), "i")],
   ["live operations", /\blive\s+(?:operations?|aid|routing|response|guidance|use|tool)\b/i],
   ["on the fly", /\bon the fly\b/i],
+  // Phrases that would present the simulation as an operational or advisory tool (fragments live in wording.ts).
+  ...FORBIDDEN_PHRASES,
 ];
 /** Same words with every non-letter removed, so punctuation cannot split them. */
 const SQUEEZED_BANNED = new RegExp(

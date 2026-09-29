@@ -27,7 +27,24 @@ const ownFiles = [
 // Product wording: operational-emergency vocabulary is not how this planning tool is described.
 // Fragments are joined so the words do not appear as literals in this file.
 const PRODUCT_WORDS = new RegExp(
-  [["dis", "patch"].join(""), ["tri", "age"].join(""), ["real[- ]?", "time"].join(""), ["prioriti", "[sz]\\w*"].join(""), ["respon", "ders?\\b"].join(""), ["lives?\\s+", "saved"].join(""), ["save[sd]?\\s+(?:a\\s+)?", "li(?:fe|ves)"].join("")].join("|"),
+  [
+    ["dis", "patch"].join(""),
+    ["tri", "age"].join(""),
+    ["real[- ]?", "time"].join(""),
+    ["prioriti", "[sz]\\w*"].join(""),
+    ["respon", "ders?\\b"].join(""),
+    ["lives?\\s+", "saved"].join(""),
+    ["save[sd]?\\s+(?:a\\s+)?", "li(?:fe|ves)"].join(""),
+    ["hazmat[- ]?", "rout", "ing"].join(""),
+    // "route guidance" is allowed ONLY in the negated disclaimer ("Simulation, not route guidance", "not route guidance").
+    ["(?<!not\\s)(?<!not, )rout(?:e|ing)[- ]", "guid", "ance"].join(""),
+    ["traffic[- ]", "manage", "ment"].join(""),
+    ["safety[- ]", "critical"].join(""),
+    ["compli", "ance[- ]tool"].join(""),
+    ["turn[- ]by[- ]", "turn"].join(""),
+    // The bare word is ordinary interface vocabulary (keyboard navigation); only the product sense is banned.
+    ["\\bnavi", "gation[- ](?:system|app|tool|software|device)"].join(""),
+  ].join("|"),
   "i",
 );
 
@@ -38,21 +55,38 @@ describe("repo hygiene for the AI layer", () => {
   it("never uses the forbidden operational wording in source, comments or identifiers", () => {
     for (const f of ownFiles) expect(readFileSync(f, "utf8"), f).not.toMatch(PRODUCT_WORDS);
   });
-  it("finding 12: the same wording check over components/, lib/sim, lib/workers and the app shell (other owners' files)", () => {
-    // Files owned by the UI and simulator agents are scanned, never edited here. A hit is reported by
-    // this test; a file listed below is a KNOWN hit the owner has been told about. Remove the entry
-    // when the owner rewords it, so the check covers the file again.
+  it("finding 12: the same wording check over components/, lib/ui, lib/store.ts, lib/sim, lib/workers and the app shell (other owners' files)", () => {
+    // Files owned by the UI and simulator agents are scanned, never edited here. A hit is reported as
+    // file:line. A file listed below is a KNOWN hit the owner has been told about; remove the entry
+    // when the owner rewords it, so the check covers the file again. Required disclaimer phrases are
+    // handled by the pattern itself (the negated "not route guidance" form does not match), not by this list.
     const KNOWN_HITS = new Set(["components/IntroOverlay.tsx", "components/TopBar.tsx", "components/DisclaimerBanner.tsx", "components/AboutDialog.tsx", "lib/workers/pool.ts", "lib/sim/types.ts"]);
     const others = [
       ...walk(path.join(root, "components")),
+      ...walk(path.join(root, "lib/ui")),
       ...walk(path.join(root, "lib/sim")),
       ...walk(path.join(root, "lib/workers")),
       path.join(root, "app/page.tsx"),
       path.join(root, "app/layout.tsx"),
       path.join(root, "lib/store.ts"),
     ].filter((f) => existsSync(f));
-    const hits = others.filter((f) => PRODUCT_WORDS.test(readFileSync(f, "utf8"))).map((f) => path.relative(root, f));
-    expect(hits.filter((h) => !KNOWN_HITS.has(h))).toEqual([]);
+    const found: string[] = [];
+    for (const f of others) {
+      const rel = path.relative(root, f);
+      readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+        if (PRODUCT_WORDS.test(line)) found.push(`${rel}:${i + 1}`);
+      });
+    }
+    const unknown = found.filter((h) => !KNOWN_HITS.has(h.replace(/:\d+$/, "")));
+    expect(unknown, `wording hits (file:line): ${unknown.join(", ")}`).toEqual([]);
+    process.stdout.write(`wording scan: ${others.length} files in components/, lib/ui, lib/sim, lib/workers, app shell and lib/store.ts; known hits ${found.length}: ${found.join(", ") || "none"}\n`);
+  });
+  it("the wording pattern allows the negated disclaimer and refuses the product phrases, and leaves the bare word navigation alone", () => {
+    const phrase = (...p: string[]) => p.join("");
+    expect(PRODUCT_WORDS.test("Simulation, not " + phrase("route ", "guid", "ance") + ".")).toBe(false);
+    expect(PRODUCT_WORDS.test("This is not " + phrase("route ", "guid", "ance"))).toBe(false);
+    for (const t of [phrase("It gives route ", "guid", "ance."), phrase("hazmat ", "rout", "ing"), phrase("traffic ", "manage", "ment"), phrase("safety", "-critical"), phrase("a compli", "ance tool"), phrase("turn-by-", "turn"), phrase("a navi", "gation system")]) expect(PRODUCT_WORDS.test(t), t).toBe(true);
+    expect(PRODUCT_WORDS.test("Keyboard navigation moves between panels.")).toBe(false);
   });
   it("never names an assistant vendor or attributes generation", () => {
     const bad = new RegExp(["cla" + "ude", "anthr" + "opic", "co-authored" + "-by"].join("|"), "i");

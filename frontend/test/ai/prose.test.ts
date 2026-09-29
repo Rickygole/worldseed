@@ -9,7 +9,7 @@ const blocked = (t: string, profile: ProseProfile = "card") => expect(proseIssue
 describe("the defensible claim", () => {
   it("is exactly: application-produced numbers and cards; labeled rationale and raw, unverified reasoning only in the decision log", () => {
     expect(PROSE_CLAIM).toBe(
-      "Numbers, outcomes and finalist cards are produced by the application from simulator results. AI text appears only as clearly labeled rationale in the decision log and, in a collapsed raw section there, as optional model reasoning that is unverified, checked only for plain text, and never used for a decision.",
+      "Numbers, outcomes and finalist cards are produced by the application from simulator results. AI text appears only as clearly labeled rationale in the decision log and, in a collapsed raw section there, as optional model reasoning that is unverified, shown without human review, screened only for plain text and a word denylist, and never used for a decision.",
     );
   });
 });

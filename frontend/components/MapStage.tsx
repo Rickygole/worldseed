@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import DeckGL from "@deck.gl/react";
-import { FlyToInterpolator, type Layer, type MapViewState, type PickingInfo } from "@deck.gl/core";
-import { PathLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+/**
+ * The map: terrain (the data), crossings, options, routes, freight trails, place labels and stations, over a
+ * dark vector base map. This component turns store state into deck layers; the GPU surface, the camera and
+ * everything clock-driven live in `components/map/DeckStage` and `lib/ui/mapDirector`.
+ *
+ * Honesty: only data is drawn and animated (terrain height and color from the simulator, freight travel time,
+ * an option drawing itself). The Key Bridge is a static dashed marker.
+ */
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { Layer, PickingInfo } from "@deck.gl/core";
+import { PathLayer } from "@deck.gl/layers";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
-import { Map } from "react-map-gl/maplibre";
-import { cellToBoundary } from "h3-js";
 import { useReducedMotion } from "framer-motion";
 import { Compass, Orbit, Presentation } from "lucide-react";
 import { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { useApp, simInfo } from "@/lib/store";
-import { MAP_STYLE } from "@/lib/mapStyle";
-import { BASE_VIEW, BRIDGE, distKm, focusView, toLocalKm } from "@/lib/geo";
+import { useApp, simInfo, scenarioKey } from "@/lib/store";
+import { BASE_VIEW, PLACES, distKm, focusView } from "@/lib/geo";
 import { easeOutCubic, fmtMin, fmtPct1 } from "@/lib/format";
 import { TerrainAnimator } from "@/lib/ui/terrainAnimator";
 import { encode, MAGENTA, type LensId } from "@/lib/ui/lenses";
@@ -22,7 +26,44 @@ import { loadAux } from "@/lib/ui/snapshotAux";
 import { useSnapshotFile } from "@/lib/ui/useSnapshotFile";
 import { useSearch } from "@/lib/ui/search";
 import { loadLinkGeometry, optionGeo, type OptionGeo } from "@/lib/ui/candidateGeo";
+import {
+  currentScene,
+  flyTo,
+  frameStats,
+  getCamera,
+  getFreightTripHighlight,
+  getViewportPadding,
+  getVisual,
+  getVisualVersion,
+  goToScene,
+  interruptCamera,
+  isUserControlled,
+  markMapReady,
+  qualityLevel,
+  resetView,
+  SCENES,
+  setFreightTripHighlight,
+  setOrbit,
+  setQuality,
+  setViewportPadding,
+  subscribeFreightHighlight,
+  subscribePadding,
+  subscribeQuality,
+  subscribeScene,
+  subscribeVisual,
+  whenMapReady,
+  type Padding,
+} from "@/lib/ui/mapDirector";
+import { optionName } from "./planner/labels";
 import CompareSlider from "./CompareSlider";
+import DeckStage from "./map/DeckStage";
+import { hatchChords, type Path3, type RGBA } from "./map/geometry";
+import { bridgeLayers, loadTunnels, optionLayers, tunnelLayers, type TunnelGeo } from "./map/crossings";
+import { glowLayer, hexOutline, ON_TOP, rimLayer, RIM_MIN_ELEV, tallHexes, terrainLayer, type HexDatum } from "./map/terrainLayers";
+import { loadFacilities, stationLayers, FACILITY_LABEL, type Facility } from "./map/stations";
+import { loadTrailRoutes } from "./map/trails";
+import type { TrailRoute } from "./map/trailModel";
+import type { LabelDef } from "./map/labelLayout";
 
 // Worker files are copied to /public/maplibre by scripts/copy-maplibre-worker.mjs.
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
@@ -31,154 +72,32 @@ const ANIM_MS = 1500;
 const STAGGER_FRAC = 0.6;
 const FLY_MS = 2200;
 
-/** Overlays (bridge marker, routes, selection) draw over the terrain regardless of depth. */
-const ON_TOP = { depthCompare: "always" as const };
+const LEGACY_PANEL_TOP = 72;
+const NO_ROUTES: TrailRoute[] = [];
+const TEXT: RGBA = [230, 237, 243, 255];
+const MAG: RGBA = [MAGENTA[0], MAGENTA[1], MAGENTA[2], 255];
+const OPTION: RGBA = [96, 160, 255, 255];
 
-
-interface HexDatum {
-  i: number;
-  id: string;
+function useVisual(): number {
+  return useSyncExternalStore(subscribeVisual, getVisualVersion, getVisualVersion);
 }
 
-type Path3 = [number, number, number][];
-
-/** Three diagonal chords per hex, [lng,lat] pairs, clipped to the hex outline. */
-function hatchChords(id: string): [number, number][][] {
-  const ring = cellToBoundary(id); // [lat, lng][]
-  const lat0 = ring.reduce((s, p) => s + p[0], 0) / ring.length;
-  const lng0 = ring.reduce((s, p) => s + p[1], 0) / ring.length;
-  const [cx, cy] = toLocalKm(lat0, lng0);
-  const SHRINK = 0.86;
-  const poly = ring.map(([la, ln]) => {
-    const [x, y] = toLocalKm(la, ln);
-    return [cx + (x - cx) * SHRINK, cy + (y - cy) * SHRINK] as [number, number];
-  });
-  const r = Math.max(...poly.map(([x, y]) => Math.hypot(x - cx, y - cy)));
-  const kmLng = 111.32 * Math.cos((lat0 * Math.PI) / 180);
-  const out: [number, number][][] = [];
-  // Lines x - y = c (45 degrees), offsets across the hex.
-  for (const k of [-0.5, 0, 0.5]) {
-    const c = k * r * 1.2;
-    const ts: { s: number; x: number; y: number }[] = [];
-    for (let e = 0; e < poly.length; e++) {
-      const [ax, ay] = poly[e];
-      const [bx, by] = poly[(e + 1) % poly.length];
-      const fa = ax - cx - (ay - cy) - c;
-      const fb = bx - cx - (by - cy) - c;
-      if (fa === fb || fa * fb > 0) continue;
-      const t = fa / (fa - fb);
-      ts.push({ s: ax + (bx - ax) * t + ay + (by - ay) * t, x: ax + (bx - ax) * t, y: ay + (by - ay) * t });
-    }
-    if (ts.length < 2) continue;
-    ts.sort((a, b) => a.s - b.s);
-    const toLL = (x: number, y: number): [number, number] => [lng0 + (x - cx) / kmLng, lat0 + (y - cy) / 110.57];
-    out.push([toLL(ts[0].x, ts[0].y), toLL(ts[ts.length - 1].x, ts[ts.length - 1].y)]);
-  }
-  return out;
-}
-
-/** Split a polyline into dashes (km lengths). The bridge is a dashed marker, never an animation. */
-function dashes(path: [number, number][], dashKm: number, gapKm: number, z: number): Path3[] {
-  const pts = path.map(([lng, lat]) => ({ lng, lat, xy: toLocalKm(lat, lng) }));
-  const out: Path3[] = [];
-  let on = true;
-  let left = dashKm;
-  let cur: Path3 = [[pts[0].lng, pts[0].lat, z]];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const a = pts[i];
-    const b = pts[i + 1];
-    const seg = Math.hypot(b.xy[0] - a.xy[0], b.xy[1] - a.xy[1]);
-    let t0 = 0;
-    while (seg * (1 - t0) > left) {
-      const t = t0 + left / seg;
-      const p: [number, number, number] = [a.lng + (b.lng - a.lng) * t, a.lat + (b.lat - a.lat) * t, z];
-      if (on) {
-        cur.push(p);
-        out.push(cur);
-      } else cur = [p];
-      on = !on;
-      left = on ? dashKm : gapKm;
-      t0 = t;
-    }
-    left -= seg * (1 - t0);
-    if (on) cur.push([b.lng, b.lat, z]);
-  }
-  if (on && cur.length > 1) out.push(cur);
-  return out;
-}
-
-function hexRing(id: string, z: number): Path3 {
-  const ring = cellToBoundary(id).map(([la, ln]) => [ln, la, z] as [number, number, number]);
-  return [...ring, ring[0]];
-}
-
-type ViewState = MapViewState & {
-  padding?: { left: number; right: number; top: number; bottom: number };
-  transitionDuration?: number;
-  transitionInterpolator?: FlyToInterpolator;
-};
-
-/** Where a hex's residents are zero (ports, industrial land): drawn faded so a tall empty tower reads as such. */
-const JOB_ONLY_ALPHA = 0.32;
-
-/** Terrain layer for an encoded field (used by the main map and the compare overlay). */
-function terrainLayer(id: string, hexData: HexDatum[], elev: Float32Array, rgb: Float32Array, cells: { edgeFade: number; residents?: number }[], tick: number, extra: Partial<{ pickable: boolean; selected: Set<number> | null }> = {}) {
-  return new H3HexagonLayer<HexDatum>({
-    id,
-    data: hexData,
-    getHexagon: (h) => h.id,
-    extruded: true,
-    coverage: 0.9,
-    pickable: extra.pickable ?? false,
-    getElevation: (h) => elev[h.i],
-    getFillColor: (h) => {
-      const k = h.i * 3;
-      const raised = elev[h.i] > 4;
-      const c = cells[h.i];
-      const jobOnly = c.residents === 0;
-      let r = rgb[k];
-      let g = rgb[k + 1];
-      let b = rgb[k + 2];
-      if (extra.selected?.has(h.i)) {
-        // Selected block group: lift toward the text color so it reads without relying on hue.
-        r += (230 - r) * 0.35;
-        g += (237 - g) * 0.35;
-        b += (243 - b) * 0.35;
-      }
-      if (jobOnly) {
-        // Desaturate toward the muted gray and fade: nobody lives here.
-        r += (139 - r) * 0.45;
-        g += (152 - g) * 0.45;
-        b += (169 - b) * 0.45;
-      }
-      return [r, g, b, (raised ? 230 : 120) * c.edgeFade * (jobOnly ? JOB_ONLY_ALPHA : 1)];
+let paddingSnapshot: Padding | null = null;
+function usePaddingOverride(): Padding | null {
+  return useSyncExternalStore(
+    subscribePadding,
+    () => {
+      const p = getViewportPadding();
+      // useSyncExternalStore needs a stable reference between unchanged reads.
+      if (p && paddingSnapshot && p.left === paddingSnapshot.left && p.right === paddingSnapshot.right && p.top === paddingSnapshot.top && p.bottom === paddingSnapshot.bottom) return paddingSnapshot;
+      paddingSnapshot = p ? { ...p } : null;
+      return paddingSnapshot;
     },
-    updateTriggers: { getElevation: tick, getFillColor: [tick, extra.selected] },
-    material: { ambient: 0.55, diffuse: 0.65, shininess: 24, specularColor: [70, 80, 100] },
-    autoHighlight: extra.pickable ?? false,
-    highlightColor: [230, 237, 243, 70],
-  });
+    () => null,
+  );
 }
 
-/**
- * The "draws itself" effect: segments are revealed in order of distance from `from` (the option's centre), so
- * a corridor of many short pieces grows outward as one line instead of flickering everywhere at once.
- */
-function drawPrefix(paths: [number, number][][], t: number, z: number, from: [number, number]): Path3[] {
-  const lift = (p: [number, number][]) => p.map(([x, y]) => [x, y, z] as [number, number, number]);
-  if (t >= 1) return paths.map(lift);
-  if (t <= 0) return [];
-  const d = (p: [number, number][]) => Math.min(...p.map(([x, y]) => (x - from[0]) ** 2 + (y - from[1]) ** 2));
-  const order = [...paths].sort((a, b) => d(a) - d(b));
-  const k = t * order.length;
-  const whole = Math.floor(k);
-  const out = order.slice(0, whole).map(lift);
-  const next = order[whole];
-  if (next && k > whole) out.push(lift(next.slice(0, Math.max(2, Math.ceil(next.length * (k - whole))))));
-  return out;
-}
-
-export default function MapStage() {
+export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {}) {
   const world = useApp((s) => s.world);
   const view = useApp((s) => s.view);
   const current = useApp((s) => s.current);
@@ -195,24 +114,35 @@ export default function MapStage() {
   const inspection = useApp((s) => s.inspection);
   const selectHex = useApp((s) => s.selectHex);
   const status = useApp((s) => s.status);
+  const mode = useApp((s) => s.mode);
   const freightSel = useApp((s) => s.freightSel);
   const reduced = !!useReducedMotion();
   const { data: aux } = useSnapshotFile(loadAux, status === "ready");
+  const visualVersion = useVisual();
+  const visual = getVisual();
+  const qLevel = useSyncExternalStore(subscribeQuality, qualityLevel, qualityLevel);
+  const highlight = useSyncExternalStore(subscribeFreightHighlight, getFreightTripHighlight, getFreightTripHighlight);
+  const sceneNow = useSyncExternalStore(subscribeScene, currentScene, currentScene);
 
   const removed = scenario.removedLinks.includes("key_bridge");
   const changed = scenario.removedLinks.length > 0 || (scenario.mutations?.length ?? 0) > 0;
-
-  const padding = useMemo(
-    () => ({
-      left: presentation || !leftOpen ? 0 : 316,
-      right: presentation || (!rightOpen && selectedHex === null) ? 0 : 376,
-      top: 72,
-      bottom: 32,
-    }),
-    [presentation, leftOpen, rightOpen, selectedHex],
+  const closedTunnels = useMemo(
+    () => new Set((scenario.mutations ?? []).flatMap((r) => (r.m.kind === "close_link" ? [r.m.linkId] : []))),
+    [scenario],
   );
 
-  const [camera, setViewState] = useState<ViewState>({ ...BASE_VIEW, maxPitch: 75, minZoom: 9, maxZoom: 16 });
+  // Safe area: what the story UI reported, else what the legacy panels imply.
+  const override = usePaddingOverride();
+  const padding = useMemo<Padding>(
+    () =>
+      override ?? {
+        left: presentation || !leftOpen ? 0 : 316,
+        right: presentation || (!rightOpen && selectedHex === null) ? 0 : 376,
+        top: LEGACY_PANEL_TOP,
+        bottom: 32,
+      },
+    [override, presentation, leftOpen, rightOpen, selectedHex],
+  );
 
   // What the terrain encodes: the mock (no detail) is a response-time field, like EMS.
   // Read the lens from the result itself, so a lens switch never re-encodes the previous field.
@@ -257,11 +187,7 @@ export default function MapStage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world, target, reduced, buffers]);
 
-  // ---------- camera ----------
-  const viewState = useMemo<ViewState>(() => ({ ...camera, padding }), [camera, padding]);
-  const pauseUntil = useRef(0);
-  const interacting = useRef(false);
-
+  // ---------- camera: the change, a selected trip, the toolbar ----------
   /** Where the change is: the cross-harbor added-time field, whatever lens is showing. */
   const focus = useMemo(() => {
     if (!world || !changed) return BASE_VIEW;
@@ -276,13 +202,10 @@ export default function MapStage() {
       firstRev.current = false;
       return;
     }
-    pauseUntil.current = performance.now() + (reduced ? 300 : FLY_MS + 300);
-    setViewState((v) => ({
-      ...v,
-      ...focus,
-      transitionDuration: reduced ? 0 : FLY_MS,
-      transitionInterpolator: reduced ? undefined : new FlyToInterpolator({ speed: 1.3 }),
-    }));
+    // In a story scene the story owns the camera; in the free (expert) view a world change flies to the change.
+    const sc = currentScene();
+    if (sc !== null && sc !== "explore") return;
+    void flyTo({ longitude: focus.longitude, latitude: focus.latitude, zoom: focus.zoom, pitch: focus.pitch, bearing: focus.bearing }, { durationMs: FLY_MS, curve: "fly" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision]);
 
@@ -295,44 +218,28 @@ export default function MapStage() {
     const lats = pts.map((p) => p[1]);
     const span = Math.max(Math.max(...lngs) - Math.min(...lngs), (Math.max(...lats) - Math.min(...lats)) * 1.3);
     const zoom = Math.max(9.4, Math.min(12, 10.9 - Math.log2(Math.max(span, 0.05) / 0.12)));
-    pauseUntil.current = performance.now() + 4000;
     const raf = requestAnimationFrame(() =>
-      setViewState((v) => ({
-      ...v,
-      longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2,
-      latitude: (Math.min(...lats) + Math.max(...lats)) / 2,
-      zoom,
-      pitch: 40,
-      bearing: 0,
-      transitionDuration: reduced ? 0 : 1200,
-      transitionInterpolator: reduced ? undefined : new FlyToInterpolator({ speed: 1.6 }),
-      })),
+      void flyTo({ longitude: (Math.min(...lngs) + Math.max(...lngs)) / 2, latitude: (Math.min(...lats) + Math.max(...lats)) / 2, zoom, pitch: 40, bearing: 0 }, { durationMs: 1300, curve: "fly" }),
     );
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripKey]);
 
-  // Slow orbit (presentation mode, or toggled). Off under reduced motion.
+  // The presentation toggle (store) drives the ambient orbit; a story scene sets its own default.
+  const firstOrbit = useRef(true);
   useEffect(() => {
-    if (!orbit || reduced) return;
-    let raf = 0;
-    let last = performance.now();
-    const loop = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-      if (now > pauseUntil.current && !interacting.current) {
-        setViewState((v) => ({ ...v, bearing: (v.bearing ?? 0) + 0.8 * dt, transitionDuration: 0, transitionInterpolator: undefined }));
-      }
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    if (firstOrbit.current) {
+      firstOrbit.current = false;
+      return;
+    }
+    setOrbit(orbit && !reduced ? true : null);
   }, [orbit, reduced]);
 
-  // ---------- layers ----------
+  // ---------- fonts, selection ----------
   const [fontFamily] = useState(() => {
-    if (typeof document === "undefined") return "monospace";
-    return getComputedStyle(document.documentElement).getPropertyValue("--font-jetbrains").trim() || "monospace";
+    if (typeof document === "undefined") return "sans-serif";
+    const cs = getComputedStyle(document.documentElement);
+    return cs.getPropertyValue("--font-inter").trim() || cs.getPropertyValue("--font-jetbrains").trim() || "system-ui, sans-serif";
   });
 
   const selectedBgHexes = useMemo(() => {
@@ -343,7 +250,7 @@ export default function MapStage() {
     return set;
   }, [selectedHex, aux]);
 
-  const bridgeDashes = useMemo(() => dashes(BRIDGE.path, 0.12, 0.09, 30), []);
+  const [hover, setHover] = useState<number | null>(null);
 
   // Hatch geometry only changes when the terrain settles, not every frame.
   const hatchData = useMemo(() => {
@@ -358,6 +265,13 @@ export default function MapStage() {
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world, chords, hatchTick, buffers]);
+
+  // Columns worth a rim and a glow: recomputed when the target changes (not per frame).
+  const tall = useMemo(() => {
+    if (!buffers || !target) return [];
+    return tallHexes(hexData, buffers.elev, target.elev, RIM_MIN_ELEV);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hexData, target, buffers, hatchTick]);
 
   // ---------- options on the map: applied (steady, the latest draws itself), preview ghost ----------
   const catalog = useSearch((s) => s.catalog);
@@ -394,8 +308,14 @@ export default function MapStage() {
         }
       }
     }
-    return { at: best, text: appliedGeo.length === 1 ? `OPTION ${appliedGeo[0].candidateId}` : `${appliedGeo.length} OPTIONS APPLIED (HOVER FOR NAMES)` };
-  }, [appliedGeo, focus]);
+    const text =
+      appliedGeo.length === 1
+        ? `OPTION ${optionName(catalog, appliedGeo[0].candidateId)}`
+        : mode === "story"
+          ? `Ideas applied: ${appliedGeo.length}`
+          : `${appliedGeo.length} OPTIONS APPLIED (HOVER FOR NAMES)`;
+    return { at: best, text };
+  }, [appliedGeo, focus, catalog, mode]);
   const [drawAnim, setDrawAnim] = useState(1);
   useEffect(() => {
     if (!appliedFx || reduced) return;
@@ -425,24 +345,148 @@ export default function MapStage() {
     return encode(out.detail?.lens ?? encLens, out.minutes, { lossFrac: xd?.lossFrac, isOrigin: xd?.isOrigin, emsThresholdMin });
   }, [compare, encLens, emsThresholdMin]);
 
+  // ---------- crossings, stations, freight routes: loaded when a scene or a selection needs them ----------
+  const [tunnels, setTunnels] = useState<TunnelGeo[]>([]);
+  useEffect(() => {
+    if (status !== "ready") return;
+    let live = true;
+    loadTunnels().then((t) => live && setTunnels(t), () => {});
+    return () => {
+      live = false;
+    };
+  }, [status]);
+
+  // The EMS lens shows its inputs in the free (expert) view too, not only in the story's "held" scene.
+  const expertEms = (sceneNow === null || sceneNow === "explore") && encLens === "ems" && !!view?.detail;
+  const stationsA = Math.max(visual.stations, expertEms ? 1 : 0);
+  const hospitalsA = Math.max(visual.hospitals, expertEms ? 1 : 0);
+  const wantStations = stationsA > 0.02 || hospitalsA > 0.02;
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  useEffect(() => {
+    if (!wantStations || facilities.length) return;
+    let live = true;
+    loadFacilities().then((f) => live && setFacilities(f), () => {});
+    return () => {
+      live = false;
+    };
+  }, [wantStations, facilities.length]);
+
+  // A selected trip in this same world animates; one from another world (a finalist compared) keeps steady lines.
+  const sameWorldSel = !!freightSel && !freightSel.worldLabel;
+  const highlightId = highlight ?? (sameWorldSel ? freightSel.tripId : null);
+  const sceneTrails = visual.trails > 0.02 && visual.trailMode === "all";
+  const wantRoutes = sceneTrails || highlightId !== null;
+  const sKey = scenarioKey(scenario);
+  // Routes are keyed by the world they were computed in: a trail is never drawn on the wrong world's roads.
+  const [routesFor, setRoutesFor] = useState<{ key: string; routes: TrailRoute[] }>({ key: "", routes: [] });
+  const routes = routesFor.key === sKey ? routesFor.routes : NO_ROUTES;
+  useEffect(() => {
+    if (!wantRoutes || status !== "ready") return;
+    let live = true;
+    loadTrailRoutes(scenario).then((r) => live && setRoutesFor({ key: sKey, routes: r }), () => live && setRoutesFor({ key: sKey, routes: [] }));
+    return () => {
+      live = false;
+    };
+    // sKey is the scenario's identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantRoutes, sKey, status]);
+
+  const trails = useMemo(() => {
+    if (!wantRoutes || routes.length === 0) return null;
+    const mode: "all" | "selected" = sceneTrails ? "all" : "selected";
+    return { routes, highlightId, mode, alpha: sceneTrails ? visual.trails : 1 };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantRoutes, routes, highlightId, sceneTrails, visualVersion]);
+  const trailsAnimating = !!trails && !!highlightId && trails.routes.some((r) => r.tripId === highlightId) || sceneTrails;
+
+  // ---------- place labels (positions here; collision and fades in DeckStage) ----------
+  const placeHex = useMemo(() => {
+    if (!world) return null;
+    return PLACES.map((p) => {
+      let best = -1;
+      let bd = 1.6; // km
+      for (let i = 0; i < world.cells.length; i++) {
+        const d = distKm(world.cells[i].lat, world.cells[i].lng, p.lat, p.lng);
+        if (d < bd) {
+          bd = d;
+          best = i;
+        }
+      }
+      return best;
+    });
+  }, [world]);
+
+  const labelDefs = useMemo<LabelDef[]>(() => {
+    const S = buffers;
+    const out: LabelDef[] = [];
+    // An applied option's label outranks the place names (after the crossing label).
+    const appliedDef = appliedLabel && drawT >= 1 ? ({ id: "applied", text: appliedLabel.text, lng: appliedLabel.at[0], lat: appliedLabel.at[1], z: 40, color: OPTION, visible: 1, strong: true } as LabelDef) : null;
+    PLACES.forEach((p, k) => {
+      const hi = placeHex?.[k] ?? -1;
+      const z = p.kind === "link" ? 40 : hi >= 0 && S ? S.elev[hi] + 12 : 12;
+      const isBridge = p.id === "keybridge";
+      const text = isBridge && removed ? "KEY BRIDGE  ×  LINK REMOVED" : p.text;
+      const closed = (p.id === "fortmchenry" && closedTunnels.has("L-FORTMCHENRY")) || (p.id === "harbortunnel" && closedTunnels.has("L-HARBORTUNNEL"));
+      if (k === 1 && appliedDef) out.push(appliedDef);
+      // A tunnel closed in the world is news: its label outranks the open ones.
+      (closed ? out.unshift.bind(out) : out.push.bind(out))({
+        id: p.id,
+        text: closed ? `${p.text}  ×  CLOSED` : text,
+        lng: p.lng,
+        lat: p.lat,
+        z,
+        color: (isBridge && removed) || closed ? MAG : p.kind === "link" ? [200, 226, 255, 255] : [214, 224, 236, 235],
+        visible: visual.labels[p.id],
+        strong: p.kind === "link",
+      });
+    });
+    if (freightSel) {
+      const any = Object.keys(freightSel.routes).length > 0;
+      out.push({ id: "trip-o", text: freightSel.ends.oName.split(" (")[0].toUpperCase(), lng: freightSel.ends.o[0], lat: freightSel.ends.o[1], z: 40, color: TEXT, visible: 1, strong: true });
+      out.push({ id: "trip-d", text: `${freightSel.ends.dName.split(" (")[0].toUpperCase()}${any ? "" : " (SCHEMATIC LINE)"}`, lng: freightSel.ends.d[0], lat: freightSel.ends.d[1], z: 40, color: TEXT, visible: 1, strong: true });
+    }
+    const routes2 = inspection?.status === "ready" ? inspection.routes : undefined;
+    if (routes2 && inspection?.chain) {
+      const end = inspection.chain.focus.kind === "destination" ? routes2.after[routes2.after.length - 1] : routes2.after[0];
+      const name = inspection.chain.focus.name;
+      if (end && name) out.push({ id: "route-end", text: name.toUpperCase(), lng: end[0], lat: end[1], z: 40, color: TEXT, visible: 1, strong: true });
+    }
+    return out;
+    // tick keeps label anchors on the moving terrain
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buffers, placeHex, removed, closedTunnels, visualVersion, appliedLabel, drawT, freightSel, inspection, tick, hatchTick]);
+
+  // ---------- layers ----------
+  const glow = qLevel < 1;
   const layers = useMemo(() => {
     const S = buffers;
     if (!world || !S) return [];
     const { elev } = S;
-    const hatch = hatchData;
+    const out: Layer[] = [];
+    const terrainOpacity = visual.terrain;
 
-    const out: Layer[] = [
-      terrainLayer("terrain", hexData, S.elev, S.rgb, world.cells, tick, { pickable: true, selected: selectedBgHexes }),
-      new PathLayer<{ path: Path3 }>({
-        id: "severe-hatch",
-        data: hatch,
-        getPath: (h) => h.path,
-        getColor: [10, 14, 20, 230],
-        getWidth: 1.5,
-        widthUnits: "pixels",
-        pickable: false,
-      }),
-    ];
+    out.push(terrainLayer("terrain", hexData, S.elev, S.rgb, world.cells, tick, { pickable: true, selected: selectedBgHexes, opacity: terrainOpacity, shade: qLevel < 2 }));
+    if (tall.length && qLevel < 2) {
+      out.push(rimLayer(tall, S.elev, S.rgb, tick, terrainOpacity));
+      if (glow) out.push(glowLayer(tall, S.elev, S.rgb, tick, terrainOpacity));
+    }
+    if (hatchData.length && visual.hatch > 0.02) {
+      out.push(
+        new PathLayer<{ path: Path3 }>({
+          id: "severe-hatch",
+          data: hatchData,
+          getPath: (h) => h.path,
+          getColor: [10, 14, 20, 230],
+          getWidth: 1.5,
+          widthUnits: "pixels",
+          opacity: visual.hatch * terrainOpacity,
+          pickable: false,
+        }),
+      );
+    }
+
+    // Hover: a soft outline on the hexagon under the pointer (not the selected one).
+    if (hover !== null && hover !== selectedHex && world.cells[hover]) out.push(...hexOutline("hover-hex", world.cells[hover].id, elev[hover] + 6, false));
 
     // Preview: the option's terrain as a translucent violet wireframe over the current terrain.
     if (previewEnc) {
@@ -465,271 +509,61 @@ export default function MapStage() {
       );
     }
 
-    // Applied options: drawn on the map for as long as they are in the world; the latest draws itself.
-    for (const g of appliedGeo) {
-      const latest = appliedFx?.candidateIds.includes(g.candidateId) ?? false;
-      const t = latest ? drawT : 1;
-      if (g.kind === "site") {
-        out.push(
-          new ScatterplotLayer<{ p: [number, number]; candidateId: string }>({
-            id: `applied-site-${g.candidateId}`,
-            data: [{ p: g.point, candidateId: g.candidateId }],
-            pickable: true,
-            getPosition: (d) => [d.p[0], d.p[1], 30],
-            getRadius: 260,
-            stroked: true,
-            filled: true,
-            getFillColor: [45, 212, 191, 70 * t],
-            getLineColor: [45, 212, 191, 255 * t],
-            lineWidthMinPixels: 2,
-            updateTriggers: { getFillColor: t, getLineColor: t },
-            parameters: ON_TOP,
-          }),
-        );
-      } else {
-        out.push(
-          new PathLayer<{ path: Path3 }>({
-            id: `applied-casing-${g.candidateId}`,
-            data: drawPrefix(g.paths, t, 30, g.point).map((path) => ({ path })),
-            getPath: (d) => d.path,
-            getColor: [10, 14, 20, 220],
-            getWidth: 7,
-            widthUnits: "pixels",
-            capRounded: true,
-            jointRounded: true,
-            parameters: ON_TOP,
-          }),
-          new PathLayer<{ path: Path3; candidateId: string }>({
-            id: `applied-path-${g.candidateId}`,
-            data: drawPrefix(g.paths, t, 30, g.point).map((path) => ({ path, candidateId: g.candidateId })),
-            pickable: true,
-            getPath: (d) => d.path,
-            getColor: [45, 212, 191, 255],
-            getWidth: 3.5,
-            widthUnits: "pixels",
-            capRounded: true,
-            jointRounded: true,
-            parameters: ON_TOP,
-          }),
-        );
-      }
-    }
+    // Crossings.
+    out.push(...tunnelLayers(tunnels, closedTunnels, visual.tunnels, glow));
+    out.push(...optionLayers(appliedGeo, appliedFx?.candidateIds ?? [], drawT, glow));
 
-    // One label for all applied options, on the applied geometry nearest the view's focus (so it sits in the
-    // visible map, not under a panel). Each option's name is on hover.
-    if (appliedLabel && drawT >= 1) {
-      out.push(
-        new TextLayer<{ text: string; position: [number, number, number] }>({
-          id: "applied-label",
-          data: [{ text: appliedLabel.text, position: [appliedLabel.at[0], appliedLabel.at[1], 40] }],
-          getText: (o) => o.text,
-          getPosition: (o) => o.position,
-          getSize: 11,
-          getColor: [45, 212, 191, 255],
-          getPixelOffset: [0, -16],
-          background: true,
-          backgroundPadding: [6, 3],
-          getBackgroundColor: [17, 23, 34, 235],
-          fontFamily,
-          fontWeight: 600,
-          characterSet: "auto",
-          sizeUnits: "pixels",
-          parameters: ON_TOP,
-        }),
-      );
-    }
-
-    // Freight trip from the freight panel: the car route (bright) and the hazmat truck route (amber) when the
-    // simulator returned them; otherwise a dashed straight line between the anchors, labeled schematic.
-    if (freightSel) {
+    // A trip from another world (freight finalist compare): steady lines, the car route bright, the hazmat route amber.
+    if (freightSel && !sameWorldSel) {
       const z = (p: [number, number][]) => p.map(([x, y]) => [x, y, 28] as [number, number, number]);
-      const style: Record<string, [number, number, number, number]> = { car: [230, 237, 243, 255], hazmat_truck: [245, 165, 36, 255] };
-      const any = Object.keys(freightSel.routes).length > 0;
+      const style: Record<string, RGBA> = { car: [230, 237, 243, 255], hazmat_truck: [245, 165, 36, 255] };
       for (const [cls, path] of Object.entries(freightSel.routes)) {
         if (!path || path.length < 2) continue;
         out.push(
-          new PathLayer<{ path: Path3 }>({
-            id: `trip-casing-${cls}`,
-            data: [{ path: z(path) }],
-            getPath: (d) => d.path,
-            getColor: [10, 14, 20, 220],
-            getWidth: cls === "hazmat_truck" ? 8 : 6,
-            widthUnits: "pixels",
-            capRounded: true,
-            jointRounded: true,
-            parameters: ON_TOP,
-          }),
-          new PathLayer<{ path: Path3 }>({
-            id: `trip-${cls}`,
-            data: [{ path: z(path) }],
-            getPath: (d) => d.path,
-            getColor: style[cls] ?? [167, 139, 250, 255],
-            getWidth: cls === "hazmat_truck" ? 4.5 : 2.5,
-            widthUnits: "pixels",
-            capRounded: true,
-            jointRounded: true,
-            parameters: ON_TOP,
-          }),
-        );
-      }
-      if (!any) {
-        out.push(
-          new PathLayer<{ path: Path3 }>({
-            id: "trip-schematic",
-            data: dashes([freightSel.ends.o, freightSel.ends.d], 0.25, 0.18, 28).map((path) => ({ path })),
-            getPath: (d) => d.path,
-            getColor: [230, 237, 243, 220],
-            getWidth: 2,
-            widthUnits: "pixels",
-            parameters: ON_TOP,
-          }),
-        );
-      }
-      out.push(
-        new TextLayer<{ text: string; position: [number, number, number] }>({
-          id: "trip-ends",
-          getTextAnchor: "middle",
-          data: [
-            { text: freightSel.ends.oName.split(" (")[0].toUpperCase(), position: [freightSel.ends.o[0], freightSel.ends.o[1], 40] },
-            { text: `${freightSel.ends.dName.split(" (")[0].toUpperCase()}${any ? "" : " (SCHEMATIC LINE)"}`, position: [freightSel.ends.d[0], freightSel.ends.d[1], 40] },
-          ],
-          getText: (o) => o.text,
-          getPosition: (o) => o.position,
-          getSize: 11,
-          getColor: [230, 237, 243, 255],
-          getPixelOffset: [0, -34],
-          background: true,
-          backgroundPadding: [6, 3],
-          getBackgroundColor: [17, 23, 34, 235],
-          fontFamily,
-          fontWeight: 500,
-          characterSet: "auto",
-          sizeUnits: "pixels",
-          parameters: ON_TOP,
-        }),
-      );
-    }
-
-    // Route overlay for the inspected hexagon: baseline dim, current bright.
-    const routes = inspection?.status === "ready" ? inspection.routes : undefined;
-    if (routes && inspection?.chain) {
-      const same = !inspection.chain.routeChanged;
-      const z = (p: [number, number][]) => p.map(([x, y]) => [x, y, 25] as [number, number, number]);
-      if (!same && routes.before.length > 1) {
-        out.push(
-          new PathLayer<{ path: Path3 }>({
-            id: "route-before",
-            data: [{ path: z(routes.before) }],
-            getPath: (d) => d.path,
-            getColor: [139, 152, 169, 170],
-            getWidth: 3,
-            widthUnits: "pixels",
-            capRounded: true,
-            jointRounded: true,
-            parameters: ON_TOP,
-          }),
-        );
-      }
-      if (routes.after.length > 1) {
-        out.push(
-          new PathLayer<{ path: Path3 }>({
-            id: "route-after-casing",
-            data: [{ path: z(routes.after) }],
-            getPath: (d) => d.path,
-            getColor: [10, 14, 20, 220],
-            getWidth: 7,
-            widthUnits: "pixels",
-            capRounded: true,
-            jointRounded: true,
-            parameters: ON_TOP,
-          }),
-          new PathLayer<{ path: Path3 }>({
-            id: "route-after",
-            data: [{ path: z(routes.after) }],
-            getPath: (d) => d.path,
-            getColor: [230, 237, 243, 255],
-            getWidth: 3.5,
-            widthUnits: "pixels",
-            capRounded: true,
-            jointRounded: true,
-            parameters: ON_TOP,
-          }),
-        );
-      }
-      const end = inspection.chain.focus.kind === "destination" ? routes.after[routes.after.length - 1] : routes.after[0];
-      const name = inspection.chain.focus.name;
-      if (end && name) {
-        out.push(
-          new TextLayer<{ text: string; position: [number, number, number] }>({
-            id: "route-end-label",
-            data: [{ text: name.toUpperCase(), position: [end[0], end[1], 40] }],
-            getText: (o) => o.text,
-            getPosition: (o) => o.position,
-            getSize: 11,
-            getColor: [230, 237, 243, 255],
-            getPixelOffset: [0, -16],
-            background: true,
-            backgroundPadding: [6, 3],
-            getBackgroundColor: [17, 23, 34, 235],
-            fontFamily,
-            fontWeight: 500,
-            characterSet: "auto",
-            sizeUnits: "pixels",
-            parameters: ON_TOP,
-          }),
+          new PathLayer<{ path: Path3 }>({ id: `trip-casing-${cls}`, data: [{ path: z(path) }], getPath: (d) => d.path, getColor: [10, 14, 20, 220], getWidth: cls === "hazmat_truck" ? 8 : 6, widthUnits: "pixels", capRounded: true, jointRounded: true, parameters: ON_TOP }),
+          new PathLayer<{ path: Path3 }>({ id: `trip-${cls}`, data: [{ path: z(path) }], getPath: (d) => d.path, getColor: style[cls] ?? [167, 139, 250, 255], getWidth: cls === "hazmat_truck" ? 4.5 : 2.5, widthUnits: "pixels", capRounded: true, jointRounded: true, parameters: ON_TOP }),
         );
       }
     }
-
-    if (selectedHex !== null && world.cells[selectedHex]) {
+    if (freightSel && Object.keys(freightSel.routes).length === 0) {
+      // No route from the simulator yet (or none): a dashed straight line between the anchors, labeled schematic.
       out.push(
         new PathLayer<{ path: Path3 }>({
-          id: "selected-hex",
-          data: [{ path: hexRing(world.cells[selectedHex].id, elev[selectedHex] + 8) }],
+          id: "trip-schematic",
+          data: [{ path: [[freightSel.ends.o[0], freightSel.ends.o[1], 28], [freightSel.ends.d[0], freightSel.ends.d[1], 28]] as Path3 }],
           getPath: (d) => d.path,
-          getColor: [230, 237, 243, 255],
-          getWidth: 2.5,
+          getColor: [230, 237, 243, 200],
+          getWidth: 1.5,
           widthUnits: "pixels",
           parameters: ON_TOP,
         }),
       );
     }
 
-    // Key Bridge: a dashed marker in both states; removal is said in words and color, not animated.
-    const bridgeColor: [number, number, number, number] = removed ? [MAGENTA[0], MAGENTA[1], MAGENTA[2], 255] : [230, 237, 243, 220];
-    out.push(
-      new PathLayer<{ path: Path3 }>({
-        id: "bridge-dashes",
-        data: bridgeDashes.map((path) => ({ path })),
-        getPath: (d) => d.path,
-        getColor: bridgeColor,
-        getWidth: 3,
-        widthUnits: "pixels",
-        capRounded: false,
-        parameters: ON_TOP,
-        updateTriggers: { getColor: removed },
-      }),
-      new TextLayer<{ text: string; position: [number, number, number] }>({
-        id: "bridge-label",
-        data: [{ text: removed ? "KEY BRIDGE  ×  LINK REMOVED" : "KEY BRIDGE", position: [BRIDGE.lng, BRIDGE.lat, 40] }],
-        getText: (o) => o.text,
-        getPosition: (o) => o.position,
-        getSize: 11,
-        getColor: removed ? [MAGENTA[0], MAGENTA[1], MAGENTA[2], 255] : [230, 237, 243, 255],
-        getPixelOffset: [0, -18],
-        background: true,
-        backgroundPadding: [6, 3],
-        getBackgroundColor: [17, 23, 34, 235],
-        fontFamily,
-        fontWeight: 600,
-        characterSet: "auto",
-        sizeUnits: "pixels",
-        parameters: ON_TOP,
-        updateTriggers: { getText: removed, getColor: removed },
-      }),
-    );
+    // Route overlay for the inspected hexagon: baseline dim, current bright.
+    const r = inspection?.status === "ready" ? inspection.routes : undefined;
+    if (r && inspection?.chain) {
+      const same = !inspection.chain.routeChanged;
+      const z = (p: [number, number][]) => p.map(([x, y]) => [x, y, 25] as [number, number, number]);
+      if (!same && r.before.length > 1) {
+        out.push(new PathLayer<{ path: Path3 }>({ id: "route-before", data: [{ path: z(r.before) }], getPath: (d) => d.path, getColor: [139, 152, 169, 170], getWidth: 3, widthUnits: "pixels", capRounded: true, jointRounded: true, parameters: ON_TOP }));
+      }
+      if (r.after.length > 1) {
+        out.push(
+          new PathLayer<{ path: Path3 }>({ id: "route-after-casing", data: [{ path: z(r.after) }], getPath: (d) => d.path, getColor: [10, 14, 20, 220], getWidth: 7, widthUnits: "pixels", capRounded: true, jointRounded: true, parameters: ON_TOP }),
+          new PathLayer<{ path: Path3 }>({ id: "route-after", data: [{ path: z(r.after) }], getPath: (d) => d.path, getColor: [230, 237, 243, 255], getWidth: 3.5, widthUnits: "pixels", capRounded: true, jointRounded: true, parameters: ON_TOP }),
+        );
+      }
+    }
+
+    if (selectedHex !== null && world.cells[selectedHex]) out.push(...hexOutline("selected-hex", world.cells[selectedHex].id, elev[selectedHex] + 8, true));
+
+    out.push(...stationLayers(facilities, stationsA, hospitalsA));
+    out.push(...bridgeLayers(removed, visual.bridge, glow));
     return out;
-  }, [freightSel, appliedLabel, world, buffers, hexData, tick, hatchData, fontFamily, inspection, selectedHex, selectedBgHexes, removed, bridgeDashes, previewEnc, appliedGeo, appliedFx, drawT]);
+    // `visualVersion` stands in for the mutable scene visual state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world, buffers, hexData, tick, hatchData, tall, glow, selectedBgHexes, hover, selectedHex, previewEnc, tunnels, closedTunnels, appliedGeo, appliedFx, drawT, freightSel, sameWorldSel, inspection, facilities, removed, visualVersion, stationsA, hospitalsA, qLevel]);
 
   const compareLayers = useMemo(() => {
     if (!world || !compareEnc) return [];
@@ -737,13 +571,19 @@ export default function MapStage() {
   }, [world, hexData, compareEnc]);
 
   const getTooltip = ({ object }: PickingInfo) => {
+    const boxStyle = { background: "rgba(17,23,34,0.96)", color: "#E6EDF3", border: "1px solid #243044", borderRadius: "8px", padding: "8px 12px", fontSize: "12px" };
+    const fac = object as Partial<Facility> | null;
+    if (fac?.kind && fac.name !== undefined && fac.id?.startsWith("F-")) {
+      const el = document.createElement("div");
+      el.textContent = `${FACILITY_LABEL[fac.kind]}: ${fac.name || "(unnamed)"}`;
+      return { html: el.innerHTML, style: boxStyle };
+    }
     const opt = object as { candidateId?: string } | null;
     if (opt?.candidateId) {
-      const c = catalog?.byId.get(opt.candidateId);
-      const title = c ? c.title.replace(/^Hypothetical scenario option:\s*/i, "") : opt.candidateId;
+      const title = optionName(catalog, opt.candidateId);
       const el = document.createElement("div");
       el.textContent = `${title} (${opt.candidateId}, applied; hypothetical)`;
-      return { html: el.innerHTML, style: { background: "rgba(17,23,34,0.96)", color: "#E6EDF3", border: "1px solid #243044", borderRadius: "8px", padding: "8px 12px", fontSize: "12px" } };
+      return { html: el.innerHTML, style: boxStyle };
     }
     const h = object as HexDatum | null;
     if (!h || !view) return null;
@@ -762,62 +602,76 @@ export default function MapStage() {
     const jobOnly = world?.cells[h.i]?.residents === 0 ? `<div style="opacity:.75">No residents here (jobs only)</div>` : "";
     return {
       html: `${body}${jobOnly}<div style="opacity:.6;margin-top:4px">Click for details</div>`,
-      style: {
-        background: "rgba(17,23,34,0.96)",
-        color: "#E6EDF3",
-        border: "1px solid #243044",
-        borderRadius: "8px",
-        padding: "8px 12px",
-        fontSize: "12px",
-        lineHeight: "16px",
-        fontVariantNumeric: "tabular-nums",
-      },
+      style: { ...boxStyle, lineHeight: "16px", fontVariantNumeric: "tabular-nums" },
     };
   };
 
+  const onHover = (info: PickingInfo) => {
+    const o = info.object as (HexDatum & { candidateId?: string; kind?: string }) | null | undefined;
+    const next = o && typeof o.i === "number" && !o.candidateId ? o.i : null;
+    setHover((prev) => (prev === next ? prev : next));
+  };
+  const onClick = (info: PickingInfo) => {
+    const o = info.object as (HexDatum & { candidateId?: string; kind?: string }) | undefined;
+    if (o?.candidateId) return; // an applied option: its name is on hover
+    if (o?.kind) return; // a station: its name is on hover
+    void selectHex(o && typeof o.i === "number" ? o.i : null);
+  };
+
+  // ---------- debug hook (only with ?mapdebug in the URL; never carries secrets) ----------
+  useEffect(() => {
+    if (typeof window === "undefined" || !new URLSearchParams(window.location.search).has("mapdebug")) return;
+    (window as unknown as { __ws: unknown }).__ws = {
+      goToScene,
+      currentScene,
+      resetView,
+      flyTo,
+      setQuality,
+      frameStats,
+      setViewportPadding,
+      setFreightTripHighlight,
+      interruptCamera,
+      markMapReady,
+      store: useApp,
+      search: useSearch,
+      quality: qualityLevel,
+      visual: () => JSON.parse(JSON.stringify(getVisual())),
+      camera: getCamera,
+      isUserControlled,
+      whenMapReady,
+    };
+  }, []);
+
+  const trailCaptionLeft = padding.left + 16;
   return (
     <div
       className="ws-map absolute inset-0"
       data-testid="map-stage"
+      role="group"
+      aria-label={`Map: ${sceneNow ? SCENES[sceneNow].label : "Key Bridge region, Baltimore"}`}
       data-left-open={!presentation && leftOpen ? "true" : "false"}
       data-compare={compareEnc ? "true" : "false"}
-      style={{ ["--split" as string]: `${((compare?.split ?? 0.5) * 100).toFixed(2)}%` }}
+      data-trails={trailsAnimating ? "true" : "false"}
+      data-hover={hover ?? ""}
+      style={{ ["--split" as string]: `${((compare?.split ?? 0.5) * 100).toFixed(2)}%`, background: "#0a0e14" }}
     >
-      <DeckGL
-        viewState={viewState}
-        onViewStateChange={({ viewState: vs }) => setViewState(vs as ViewState)}
-        onInteractionStateChange={(s) => {
-          const active = !!(s.isDragging || s.isPanning || s.isRotating || s.isZooming);
-          interacting.current = active;
-          if (!active) pauseUntil.current = performance.now() + 4000;
-        }}
-        onClick={(info) => {
-          const o = info.object as (HexDatum & { candidateId?: string }) | undefined;
-          if (o?.candidateId) return; // an applied option: its name is on hover
-          void selectHex(o && typeof o.i === "number" ? o.i : null);
-        }}
-        controller={{ dragRotate: true, touchRotate: true, inertia: false }}
+      <DeckStage
         layers={layers}
-        getTooltip={getTooltip}
-        getCursor={({ isHovering, isDragging }) => (isDragging ? "grabbing" : isHovering ? "pointer" : "grab")}
-        style={{ position: "absolute", inset: "0" }}
-      >
-        <Map mapStyle={MAP_STYLE} attributionControl={{ compact: false }} reuseMaps />
-      </DeckGL>
+        compareLayers={compareLayers}
+        compareSplit={compareEnc ? (compare?.split ?? 0.5) : null}
+        labelDefs={labelDefs}
+        trails={trails}
+        padding={padding}
+        fontFamily={fontFamily}
+        reduced={reduced}
+        onClick={onClick}
+        onHover={onHover}
+        getTooltip={getTooltip as never}
+      />
 
-      {/* Compare: the option's world on the right of the slider, same camera, clipped; the main terrain on the left. */}
-      {compareEnc && (
-        <DeckGL
-          id="compare-overlay"
-          viewState={viewState}
-          controller={false}
-          layers={compareLayers}
-          style={{ position: "absolute", inset: "0", pointerEvents: "none", clipPath: `inset(0 0 0 ${((compare?.split ?? 0.5) * 100).toFixed(2)}%)` }}
-        />
-      )}
       {compare && <CompareSlider />}
       {freightSel && Object.keys(freightSel.routes).length > 0 && (
-        <div className="pointer-events-none absolute left-[600px] top-[152px]">
+        <div className="pointer-events-none absolute" style={{ left: trailCaptionLeft, top: padding.top + 80 }}>
           <p className="panel flex items-center gap-3 px-3 py-1 text-xs" role="status">
             <span className="flex items-center gap-1">
               <span className="inline-block h-0.5 w-5 rounded bg-text" aria-hidden /> car route
@@ -845,46 +699,39 @@ export default function MapStage() {
         </div>
       )}
 
-      {/* Map toolbar: bottom-center of the map area, above the footer. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center">
-        <div className="panel pointer-events-auto flex items-center gap-1 p-1" role="toolbar" aria-label="Map controls">
-          <button
-            className="btn-icon"
-            aria-pressed={orbit}
-            aria-label="Slow camera orbit"
-            title={reduced ? "Orbit is off because your system asks for reduced motion" : "Slow camera orbit"}
-            disabled={reduced}
-            onClick={toggleOrbit}
-            style={orbit && !reduced ? { color: "var(--color-text)", background: "var(--color-surface-2)" } : undefined}
-          >
-            <Orbit size={16} aria-hidden />
-          </button>
-          <button
-            className="btn-icon"
-            aria-label="Reset camera"
-            title="Reset camera"
-            onClick={() =>
-              setViewState((v) => ({
-                ...v,
-                ...focus,
-                transitionDuration: reduced ? 0 : 1200,
-                transitionInterpolator: reduced ? undefined : new FlyToInterpolator({ speed: 1.6 }),
-              }))
-            }
-          >
-            <Compass size={16} aria-hidden />
-          </button>
-          <button
-            className="btn-icon"
-            aria-pressed={presentation}
-            aria-label="Presentation mode (P)"
-            title="Presentation mode (P)"
-            onClick={togglePresentation}
-          >
-            <Presentation size={16} aria-hidden />
-          </button>
+      {/* Map toolbar: bottom-center of the map area, above the footer. Off when the story UI provides its own. */}
+      {toolbar && (
+        <div className="pointer-events-none absolute flex justify-center" style={{ left: padding.left, right: padding.right, bottom: padding.bottom + 16 }}>
+          <div className="panel pointer-events-auto flex items-center gap-1 p-1" role="toolbar" aria-label="Map controls">
+            <button
+              className="btn-icon"
+              aria-pressed={orbit}
+              aria-label="Slow camera orbit"
+              title={reduced ? "Orbit is off because your system asks for reduced motion" : "Slow camera orbit"}
+              disabled={reduced}
+              onClick={toggleOrbit}
+              style={orbit && !reduced ? { color: "var(--color-text)", background: "var(--color-surface-2)" } : undefined}
+            >
+              <Orbit size={16} aria-hidden />
+            </button>
+            <button
+              className="btn-icon"
+              aria-label="Reset camera"
+              title="Reset camera"
+              onClick={() => {
+                const sc = currentScene();
+                if (sc !== null && sc !== "explore") void resetView();
+                else void flyTo({ longitude: focus.longitude, latitude: focus.latitude, zoom: focus.zoom, pitch: focus.pitch, bearing: focus.bearing }, { durationMs: 1200, curve: "fly" });
+              }}
+            >
+              <Compass size={16} aria-hidden />
+            </button>
+            <button className="btn-icon" aria-pressed={presentation} aria-label="Presentation mode (P)" title="Presentation mode (P)" onClick={togglePresentation}>
+              <Presentation size={16} aria-hidden />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

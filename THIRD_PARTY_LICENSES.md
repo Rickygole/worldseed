@@ -226,18 +226,19 @@ Source: `pipeline/uv.lock` (29 packages other than the project itself); direct d
 
 ## Fonts
 
-Both fonts are loaded with `next/font/google` in `frontend/app/layout.tsx` (Inter as `--font-inter`, JetBrains Mono as `--font-jetbrains`, subset `latin`, `display: swap`). `next/font` downloads the font files at build time and serves them from the app's own origin, so visitors do not contact Google Fonts. In a local Next build output on 2026-09-26 (`frontend/.next`) the generated CSS declared variable woff2 files split into unicode-range slices for `Inter` (weights 100 to 900) and `JetBrains Mono` (weights 100 to 800), with `local(Arial)` fallbacks. The Vercel production build output was not inspected (unverified).
+The three fonts are loaded with `next/font/google` in `frontend/app/layout.tsx` (Inter as `--font-inter`, JetBrains Mono as `--font-jetbrains`, Space Grotesk for display numbers and headlines, subset `latin`, `display: swap`). `next/font` downloads the font files at build time and serves them from the app's own origin, so visitors do not contact Google Fonts. In a local Next build output on 2026-09-26 (`frontend/.next`) the generated CSS declared variable woff2 files split into unicode-range slices for `Inter` (weights 100 to 900) and `JetBrains Mono` (weights 100 to 800), with `local(Arial)` fallbacks. The Vercel production build output was not inspected (unverified).
 
 | Font | License | Copyright notice (from the Google Fonts repository OFL.txt) | Source |
 |---|---|---|---|
 | Inter | SIL Open Font License 1.1 | Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter) | https://github.com/google/fonts/blob/main/ofl/inter/OFL.txt |
 | JetBrains Mono | SIL Open Font License 1.1 | Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) | https://github.com/google/fonts/blob/main/ofl/jetbrainsmono/OFL.txt |
+| Space Grotesk | SIL Open Font License 1.1 | Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk) | https://github.com/google/fonts/blob/main/ofl/spacegrotesk/OFL.txt |
 
 Both copyright lines were read from those files on 2026-09-26. The upstream Inter repository states 2016 in its own copy of the license; the Google Fonts copy, which is the one `next/font/google` downloads from, states 2020. Neither font declares a Reserved Font Name in the copies read.
 
 Gap: `docs/LEGAL.md` asks for each OFL text to ship next to the font files. `next/font/google` emits hashed woff2 files with no license file beside them, so this document is the notice. Whether the running app links to this file is unverified.
 
-### SIL Open Font License 1.1 (applies to Inter and JetBrains Mono)
+### SIL Open Font License 1.1 (applies to Inter, JetBrains Mono and Space Grotesk)
 
 ```text
 -----------------------------------------------------------

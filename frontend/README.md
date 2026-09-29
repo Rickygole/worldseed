@@ -23,30 +23,31 @@ see `scripts/`.
 
 ## Try it
 
-1. Skip the intro (two slides).
-2. **Remove Key Bridge link** (Scenario panel). Every lens is recomputed on the road network in your browser; the terrain
-   rises over the Sparrows Point / Edgemere peninsula, the camera flies there, the ribbon rolls, and "What this shows"
-   explains the result. Job-only hexagons (no residents) are drawn faded.
-3. Switch the lens (Cross-harbor access / Regional access / First response (EMS)) or click a ribbon tile. The ribbon
-   always shows all three lenses; first response is marked "held" when it does not move.
-4. Click a hexagon: block group, Census figures, absolute cross-harbor minutes before and after, and the route that
-   changed (dim = before, bright = now).
-5. **Find a better future** (Planner panel). Confirm the goal first; nothing runs before you confirm. With the AI planner
-   unavailable (no keys), the same button runs the **Deterministic search (no AI)**. Watch the futures fan grow, the
-   stress-test beats, and the progress grid (real completed futures). Then Preview (violet wireframe), Compare (swipe
-   slider), and Apply (confirm first; the option draws itself and the terrain changes outward from it).
-   The Mission lens can also be **Hazmat truck detours (freight)**: the 24 cross-harbor hazmat-truck trips (free-flow;
-   hazmat truck = a vehicle carrying material the tunnels prohibit). Eligible options come from the catalog's own rule
-   (today the escorted hazmat windows); "Compare trips" shows the option's trips next to doing nothing.
-6. **Exhaustive check** (Finalists): scores every bundle of one to three eligible options with one free-flow run each and
-   says where the top pick ranks.
-7. **Freight** (Scenario panel or the ribbon's Freight tile): every trip, car vs hazmat truck, baseline to now, with
-   routes on the map and the MDTA tunnel rule cited. **Closure notices** and **Reality check** (Scenario panel): Tavily-backed, labeled unverified; closures need an explicit
-   confirmation and a server-redeemed token before they enter the world.
-8. `?tour=keybridge` runs a five-step guided tour; every step is a real action on the live simulator.
+The app opens in the **guided story** (map first). Each scene shows one number, one sentence and one button over the
+3D map; ranges, sources and methods are behind "How do we know?". Every number comes from the simulator (or, for the
+labeled study ranges, from `docs/METHODOLOGY.md`, only in the exact Key Bridge-removed world).
 
-Keys: `P` presentation mode (hides panels, slow orbit), `R` reset, `Cmd/Ctrl-K` command bar (commands, "close harbor
-tunnel", "reset", and plain-language goals when the AI planner is available), `Esc` closes overlays and the inspector.
+1. Intro: the dedication and one sentence. **Start the walk-through** (Escape skips).
+2. The bridge: **Remove the Key Bridge**. The regional average rolls from 0 to about 3 seconds.
+3. The local story: about 20,000 people reach over 10% fewer jobs across the river (with the assumption range).
+   **Show me where** switches to the cross-harbor view and flies to the peninsula.
+4. What held: the time to the nearest fire station did not change.
+5. Dangerous cargo: tunnel rules make hazmat-truck trips about 15 minutes longer (cars about 6); **Show the detour**
+   draws one trip's routes.
+6. What could help: **Find a better future** runs the search (the AI planner when `/api/health` reports it, otherwise
+   "Deterministic search (no AI)"), then **Apply the best idea** (after a confirmation) and the honest residual.
+7. Explore: **Open expert mode**.
+
+**Expert mode** (the quiet button top right, or `E`) is the full workspace: scenario and lens rail with the legend and
+tools (hazmat and car trips, closure notices, reality check), the planner one step at a time (goal, search, finalists,
+apply) with the futures fan, finalist cards, exhaustive check and decision log, a comparison strip over the map, the
+neighborhood inspector (click a hexagon) and a ribbon of five numbers.
+
+URLs: `?mode=expert` opens Expert mode; `?scene=averages` (or any scene id: crossing, averages, held, freight, fix,
+explore, intro) opens the story at that scene.
+
+Keys: `Right` / `Left` next and previous scene, `E` story or Expert mode, `?` shortcuts, `R` reset, `P` presentation
+mode (Expert), `Cmd/Ctrl-K` command bar, `Esc` closes popovers, dialogs and the inspector (and skips the intro).
 
 ## What is real vs placeholder
 
@@ -75,25 +76,23 @@ tunnel", "reset", and plain-language goals when the AI planner is available), `E
 - `lib/ui/lenses.ts` maps a lens field to height, color and hatch (one shared scale for the two added-time lenses).
 - Tests for the pure pieces: `test/ui/`.
 
-## Design tokens
+## Design system
 
-Defined in `app/globals.css` (`@theme`) as Tailwind theme values and CSS vars:
-bg, surface, surface-2, border, text, muted, ok (teal), warn (amber), critical
-(magenta), ai (blue, used only for the one primary button), future (violet).
-Type scale 12/14/16/20/28/48/72, 12px card radius, numbers in JetBrains Mono
-with tabular-nums (`.num`). Severe cells are never color-only: they carry a
-diagonal hatch on the map and in the legend; every ribbon change has an arrow
-and a word ("unchanged") as well as a color.
+`docs/DESIGN.md` is the source of truth (principles, the owner's simplicity rules, the five-second test per scene,
+color roles, type scale, spacing, elevation, motion, components). Tokens are in `app/globals.css` (`@theme`): a
+near-black navy ground, semantic ok / warn / critical, ai (the planner), future (options); Space Grotesk for display
+numbers, Inter for text, JetBrains Mono for data. Wireframes: `docs/design/wireframes.md`. Story copy: `lib/ui/storyCopy.ts`
+(transcribed from `docs/STORY.md`), rendered with computed slots by `lib/ui/storyFigures.ts`; scene orchestration
+(world, lens, camera through the map director) in `lib/ui/story.ts`.
+
+Tests: `test/ui/readability.test.ts` (every default-path sentence at or below grade 9, no jargon),
+`test/ui/story.test.ts` (study constants against `pipeline/sensitivity/out`, the privacy retention against the limiter
+TTL, the scene templates and their conditional variants).
 
 ## Notes
 
-- Env keys, when they arrive, are read only from `process.env` on the server.
-  Never use `NEXT_PUBLIC_` for keys.
-- Attribution: the MapLibre attribution control stays on (above the footer),
-  and the footer carries the data, AI and search credits plus the Token Factory
-  terms link.
-- First run shows the disclaimer banner ("Planning simulation, not dispatch...");
-  after dismissal the short form stays in the top bar and the full intended-use
-  text is in About.
-- `prefers-reduced-motion`: no orbit, no fly-to, no stagger; the terrain
-  crossfades over 400 ms and counters snap.
+- Env keys, when they arrive, are read only from `process.env` on the server. Never use `NEXT_PUBLIC_` for keys.
+- Attribution: the MapLibre attribution control stays on in both modes; the footer carries the planning notice and
+  "About and sources" (story) or the full data, AI and search credits with the Token Factory terms link (Expert).
+- The planning notice is always visible in the footer line; the full intended-use text is in About.
+- `prefers-reduced-motion`: crossfades only, numbers land without rolling, camera moves become cuts (map director).

@@ -23,7 +23,7 @@ export const LENSES: LensUi[] = [
     label: "Cross-harbor access",
     short: "Cross-harbor",
     legend: "Height and color: minutes added to the average trip to jobs on the other shore, versus the baseline",
-    hatchLegend: "lost >25% of cross-harbor jobs",
+    hatchLegend: "over 25% fewer jobs across the harbor",
   },
   {
     id: "access",
@@ -80,6 +80,20 @@ function emsColor(min: number, thresholdMin: number): RGB {
   return MAGENTA;
 }
 
+/**
+ * The story's "What held" scene shows the CHANGE in station time, not the absolute time: with nothing changed the
+ * terrain is a flat, calm plain (an absolute-time map colors the study-area edges magenta, which reads as "worse"
+ * on a scene that says "did not change"). Set with the baseline EMS minutes per hex; null returns to absolute
+ * times (Expert mode). The story sets it before switching the lens, so the next encode picks it up.
+ */
+let emsChangeBase: Float32Array | null = null;
+export function setEmsChangeBase(base: Float32Array | null): void {
+  emsChangeBase = base;
+}
+export function emsShowsChange(): boolean {
+  return emsChangeBase !== null;
+}
+
 export interface Encoded {
   elev: Float32Array;
   /** RGB triplets. */
@@ -106,7 +120,13 @@ export function encode(
   for (let i = 0; i < n; i++) {
     const m = minutes[i];
     let c: RGB;
-    if (lens === "ems") {
+    if (lens === "ems" && emsChangeBase && emsChangeBase.length === n) {
+      // Change in station time on the added-minutes scale: 0 is the flat plain, a slower hex rises and warms.
+      const d = Math.max(0, m - emsChangeBase[i]);
+      elev[i] = d * M_PER_ADDED_MIN;
+      c = addedColor(d);
+      hatch[i] = 0;
+    } else if (lens === "ems") {
       elev[i] = Math.max(0, m - EMS_FLOOR_MIN) * M_PER_EMS_MIN;
       c = emsColor(m, opts.emsThresholdMin);
       hatch[i] = m > opts.emsThresholdMin ? 1 : 0;

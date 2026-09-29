@@ -21,7 +21,7 @@ function AboutInner({ onClose }: { onClose: () => void }) {
   return (
     <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
-      style={{ background: "rgb(10 14 20 / 0.6)" }}
+      style={{ background: "rgb(4 7 12 / 0.6)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.15 } }}
@@ -34,7 +34,7 @@ function AboutInner({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-labelledby="about-h"
         tabIndex={-1}
-        className="panel flex max-h-full w-[640px] flex-col overflow-hidden"
+        className="sheet flex max-h-full w-[640px] max-w-full flex-col overflow-hidden"
         initial={reduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
@@ -70,9 +70,23 @@ function AboutInner({ onClose }: { onClose: () => void }) {
             any hospital, fire, EMS, or government agency.
           </p>
           <p>
-            <strong className="font-medium">AI-generated text.</strong> Numbers, results, and finalist cards are produced by the application from simulator
-            results and catalog data. Text written by an AI language model appears only as a clearly labeled, unverified rationale in the decision log and may
-            be inaccurate. All options are proposals for human review, not recommendations.
+            <strong className="font-medium">AI-generated text.</strong> Numbers, results and finalist cards are produced by the application from simulator results and catalog
+            data. AI-written text appears only in the decision log: a labeled rationale choice, and an optional raw reasoning section shown without human review, which
+            may be wrong or inappropriate and is not the view of WorldSeed. News-derived closure quotes are verbatim from their sources and unverified. All options are
+            proposals for human review, not recommendations. AI-generated text may be inaccurate.
+          </p>
+          <p>
+            <strong className="font-medium">Planning simulation, not route guidance.</strong> WorldSeed is an offline, retrospective planning simulation on a historical
+            (2024) road network. It is not connected to, and must not be used as part of, any traffic control, vehicle-routing or hazardous-materials system. Hazmat
+            results show how one published MDTA rule changes simulated travel times; they are not route guidance. Escorted hazmat windows are hypothetical, not an MDTA
+            program.
+          </p>
+          <p>
+            <strong className="font-medium">Privacy.</strong> WorldSeed has no accounts and sets no cookies. Your browser&apos;s session storage keeps a random session id and
+            whether you have seen the intro. To enforce fair-use limits, the server keeps a salted hash of your IP address and session id in a counter store (Upstash) for
+            at most about two days; WorldSeed does not store raw IP addresses. The host (Vercel) processes request data, including IP addresses, in its logs under its own
+            privacy policy. If the bot check is on, Cloudflare Turnstile processes signals such as your IP address and browser details to detect bots. Text you type as a
+            goal is sent to Nebius Token Factory to run the AI model, so do not enter personal information. Questions: open a GitHub issue.
           </p>
           <p>
             <strong className="font-medium">No affiliation.</strong> Names of hospitals, stations, and agencies identify real-world locations only.
@@ -117,10 +131,22 @@ function AboutInner({ onClose }: { onClose: () => void }) {
               </a>
               ). Search: Tavily.
             </li>
+            <li>
+              Hazardous-materials tunnel rule: Maryland Transportation Authority,{" "}
+              <a className="underline decoration-border underline-offset-2 hover:text-text" href="https://mdta.maryland.gov/TunnelRestrictionsAndVehiclePermits" target="_blank" rel="noreferrer">
+                Transporting Hazardous Materials Across Our Toll Facilities
+              </a>{" "}
+              and{" "}
+              <a className="underline decoration-border underline-offset-2 hover:text-text" href="https://mdta.maryland.gov/keybridgenews" target="_blank" rel="noreferrer">
+                Key Bridge news
+              </a>
+              , accessed 26 September 2026. Cited and linked, not affiliated.
+            </li>
+            <li>Reported commute: Capital News Service (via Baltimore Fishbowl), 28 March 2025.</li>
           </ul>
           <p className="text-muted">
             WorldSeed is not affiliated with or endorsed by the OpenStreetMap Foundation, OpenFreeMap, OpenMapTiles, the U.S. Census Bureau, the State of
-            Maryland, the NTSB, NVIDIA, Nebius, Tavily, or any agency, hospital, fire company or EMS provider.
+            Maryland, the Maryland Transportation Authority (MDTA), the NTSB, NVIDIA, Nebius, Tavily, or any agency, hospital, fire company or EMS provider.
           </p>
 
           <p className="text-muted">

@@ -1,61 +1,84 @@
 @import "tailwindcss";
 
 /*
- * WorldSeed design tokens.
- * Three semantic colors (ok / warn / critical) + one AI accent (ai) + one
- * "future" accent (future). Everything else is grayscale.
- * Spacing: Tailwind's 4px unit; compose in multiples of 2 (8px grid).
+ * WorldSeed design tokens (docs/DESIGN.md).
+ * Ground: near-black navy. Semantic: ok / warn / critical + ai (the planner) + future (options, futures).
+ * Everything else is a neutral. Spacing: Tailwind's 4 px unit, composed on an 8 px grid.
  */
 @theme {
   --color-*: initial;
-  --color-bg: #0a0e14;
-  --color-surface: #111722;
-  --color-surface-2: #18202e;
-  --color-border: #243044;
-  --color-text: #e6edf3;
-  --color-muted: #8b98a9;
+  --color-bg: #070b12;
+  --color-surface: #0f1520;
+  --color-surface-2: #161e2c;
+  /* Hairline: translucent so it reads on glass and on the map alike. */
+  --color-border: rgb(148 163 184 / 0.14);
+  --color-line-strong: rgb(148 163 184 / 0.28);
+  --color-text: #eef2f7;
+  --color-text-2: #a9b4c4;
+  --color-muted: #8391a5;
+  --color-faint: #5b687b;
   --color-ok: #2dd4bf;
   --color-warn: #f5a524;
   --color-critical: #ff3d71;
   --color-ai: #4c8dff;
   --color-future: #a78bfa;
+  --color-white: #ffffff;
+  --color-transparent: transparent;
 
   --text-*: initial;
+  --text-2xs: 11px;
+  --text-2xs--line-height: 14px;
   --text-xs: 12px;
   --text-xs--line-height: 16px;
   --text-sm: 14px;
   --text-sm--line-height: 20px;
   --text-base: 16px;
   --text-base--line-height: 24px;
-  --text-xl: 20px;
-  --text-xl--line-height: 28px;
-  --text-2xl: 28px;
-  --text-2xl--line-height: 32px;
+  --text-lg: 20px;
+  --text-lg--line-height: 28px;
+  --text-xl: 24px;
+  --text-xl--line-height: 32px;
+  --text-2xl: 32px;
+  --text-2xl--line-height: 36px;
   --text-4xl: 48px;
-  --text-4xl--line-height: 48px;
-  --text-6xl: 72px;
-  --text-6xl--line-height: 72px;
+  --text-4xl--line-height: 52px;
+  --text-display-sm: 64px;
+  --text-display-sm--line-height: 64px;
+  --text-display: 88px;
+  --text-display--line-height: 84px;
 
   --radius-*: initial;
-  --radius-card: 12px;
+  --radius-sm: 6px;
+  --radius-ctl: 10px;
+  --radius-card: 16px;
+  --radius-sheet: 24px;
   --radius-chip: 999px;
-  --radius-ctl: 8px;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-soft: cubic-bezier(0.4, 0, 1, 1);
 }
 
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: var(--font-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
   color-scheme: dark;
+  /* Story card top edge: below the header, and lower on tall screens so the card sits in the lower half. */
+  --story-top: clamp(80px, calc(100dvh - 48px - 640px), 200px);
   --ws-topbar: 56px;
-  --ws-ribbon: 112px;
+  --ws-ribbon: 96px;
   --ws-footer: 32px;
-  --ws-left: 300px;
+  --ws-left: 280px;
   --ws-right: 360px;
+  --glass: rgb(12 17 26 / 0.72);
+  --glass-strong: rgb(16 22 33 / 0.94);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.06), inset 0 0 0 1px rgb(148 163 184 / 0.1);
+  --shadow-1: 0 12px 40px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 16px 48px rgb(0 0 0 / 0.5);
+  --shadow-3: 0 24px 80px rgb(0 0 0 / 0.6);
 }
 
 html,
@@ -68,27 +91,50 @@ body {
   line-height: 20px;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 @layer components {
-  /* Floating glass panel: ~92% opacity + slight backdrop blur. */
+  /* e1: floating glass over the map. The border is an inner highlight, not a line. */
   .panel {
-    background: rgb(17 23 34 / 0.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--color-border);
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    box-shadow: var(--highlight), var(--shadow-1);
+    border-radius: var(--radius-card);
+  }
+  /* e2: popovers, menus, tooltips. */
+  .pop {
+    background: var(--glass-strong);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--highlight), var(--shadow-2);
+    border-radius: 12px;
+  }
+  /* e3: dialogs. */
+  .sheet {
+    background: var(--color-surface);
+    box-shadow: var(--highlight), var(--shadow-3);
     border-radius: var(--radius-card);
   }
   .card {
-    background: var(--color-surface-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-card);
+    background: rgb(22 30 44 / 0.6);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    border-radius: 12px;
   }
   /* Numbers and IDs: JetBrains Mono, tabular. */
   .num {
     font-family: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
+  }
+  /* Display numbers and headlines: Space Grotesk, tabular figures. */
+  .display {
+    font-family: var(--font-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.02em;
   }
   .label {
     font-size: 12px;
@@ -101,12 +147,12 @@ body {
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     height: 28px;
     padding: 0 12px;
-    border: 1px solid var(--color-border);
     border-radius: var(--radius-chip);
-    background: var(--color-surface);
+    background: rgb(148 163 184 / 0.08);
+    box-shadow: inset 0 0 0 1px var(--color-border);
     font-size: 12px;
     line-height: 16px;
     white-space: nowrap;
@@ -119,22 +165,38 @@ body {
     height: 36px;
     padding: 0 16px;
     border-radius: var(--radius-ctl);
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-2);
+    border: 1px solid var(--color-line-strong);
+    background: rgb(148 163 184 / 0.06);
     color: var(--color-text);
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 150ms, border-color 150ms;
+    transition:
+      background 150ms var(--ease-out-soft),
+      border-color 150ms var(--ease-out-soft),
+      transform 150ms var(--ease-out-soft);
   }
   .btn:hover:not(:disabled) {
-    background: var(--color-border);
+    background: rgb(148 163 184 / 0.14);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
   }
   .btn:disabled {
     cursor: not-allowed;
-    opacity: 0.5;
+    opacity: 0.45;
   }
-  /* The ONLY filled blue button in the app. */
+  /* The story's action: light fill, dark text. Neutral on purpose; the number carries the accent. */
+  .btn-light {
+    background: var(--color-text);
+    border-color: var(--color-text);
+    color: #0a0f18;
+    font-weight: 600;
+  }
+  .btn-light:hover:not(:disabled) {
+    background: #ffffff;
+  }
+  /* The ONLY filled blue button in the app: the planner's search. */
   .btn-primary {
     background: var(--color-ai);
     border-color: var(--color-ai);
@@ -144,6 +206,14 @@ body {
   .btn-primary:hover:not(:disabled) {
     background: #6aa1ff;
   }
+  .btn-ghost {
+    border-color: transparent;
+    background: transparent;
+    color: var(--color-text-2);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--color-text);
+  }
   .btn-icon {
     display: inline-flex;
     align-items: center;
@@ -151,54 +221,65 @@ body {
     width: 32px;
     height: 32px;
     border-radius: var(--radius-ctl);
-    border: 1px solid transparent;
     color: var(--color-muted);
     cursor: pointer;
+    transition:
+      color 150ms,
+      background 150ms;
   }
-  .btn-icon:hover {
+  .btn-icon:hover:not(:disabled) {
     color: var(--color-text);
-    background: var(--color-surface-2);
-    border-color: var(--color-border);
+    background: rgb(148 163 184 / 0.12);
+  }
+  .btn-icon:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
   .kbd {
     font-family: var(--font-jetbrains), ui-monospace, monospace;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 16px;
     padding: 0 6px;
-    border: 1px solid var(--color-border);
     border-radius: 4px;
     color: var(--color-muted);
-    background: var(--color-surface);
+    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+  }
+  .link {
+    text-decoration: underline;
+    text-decoration-color: var(--color-line-strong);
+    text-underline-offset: 3px;
+    transition: color 150ms;
+  }
+  .link:hover {
+    color: var(--color-text);
+    text-decoration-color: currentColor;
   }
   /* Diagonal hatch: isolated zones are never color-only. */
   .hatch-critical {
     background-color: var(--color-critical);
-    background-image: repeating-linear-gradient(
-      45deg,
-      rgb(10 14 20 / 0.75) 0 2px,
-      transparent 2px 5px
-    );
+    background-image: repeating-linear-gradient(45deg, rgb(10 14 20 / 0.75) 0 2px, transparent 2px 5px);
   }
 }
 
 /* Slim dark scrollbars. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-color: rgb(148 163 184 / 0.25) transparent;
 }
 
 :focus-visible {
   outline: 2px solid var(--color-ai);
-  outline-offset: 2px;
+  outline-offset: 3px;
+}
+
+::selection {
+  background: rgb(76 141 255 / 0.35);
 }
 
 /*
- * MapLibre attribution stays ON (OSM and OpenFreeMap terms). It sits just above the footer, to the right of
- * the left panel, in the app's dark styling.
- */
-/*
- * react-map-gl puts the map under the deck.gl canvas with z-index -1, which would also bury the attribution
- * control under the terrain. Keep only the map canvas underneath; the controls then stack above the deck canvas.
+ * MapLibre attribution stays ON (OSM and OpenFreeMap terms). react-map-gl puts the map under the deck.gl
+ * canvas with z-index -1, which would also bury the attribution control under the terrain. Keep only the
+ * map canvas underneath; the controls then stack above the deck canvas.
  */
 .ws-map .maplibregl-map {
   z-index: auto !important;
@@ -208,25 +289,23 @@ body {
   inset: 0;
   z-index: -1;
 }
+/* The attribution sits bottom-right, clear of the footer line (and of the Expert ribbon, which is outside the map). */
 .ws-map .maplibregl-ctrl-bottom-right {
-  right: auto;
-  left: 16px;
-  bottom: 36px;
-}
-.ws-map[data-left-open="true"] .maplibregl-ctrl-bottom-right {
-  left: calc(var(--ws-left) + 24px);
+  right: var(--ws-attrib-right, 12px);
+  bottom: var(--ws-attrib-bottom, 40px);
+  left: auto;
 }
 .ws-map .maplibregl-ctrl.maplibregl-ctrl-attrib {
   margin: 0;
   padding: 2px 8px;
   border-radius: 6px;
-  background: rgb(10 14 20 / 0.82);
+  background: rgb(7 11 18 / 0.72);
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 16px;
 }
 .ws-map .maplibregl-ctrl-attrib a {
-  color: var(--color-muted);
+  color: var(--color-text-2);
 }
 .ws-map .maplibregl-ctrl-attrib a:hover {
   color: var(--color-text);
@@ -234,13 +313,13 @@ body {
 
 /* deck.gl tooltip */
 .deck-tooltip {
-  font-family: var(--font-jetbrains), monospace !important;
+  font-family: var(--font-inter), ui-sans-serif, sans-serif !important;
 }
 
 /* Loading skeleton: a soft shimmer; static under reduced motion. */
 .skeleton {
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--color-surface-2) 0%, var(--color-border) 50%, var(--color-surface-2) 100%);
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgb(148 163 184 / 0.12) 0%, rgb(148 163 184 / 0.24) 50%, rgb(148 163 184 / 0.12) 100%);
   background-size: 200% 100%;
   animation: ws-shimmer 1.4s ease-in-out infinite;
 }
@@ -257,14 +336,14 @@ body {
   overflow: hidden;
   height: 2px;
   border-radius: 2px;
-  background: var(--color-border);
+  background: rgb(148 163 184 / 0.16);
 }
 .progress-indeterminate::after {
   content: "";
   position: absolute;
   inset: 0;
   width: 40%;
-  background: var(--color-ok);
+  background: var(--color-text);
   animation: ws-indeterminate 1.2s ease-in-out infinite;
 }
 @keyframes ws-indeterminate {
@@ -276,28 +355,32 @@ body {
   }
 }
 
-/* Below the designed minimum width the app still renders; the page scrolls instead of clipping. */
-@media (max-width: 1023px) {
-  html,
-  body {
-    overflow: auto;
+/* The story card sits over busy terrain: a denser glass keeps the sentence at full contrast. */
+.story-card {
+  background: rgb(9 13 20 / 0.84);
+}
+/*
+ * Phones: the bottom sheet is the story; nothing else floats over the small map above it. The route key and the
+ * trail-speed caption move into "How do we know?" (freight scene).
+ */
+@media (max-width: 767px) {
+  [data-mode="story"] .ws-map [data-testid="trail-caption"],
+  [data-mode="story"] .ws-map p.panel[role="status"] {
+    display: none;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-  }
-  .skeleton,
-  .progress-indeterminate::after {
-    animation: none;
-  }
-  .progress-indeterminate::after {
-    width: 100%;
-    opacity: 0.5;
-  }
+/* Story mode shows one card and the story bar only; the map's own toolbar belongs to Expert mode. */
+[data-mode="story"] .ws-map [role="toolbar"][aria-label="Map controls"] {
+  display: none;
+}
+
+/* Top and bottom scrims so floating chrome reads over bright terrain. Pure decoration. */
+.scrim-top {
+  background: linear-gradient(to bottom, rgb(7 11 18 / 0.85) 0%, rgb(7 11 18 / 0.45) 55%, rgb(7 11 18 / 0) 100%);
+}
+.scrim-bottom {
+  background: linear-gradient(to top, rgb(7 11 18 / 0.9) 0%, rgb(7 11 18 / 0.5) 50%, rgb(7 11 18 / 0) 100%);
 }
 
 /* Futures fan: a new branch draws itself outward from "now" (ease-out, 250 ms). */
@@ -311,13 +394,41 @@ body {
     stroke-dashoffset: 600;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .fan-draw {
-    animation: none;
-  }
-}
 
 /* Compare: the main terrain canvas shows only left of the split; the compare canvas only right of it. */
 .ws-map[data-compare="true"] #deckgl-overlay {
   clip-path: inset(0 calc(100% - var(--split)) 0 0);
+}
+
+/* Below the Expert workspace's designed width the page scrolls instead of clipping. Story mode is responsive. */
+@media (max-width: 1023px) {
+  [data-mode="expert"] {
+    overflow: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+  .skeleton,
+  .progress-indeterminate::after,
+  .fan-draw {
+    animation: none;
+  }
+  .progress-indeterminate::after {
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .panel,
+  .pop {
+    background: var(--color-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }

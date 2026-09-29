@@ -7,6 +7,7 @@ import type { LogEntry } from "@/lib/agent/machine";
 import { useSearch } from "@/lib/ui/search";
 import { shortModel } from "@/lib/ui/agentBridge";
 import { REASONING_LABEL } from "@/lib/agent/reasoning";
+import Collapsible from "../ui/Collapsible";
 
 const KIND: Record<LogEntry["kind"], { label: string; icon: typeof Info; tone?: string }> = {
   decision: { label: "Decision", icon: CheckCircle2 },
@@ -64,7 +65,7 @@ function Entry({ row }: { row: Row }) {
         {hasDetail && (
           <details className="mt-1 text-xs">
             <summary className="cursor-pointer text-muted hover:text-text">Details</summary>
-            <div className="mt-1 space-y-2 rounded-ctl border border-border bg-bg/50 p-2">
+            <div className="mt-1 space-y-2 rounded-[10px] bg-[rgb(7_11_18/0.5)] p-2 shadow-[inset_0_0_0_1px_var(--color-border)]">
               {e.model && <p className="text-muted">Model: <span className="num text-text">{e.model}</span></p>}
               {e.errors && e.errors.length > 0 && (
                 <div>
@@ -121,23 +122,17 @@ export default function DecisionLog() {
   const ai = m?.mode === "ai" && (m.log.some((e) => e.model) || Object.keys(m.models).length > 0);
 
   return (
-    <section className="border-t border-border p-4" aria-labelledby="decision-h">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 id="decision-h" className="label">
-          Decision log
-        </h2>
-        {rows.length > 0 && <span className="num text-xs text-muted">{rows.length}</span>}
-      </div>
+    <Collapsible title="Decision log" meta={rows.length > 0 ? <span className="num">{rows.length}</span> : "empty"} headerClassName="py-3">
       {rows.length === 0 ? (
-        <div className="flex gap-3 rounded-ctl border border-dashed border-border p-3">
-          <ListChecks size={16} className="mt-0.5 shrink-0 text-muted" aria-hidden />
-          <p className="text-xs leading-4 text-muted">No search yet. Each step will be listed here in plain sentences, with every number filled in from the simulator.</p>
-        </div>
+        <p className="flex gap-2 pb-4 text-xs leading-4 text-muted">
+          <ListChecks size={14} className="shrink-0" aria-hidden />
+          No search yet. Each step is listed here in plain sentences, with every number filled in from the simulator.
+        </p>
       ) : (
-        <>
+        <div className="pb-4">
           {ai && (
             <p className="mb-2 text-xs text-muted">
-              {PROSE_CLAIM}
+              {PROSE_CLAIM} AI-generated text may be inaccurate.
               {b && b.limitIn > 0 && (
                 <span className="num">
                   {" "}
@@ -146,13 +141,13 @@ export default function DecisionLog() {
               )}
             </p>
           )}
-          <ol ref={ref} aria-live="polite" className="max-h-[280px] space-y-3 overflow-y-auto pr-1">
+          <ol ref={ref} aria-live="polite" className="max-h-[240px] space-y-3 overflow-y-auto pr-1">
             {rows.map((r) => (
               <Entry key={r.e.id} row={r} />
             ))}
           </ol>
-        </>
+        </div>
       )}
-    </section>
+    </Collapsible>
   );
 }

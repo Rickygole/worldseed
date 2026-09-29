@@ -410,7 +410,7 @@ describe("R4-2: the optional model reasoning field", () => {
   });
   it("is honest about what it does NOT check: a claim in plain words passes (that is why it is labeled raw and unverified)", () => {
     expect(ok("This bundle is much better than the others and saves a lot of time.")).toMatchObject({ ok: true });
-    expect(REASONING_LABEL).toBe("Model reasoning (raw, unverified; not a result)");
+    expect(REASONING_LABEL).toBe("Model reasoning (raw, unverified; not a result). Written by an AI model and shown without human review. It may be wrong or inappropriate and is not the view of WorldSeed.");
   });
 
   const planBody = () => ({ missionId: "MISSION-R4-101", mission: MISSION, phase: "search", round: 1, bundles: [], evaluations: [], dropped: [], stresses: [] });

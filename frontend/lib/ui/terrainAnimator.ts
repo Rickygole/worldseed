@@ -3,15 +3,22 @@
  * its layers (keyed by a tick counter); the loop writes into them in place, so a frame allocates nothing.
  *
  * Each change eases every hex from where it is to its target, staggered by distance from a ripple origin
- * (ease-out). Hatching is withheld while the terrain moves and appears when it settles.
+ * (ease-out; a sinking hex settles more gently). Hatching is withheld while the terrain moves and appears when
+ * it settles. Nothing is allocated per frame or per start.
  */
 import { clamp, easeOutCubic } from "../format";
+
+/** A hex that sinks settles a little more gently than one that rises (ease-out quart). */
+const easeOutQuart = (t: number): number => 1 - Math.pow(1 - t, 4);
 import type { Encoded } from "./lenses";
 
 export class TerrainAnimator {
   readonly elev: Float32Array;
   readonly rgb: Float32Array;
   readonly hatch: Uint8Array;
+  /** Start values of the running animation: allocated once and reused, so `start` allocates nothing. */
+  private readonly fromE: Float32Array;
+  private readonly fromC: Float32Array;
   private primed = false;
   private raf = 0;
 
@@ -19,6 +26,8 @@ export class TerrainAnimator {
     this.elev = new Float32Array(n);
     this.rgb = new Float32Array(n * 3);
     this.hatch = new Uint8Array(n);
+    this.fromE = new Float32Array(n);
+    this.fromC = new Float32Array(n * 3);
   }
 
   /**
@@ -33,8 +42,10 @@ export class TerrainAnimator {
       this.rgb.set(target.rgb);
       this.primed = true;
     }
-    const fromE = Float32Array.from(this.elev);
-    const fromC = Float32Array.from(this.rgb);
+    const fromE = this.fromE;
+    const fromC = this.fromC;
+    fromE.set(this.elev);
+    fromC.set(this.rgb);
     let maxD = 0;
     for (let i = 0; i < n; i++) if (dist[i] > maxD) maxD = dist[i];
     this.hatch.fill(0);
@@ -47,7 +58,8 @@ export class TerrainAnimator {
       for (let i = 0; i < n; i++) {
         const delay = maxD > 0 ? (dist[i] / maxD) * stagger : 0;
         const local = clamp((tt - delay) / (1 - stagger), 0, 1);
-        const p = linear ? local : easeOutCubic(local);
+        const sinking = target.elev[i] < fromE[i];
+        const p = linear ? local : sinking ? easeOutQuart(local) : easeOutCubic(local);
         e[i] = fromE[i] + (target.elev[i] - fromE[i]) * p;
         const k = i * 3;
         c[k] = fromC[k] + (target.rgb[k] - fromC[k]) * p;

@@ -28,8 +28,8 @@ function Segs({ segs }: { segs: Seg[] }) {
 }
 
 /** The story's core stays open; supporting sections fold to a one-line summary (their key figure). */
-const OPEN_TALL = new Set(["baseline", "ems", "next", "regional", "xharbor", "freight", "where"]);
-const OPEN_SHORT = new Set(["baseline", "next", "regional", "xharbor", "freight"]);
+const OPEN_TALL = new Set(["baseline", "next", "regional", "xharbor", "freight"]);
+const OPEN_SHORT = new Set(["baseline", "next", "regional", "xharbor"]);
 
 /** Tall screens open more sections than short ones. */
 function useTall(): boolean {
@@ -65,8 +65,8 @@ export default function Explainer() {
   const approx = current?.detail?.approximation;
 
   return (
-    <section aria-labelledby="explainer-h" className="px-4 pb-4 pt-4">
-      <h2 id="explainer-h" className="label mb-3">
+    <section aria-labelledby="explainer-h" className="pb-4">
+      <h2 id="explainer-h" className="sr-only">
         What this shows
       </h2>
       {status === "error" ? (
@@ -82,17 +82,17 @@ export default function Explainer() {
       ) : simKind === "mock" || paras.length === 0 ? (
         <p className="text-sm text-muted">Demo data: the simulation snapshot is not available, so there is nothing real to explain.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {paras.map((p, i) => {
             const first = p.segs.find((x): x is Exclude<Seg, string> => typeof x !== "string");
             return (
               <details key={`${p.id}-${tall ? "t" : "s"}`} open={(tall ? OPEN_TALL : OPEN_SHORT).has(p.id) || i === 0} className="group">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-muted hover:text-text [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center gap-1 py-0.5 text-xs font-medium text-text-2 hover:text-text [&::-webkit-details-marker]:hidden">
                   <ChevronRight size={12} className="transition-transform duration-150 group-open:rotate-90" aria-hidden />
                   <h3 className="inline">{p.heading}</h3>
                   {(p.summary ?? first?.n) && <span className="num ml-auto font-normal group-open:hidden">{p.summary ?? first?.n}</span>}
                 </summary>
-                <p className="pl-4 text-sm leading-5 text-text/90">
+                <p className="pb-1 pl-4 text-sm leading-5 text-text-2">
                   <Segs segs={p.segs} />
                   {p.link && (
                     <>

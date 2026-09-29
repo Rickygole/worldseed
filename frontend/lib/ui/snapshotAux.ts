@@ -151,3 +151,68 @@ export const loadNodeCoords = memo(async (): Promise<{ lon: Float32Array; lat: F
   };
   return { lon: slice("nodeLon"), lat: slice("nodeLat") };
 });
+
+// ---- facilities and shores (story facts) -------------------------------------------------------------------
+
+export interface FacilityLite {
+  id: string;
+  kind: "fire_station" | "ems_station" | "hospital";
+  lat: number;
+  lng: number;
+  active: boolean;
+}
+
+export const loadFacilities = memo(() => json<FacilityLite[]>("facilities.json"));
+
+/** Nearest hex center within `maxKm` (equirectangular; fine at this scale), or -1. */
+export function nearestHex(hexes: Hexes, lat: number, lng: number, maxKm = 1): number {
+  const kx = 111.32 * Math.cos((lat * Math.PI) / 180);
+  const ky = 110.57;
+  let best = -1;
+  let bestD = maxKm * maxKm;
+  for (let i = 0; i < hexes.count; i++) {
+    const dx = (hexes.lng[i] - lng) * kx;
+    const dy = (hexes.lat[i] - lat) * ky;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
+ * ems.shoresWithStations: how many of the two shores (0 north/east, 1 south/west) have at least one active
+ * fire station, each station placed on the shore of its nearest hexagon. Stations off the hex grid or on
+ * ambiguous (shore 2) hexes do not count.
+ */
+export function shoresWithStations(hexes: Hexes, facilities: readonly FacilityLite[]): number {
+  const shores = new Set<number>();
+  for (const f of facilities) {
+    if (f.kind !== "fire_station" || !f.active) continue;
+    const h = nearestHex(hexes, f.lat, f.lng);
+    if (h >= 0 && (hexes.shore[h] === 0 || hexes.shore[h] === 1)) shores.add(hexes.shore[h]);
+  }
+  return shores.size;
+}
+
+/** data.fireStations / data.ambulanceStations: active response sources in the first-response lens. */
+export function stationCounts(facilities: readonly FacilityLite[]): { fire: number; ambulance: number } {
+  let fire = 0;
+  let ambulance = 0;
+  for (const f of facilities) {
+    if (!f.active) continue;
+    if (f.kind === "fire_station") fire++;
+    else if (f.kind === "ems_station") ambulance++;
+  }
+  return { fire, ambulance };
+}
+
+/** def.budgetMin: the cross-harbor time budget from assumption A-XHARBOR-T (seconds in the file). */
+export function budgetMinutes(assumptions: readonly AssumptionRecord[]): number | null {
+  const a = assumptions.find((r) => r.id === "A-XHARBOR-T");
+  const v = typeof a?.value === "number" ? a.value : Number(a?.value);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return a?.unit === "s" ? Math.round(v / 60) : Math.round(v);
+}

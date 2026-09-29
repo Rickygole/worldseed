@@ -130,6 +130,7 @@ with versions as pinned in `frontend/package-lock.json` at generation time:
 | lucide-react 1.48.0 | Icons | ISC | Copyright (c) 2026 Lucide Icons and Contributors; portions MIT, Copyright (c) 2013-present Cole Bemis (Feather) |
 | Inter | UI font | SIL OFL 1.1 | Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter) |
 | JetBrains Mono | Monospace font | SIL OFL 1.1 | Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) |
+| Space Grotesk | Display font for numbers and headlines | SIL OFL 1.1 | Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk) |
 
 Font notes: both are loaded with `next/font/google` (`frontend/app/layout.tsx`), which downloads them at build time and serves them
 from the app's own origin. The copyright lines above were read from the Google Fonts repository copies of `OFL.txt` on

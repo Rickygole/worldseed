@@ -2,7 +2,9 @@
 
 import { useMemo } from "react";
 import { scaleLinear } from "d3";
-import { GitFork, Zap } from "lucide-react";
+import { GitFork, HelpCircle, Zap } from "lucide-react";
+import Popover from "../ui/Popover";
+import { GLOSSARY } from "@/lib/ui/storyCopy";
 import { shortModel, simLensFor } from "@/lib/ui/agentBridge";
 import { useReducedMotion } from "framer-motion";
 import { FUTURES_MODEL_LABEL } from "@/lib/sim/sample";
@@ -11,7 +13,7 @@ import { SEARCH_FUTURES } from "@/lib/ui/agentBridge";
 import { dist3, dominatedIds, median, rate } from "@/lib/ui/futuresMath";
 import { fmtMetricDelta, metricLabel, TIER_COLOR } from "./labels";
 
-const W = 328;
+const W = 320;
 const H = 196;
 const M = { l: 8, r: 104, t: 16, b: 22 };
 
@@ -180,9 +182,9 @@ export default function FuturesPanel() {
   const runningFrac = f.roundTotal > 0 && running ? (f.roundDone % nPer) / nPer : 0;
 
   return (
-    <section className="border-t border-border p-4" aria-labelledby="futures-h">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 id="futures-h" className="label">
+    <section aria-labelledby="futures-h">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 id="futures-h" className="text-base font-medium" title={GLOSSARY.future}>
           Futures
         </h2>
         <span className="chip h-6 px-2 text-xs" style={{ color: "var(--color-future)", borderColor: "rgb(167 139 250 / 0.5)" }}>
@@ -280,11 +282,20 @@ export default function FuturesPanel() {
               );
             })}
           </svg>
-          <figcaption id="fan-cap" className="mt-1 text-xs leading-4 text-muted">
-            Change in the {metricLabel(lens, metric).toLowerCase()} versus doing nothing, paired future by future across {refs.n} stress futures (seed {SEARCH_FUTURES.seed}). Line: median; band:
-            10th to 90th percentile; thickness and % label: chance of meeting the goal; shade and $ label: cost tier. Lower is better.{" "}
-            {chart.dominated.size > 0 ? `${chart.dominated.size} dominated options (another option is at least as good on chance, change and cost) are dimmed. ` : ""} Doing nothing meets the goal in{" "}
-            <span className="num">{refs.nothingPGoal === null ? "--" : `${Math.round(refs.nothingPGoal * 100)}%`}</span> of futures. {FUTURES_MODEL_LABEL}.
+          <figcaption id="fan-cap" className="mt-2 flex items-start justify-between gap-2 text-xs leading-4 text-muted">
+            <span>
+              Change versus doing nothing across {refs.n} what-if runs. Lower is better. Doing nothing meets the goal in{" "}
+              <span className="num text-text-2">{refs.nothingPGoal === null ? "--" : `${Math.round(refs.nothingPGoal * 100)}%`}</span>.
+            </span>
+            <Popover title="Reading the futures fan" triggerClassName="btn-icon !h-6 !w-6 shrink-0" triggerLabel="Reading the futures fan" trigger={<HelpCircle size={13} aria-hidden />}>
+              <p>
+                Change in the {metricLabel(lens, metric).toLowerCase()} versus doing nothing, paired future by future across {refs.n} stress futures (seed {SEARCH_FUTURES.seed}). Line:
+                median; band: 10th to 90th percentile; thickness and % label: chance of meeting the goal; shade and $ label: cost tier. Lower is better.
+                {chart.dominated.size > 0 ? ` ${chart.dominated.size} dominated options (another option is at least as good on chance, change and cost) are dimmed.` : ""}
+              </p>
+              <p className="mt-2">{FUTURES_MODEL_LABEL}.</p>
+              <p className="mt-2">{GLOSSARY.future}</p>
+            </Popover>
           </figcaption>
         </figure>
       )}

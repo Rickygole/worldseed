@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { Columns2, Eye, ListOrdered, Trophy, Wand2, X } from "lucide-react";
+import { Columns2, Eye, ListOrdered, Trophy, Wand2, X, HelpCircle } from "lucide-react";
 import { exhaustiveSummaryLine, rankOf } from "@/lib/agent/exhaustive";
 import { fmtAbout } from "@/lib/ui/methodology";
 import { scenarioKey, useApp } from "@/lib/store";
 import { getMachine, useSearch } from "@/lib/ui/search";
 import { dist3, median, ridge } from "@/lib/ui/futuresMath";
 import type { BundleFutures } from "@/lib/ui/agentBridge";
-import { fmtMetric, fmtMetricDelta, metricLabel, stripHypothetical, TIER_COLOR } from "./labels";
+import { fmtMetric, fmtMetricDelta, metricLabel, optionName, TIER_COLOR } from "./labels";
+import Popover from "../ui/Popover";
+import { GLOSSARY } from "@/lib/ui/storyCopy";
 
 function Ridge({ values, lo, hi, color }: { values: number[]; lo: number; hi: number; color: string }) {
   const w = 120;
@@ -45,18 +47,20 @@ function ExhaustiveCheck() {
   const catalog = useSearch((s) => s.catalog);
   const top = m?.finalists[0];
   if (!top || count === 0) return null;
-  const title = (ids: string[]) => ids.map((id) => stripHypothetical(catalog?.byId.get(id)?.title ?? id)).join(" + ");
+  const title = (ids: string[]) => ids.map((id) => optionName(catalog, id)).join(" + ");
   let summary = "";
   if (ex.status === "done" && ex.result) {
     const r = rankOf(ex.result, top.candidateIds);
     if (r) summary = exhaustiveSummaryLine(r, m?.mode === "ai" ? "ai" : "deterministic");
   }
   return (
-    <div className="mb-3 rounded-ctl border border-border p-3" aria-live="polite">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs leading-4 text-muted">
-          Exhaustive check: score all <span className="num text-text">{count}</span> bundles of one to three eligible options with one free-flow run each (no stress
-          futures, so its ranking can differ from the search&apos;s). No AI.
+    <div className="card mb-4 p-3" aria-live="polite">
+      <div className="flex items-center justify-between gap-2">
+        <p
+          className="text-xs leading-4 text-muted"
+          title="Scores every bundle of one to three eligible options with one free-flow run each (no stress futures, so its ranking can differ from the search's). No AI."
+        >
+          Exhaustive check: all <span className="num text-text">{count}</span> bundles, one free-flow run each. No AI.
         </p>
         {ex.status === "running" ? (
           <button className="btn h-7 shrink-0 px-2 text-xs" onClick={cancel}>
@@ -144,34 +148,39 @@ export default function FinalistCards() {
 
   const machine = getMachine();
   return (
-    <section className="border-t border-border p-4" aria-labelledby="finalists-h">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 id="finalists-h" className="label">
+    <section aria-labelledby="finalists-h">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 id="finalists-h" className="text-base font-medium">
           Finalists
         </h2>
-        <span className="text-xs text-muted">{m?.mode === "ai" ? "chosen by the AI planner" : "ranked by deterministic search (no AI)"}</span>
+        <span className="flex items-center gap-1 text-xs text-muted">
+          {m?.mode === "ai" ? "Chosen by the AI planner" : "Deterministic search (no AI)"}
+          <Popover title="How to read the finalists" triggerClassName="btn-icon !h-6 !w-6" triggerLabel="How to read the finalists" trigger={<HelpCircle size={13} aria-hidden />}>
+            <p>
+              Every figure is computed by the simulator. Changes are paired future by future (what-if runs) against doing nothing in the same world. Stress futures add
+              congestion and random closures, so their counts run higher than the free-flow map. All options are hypothetical.
+            </p>
+            <p className="mt-2">P(goal): {GLOSSARY.pGoal} Median: the typical change versus doing nothing. Worst 10%: the goal measure in the slowest tenth of runs.</p>
+          </Popover>
+        </span>
       </div>
-      <p className="mb-3 text-xs leading-4 text-muted">
-        Every figure is computed by the simulator. Changes are paired future by future against doing nothing in the same world. Stress futures add
-        congestion and random closures, so their counts run higher than the free-flow map. All options are hypothetical.
-      </p>
       {!sameWorld && phase === "finalists" && (
         <p className="mb-3 text-xs text-warn">The world changed since this search ran. Preview works; to apply, run the search again.</p>
       )}
       {applyError && <p className="mb-3 text-xs text-critical" role="alert">{applyError}</p>}
-      <table className="mb-3 w-full table-fixed text-xs" aria-label="Finalists side by side">
+      <table className="mb-4 w-full table-fixed text-xs" aria-label="Finalists side by side">
         <thead>
           <tr className="text-left text-muted">
-            <th scope="col" className="w-[40%] pb-1 font-medium">Option</th>
-            <th scope="col" className="pb-1 pl-2 text-right font-medium" title="Chance of meeting the goal">P(goal)</th>
-            <th scope="col" className="pb-1 pl-2 text-right font-medium" title="Median change versus doing nothing">Median</th>
-            <th scope="col" className="pb-1 pl-3 text-right font-medium" title="Goal metric in the worst 10% of futures">Worst 10%</th>
+            <th scope="col" className="pb-1.5 font-medium">Option</th>
+            <th scope="col" className="w-14 pb-1.5 pl-2 text-right font-medium" title={GLOSSARY.pGoal}>P(goal)</th>
+            <th scope="col" className="w-14 pb-1.5 pl-2 text-right font-medium" title="Median change versus doing nothing">Median</th>
+            <th scope="col" className="w-[68px] whitespace-nowrap pb-1.5 pl-2 text-right font-medium" title="Goal measure in the slowest tenth of what-if runs">Worst 10%</th>
           </tr>
         </thead>
         <tbody>
           {finalists.map((f, rank) => {
             const b = bundles[f.bundleId];
-            const name = f.candidateIds.map((id) => stripHypothetical(catalog?.byId.get(id)?.title ?? id)).join(" + ");
+            const name = f.candidateIds.map((id) => optionName(catalog, id)).join(" + ");
             return (
               <tr key={f.bundleId} className="border-t border-border">
                 <th scope="row" className="py-1 pr-2 text-left font-normal">
@@ -181,7 +190,7 @@ export default function FinalistCards() {
                 </th>
                 <td className="num py-1 pl-2 text-right">{b?.pGoal == null ? "--" : `${Math.round(b.pGoal * 100)}%`}</td>
                 <td className="num py-1 pl-2 text-right">{b ? fmtMetricDelta(metric, median(b.vsNothing)) : "--"}</td>
-                <td className="num py-1 pl-2 text-right">{b ? fmtMetric(metric, dist3(b.goal).p90) : "--"}</td>
+                <td className="num whitespace-nowrap py-1.5 pl-2 text-right">{b ? fmtMetric(metric, dist3(b.goal).p90) : "--"}</td>
               </tr>
             );
           })}
@@ -192,7 +201,7 @@ export default function FinalistCards() {
               </th>
               <td className="num py-1 pl-2 text-right">{refs.nothingPGoal == null ? "--" : `${Math.round(refs.nothingPGoal * 100)}%`}</td>
               <td className="num py-1 pl-2 text-right">0</td>
-              <td className="num py-1 pl-2 text-right">{fmtMetric(metric, dist3(refs.nothing.goal).p90)}</td>
+              <td className="num whitespace-nowrap py-1.5 pl-2 text-right">{fmtMetric(metric, dist3(refs.nothing.goal).p90)}</td>
             </tr>
           )}
         </tbody>
@@ -202,7 +211,6 @@ export default function FinalistCards() {
         {finalists.map((f, rank) => {
           const b: BundleFutures | undefined = bundles[f.bundleId];
           const card = machine?.card(f.bundleId);
-          const titles = f.candidateIds.map((id) => catalog?.byId.get(id));
           const color = TIER_COLOR[f.costTier] ?? "var(--color-future)";
           const nothingGoal = refs?.nothing.goal ?? [];
           const worst = b ? dist3(b.goal).p90 : NaN;
@@ -226,7 +234,7 @@ export default function FinalistCards() {
                     #{rank + 1} · {f.bundleId}
                     {applied ? " · applied" : ""}
                   </p>
-                  <h3 className="text-sm font-medium leading-5">{titles.map((c, i) => (c ? stripHypothetical(c.title) : f.candidateIds[i])).join(" + ")}</h3>
+                  <h3 className="text-sm font-medium leading-5">{f.candidateIds.map((id) => optionName(catalog, id)).join(" + ")}</h3>
                 </div>
                 <span className="chip num h-6 shrink-0 px-2 text-xs" style={{ borderColor: color, color }}>
                   {f.costTier}
@@ -241,7 +249,7 @@ export default function FinalistCards() {
                   {lens !== "freight" && <Stat label="Equity gap change" value={lens === "ems" ? fmtMetricDelta("p90", eq) : fmtMetricDelta("equityGap", eq)} note={lens === "ems" ? "zero-vehicle households minus everyone" : "low-wage workers minus everyone"} />}
                   {gt10 !== null && gt10n !== null && (
                     <div className="col-span-2">
-                      <Stat label="Residents losing >10% of cross-harbor jobs (median stress future)" value={`about ${fmtAbout(gt10)}`} note={`doing nothing: about ${fmtAbout(gt10n)}`} />
+                      <Stat label="People reaching >10% fewer jobs across the river (median future)" value={`about ${fmtAbout(gt10)}`} note={`doing nothing: about ${fmtAbout(gt10n)}`} />
                     </div>
                   )}
                 </div>

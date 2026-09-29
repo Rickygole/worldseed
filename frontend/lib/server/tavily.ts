@@ -9,10 +9,10 @@
  * an explicit user action (POST /api/closures/confirm).
  *
  * Abuse controls: one in-flight lookup per process (later callers share its result), an atomic
- * increment-then-compare cap on the SharedStore, and a cache on the SharedStore that keeps a
- * degraded result (extraction unavailable) for two minutes only. Nothing from Tavily is written
- * to disk or to the repository. With a shared store configured the cached result (titles, short
- * snippets and quotes) lives in that store for at most 24 hours; without one it lives in process memory.
+ * increment-then-compare cap on the SharedStore (a counter only), and a results cache that keeps
+ * a degraded result (extraction unavailable) for two minutes only. Tavily results (titles,
+ * snippets, quotes) live in this process's memory ONLY: they are never written to the shared
+ * store, to disk or to the repository, and a new process starts with an empty cache.
  */
 import type { Catalog } from "../agent/catalog";
 import {

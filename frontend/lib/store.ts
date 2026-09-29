@@ -15,6 +15,10 @@ import type { TripsResult } from "./sim/trips";
 import { RIBBON_KEYS, ribbonValues, type RibbonKey } from "./ui/ribbon";
 import { loadNodeCoords } from "./ui/snapshotAux";
 import { assertMutationRecordAllowed } from "./agent/closures";
+import type { SceneId } from "./ui/mapDirector";
+
+/** Story mode (the guided scenes over the map) or Expert mode (the full analyst workspace). */
+export type UiMode = "story" | "expert";
 
 export interface LogEvent {
   id: number;
@@ -143,6 +147,9 @@ interface AppState {
   appliedFx: { id: number; candidateIds: string[] } | null;
 
   // ---- UI ----
+  mode: UiMode;
+  /** The story scene on screen (Story mode) or the last one seen (Expert mode). */
+  scene: SceneId;
   leftOpen: boolean;
   rightOpen: boolean;
   presentation: boolean;
@@ -172,8 +179,12 @@ interface AppState {
   restoreBridge: () => Promise<void>;
   resetWorld: () => Promise<void>;
   setLens: (lens: LensId) => Promise<void>;
+  /** Re-encode the terrain from the same result (after a change in how a lens is drawn). */
+  refreshView: () => void;
   selectHex: (hex: number | null) => Promise<void>;
   log: (tag: LogEvent["tag"], text: string) => void;
+  setMode: (v: UiMode) => void;
+  setScene: (v: SceneId) => void;
   setLeftOpen: (v: boolean) => void;
   setRightOpen: (v: boolean) => void;
   togglePresentation: () => void;
@@ -254,6 +265,8 @@ export const useApp = create<AppState>((set, get) => {
     freightSel: null,
     freightCompare: null,
 
+    mode: "story",
+    scene: "intro",
     leftOpen: true,
     rightOpen: true,
     presentation: false,
@@ -416,7 +429,11 @@ export const useApp = create<AppState>((set, get) => {
       }
     },
 
+    refreshView: () => set((s) => ({ viewRevision: s.viewRevision + 1 })),
+
     async selectHex(hex) {
+      // The guided story shows one card at a time: the neighborhood inspector belongs to Expert mode.
+      if (hex !== null && get().mode === "story") return;
       const seq = ++inspectSeq;
       if (hex === null) {
         set({ selectedHex: null, inspection: null });
@@ -479,6 +496,8 @@ export const useApp = create<AppState>((set, get) => {
       set((s) => ({ events: [...s.events, mkEvent(tag, text)].slice(-200) }));
     },
 
+    setMode: (v) => set(v === "story" ? { mode: v, selectedHex: null, inspection: null } : { mode: v }),
+    setScene: (v) => set({ scene: v }),
     setLeftOpen: (v) => set({ leftOpen: v }),
     setRightOpen: (v) => set({ rightOpen: v }),
     // Presentation mode is the hero view: the slow orbit comes with it and leaves with it.

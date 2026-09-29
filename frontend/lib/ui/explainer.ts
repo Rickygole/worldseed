@@ -107,13 +107,13 @@ export function explain({ baseline, current, scenario, aux, params, trips }: Exp
   // 2. Cross-harbor: where the bridge mattered.
   out.push({
     id: "xharbor",
-    heading: "Across the harbor",
+    heading: "Across the river",
     segs: [
       "About ",
       num(fmtAbout(c.v.xhPeople), c.v.xhPeople > b.v.xhPeople ? "bad" : undefined),
-      " residents lose more than 10% of the jobs on the other shore they could reach within 30 minutes; about ",
+      " residents reach more than 10% fewer of the jobs across the river within 30 minutes; about ",
       num(fmtAbout(c.x.xhPeopleGt25), c.x.xhPeopleGt25 > b.x.xhPeopleGt25 ? "bad" : undefined),
-      " lose more than 25%.",
+      " reach more than 25% fewer.",
     ],
   });
 
@@ -169,9 +169,9 @@ export function explain({ baseline, current, scenario, aux, params, trips }: Exp
       heading: "Where",
       segs: [
         `The ${worst.length === 1 ? "hardest-hit block group" : `${worst.length} hardest-hit block groups`}${where ? ` lie ${where}` : ""}. `,
-        worst.length === 1 ? "It loses " : "They lose ",
+        worst.length === 1 ? "It reaches " : "They reach ",
         num(lo === hi ? `${Math.round(hi)}%` : `${Math.round(lo)}-${Math.round(hi)}%`, "bad"),
-        " of those jobs. Where people live, the hardest-hit hexagon adds ",
+        " fewer of those jobs. Where people live, the hardest-hit hexagon adds ",
         num(`${fmtMin(c.x.xhAddedMaxPopS / 60)} min`, "bad"),
         " to its average cross-harbor trip; the worst-off 1% of residents add at least ",
         num(`${fmtMin(c.x.xhAddedP99S / 60)} min`, "bad"),
@@ -220,7 +220,7 @@ export function explain({ baseline, current, scenario, aux, params, trips }: Exp
     heading: "Low-wage workers",
     segs: [
       num(`${fmtPct1(lw)}%`),
-      " of low-wage workers lose more than 10% of their cross-harbor jobs, compared with ",
+      " of low-wage workers reach more than 10% fewer jobs across the river, compared with ",
       num(`${fmtPct1(all)}%`),
       ` of all residents.${verdict}`,
     ],

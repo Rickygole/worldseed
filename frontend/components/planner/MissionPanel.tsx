@@ -10,6 +10,7 @@ import { eligibleCandidates } from "@/lib/agent/catalog";
 import type { CostTier } from "@/lib/agent/catalog";
 import type { GoalMetric } from "@/lib/agent/tools";
 import { fmtMetric, isCountMetric, lensLabel, metricLabel, targetChoices } from "./labels";
+import Collapsible from "../ui/Collapsible";
 
 const EXAMPLES = [
   "Restore cross-harbor job access for the worst-hit block groups",
@@ -38,11 +39,11 @@ function Seg<T extends string | number>({ label, value, options, onChange }: { l
           aria-checked={value === o.v}
           title={o.hint}
           onClick={() => onChange(o.v)}
-          className="num h-7 rounded-ctl border px-2 text-xs transition-colors duration-150"
+          className="h-7 rounded-full px-2.5 text-xs transition-colors duration-150"
           style={
             value === o.v
-              ? { background: "var(--color-surface-2)", color: "var(--color-text)", borderColor: "var(--color-muted)" }
-              : { color: "var(--color-muted)", borderColor: "var(--color-border)" }
+              ? { background: "rgb(238 242 247 / 0.12)", color: "var(--color-text)", boxShadow: "inset 0 0 0 1px rgb(238 242 247 / 0.28)" }
+              : { color: "var(--color-text-2)", boxShadow: "inset 0 0 0 1px var(--color-border)" }
           }
         >
           {o.label}
@@ -70,18 +71,19 @@ function HealthLine() {
       </p>
     );
   }
+  const why =
+    h.status === "unreachable"
+      ? "The health check did not answer."
+      : h.info.degradedReason === "budget_exhausted"
+        ? "The shared daily AI budget is used up; try the AI planner again tomorrow."
+        : h.info.degradedReason === "protection_unavailable"
+          ? "Abuse protection is unavailable, so AI calls are paused."
+          : h.info.providerConfigured
+            ? "The model provider is not reachable."
+            : "The AI planner is not set up on this demo yet.";
   return (
-    <p className="text-xs text-muted" role="status">
-      <span className="text-text">{AI_UNAVAILABLE}</span>{" "}
-      {h.status === "unreachable"
-        ? "(The health check did not answer.)"
-        : h.info.degradedReason === "budget_exhausted"
-          ? "(Daily AI budget reached.)"
-          : h.info.degradedReason === "protection_unavailable"
-            ? "(Abuse protection is unavailable, so AI calls are paused.)"
-            : ""}{" "}
-      The same button runs a
-      deterministic search instead: no AI, every option scored by the simulator.
+    <p className="text-xs text-muted" role="status" title={`${AI_UNAVAILABLE} ${why}`}>
+      The AI planner is unavailable, so the same search runs without it. The simulator still scores every option.
     </p>
   );
 }
@@ -95,9 +97,9 @@ function GoalChips() {
   // How many catalog options the mission can use, from the catalog's own eligibility rule (never hard-coded).
   const eligible = catalog ? eligibleCandidates(catalog, { lens: draft.lens, maxCostTier: draft.maxCostTier, types: [] }) : [];
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div>
-        <p className="label mb-1">Lens</p>
+        <p className="label mb-1.5">Lens</p>
         <Seg
           label="Mission lens"
           value={draft.lens}
@@ -112,16 +114,17 @@ function GoalChips() {
           }}
         />
         {catalog && (
-          <p className="mt-1 text-xs text-muted">
-            <span className="num text-text">{eligible.length}</span> catalog option{eligible.length === 1 ? "" : "s"} eligible for this lens at {draft.maxCostTier}
-            {draft.lens === "freight"
-              ? ` (${eligible.map((c) => c.type === "hazmat_window" ? "escorted hazmat window" : c.type.replace(/_/g, " ")).filter((v, i, a) => a.indexOf(v) === i).join(", ")}). Corridor-flow options barely move hazmat trips, because hazmat trucks cannot use the tunnels those options speed up.`
-              : "."}
+          <p
+            className="mt-1.5 text-xs text-muted"
+            title={draft.lens === "freight" ? "Corridor-flow options barely move hazmat trips, because hazmat trucks cannot use the tunnels those options speed up." : undefined}
+          >
+            <span className="num text-text">{eligible.length}</span> hypothetical option{eligible.length === 1 ? "" : "s"} eligible at {draft.maxCostTier}
+            {draft.lens === "freight" ? ` (${eligible.map((c) => (c.type === "hazmat_window" ? "escorted hazmat window" : c.type.replace(/_/g, " "))).filter((v, i, a) => a.indexOf(v) === i).join(", ")})` : ""}
           </p>
         )}
       </div>
       <div>
-        <p className="label mb-1">Measure</p>
+        <p className="label mb-1.5">Measure</p>
         <Seg
           label="Goal measure"
           value={draft.metric}
@@ -131,7 +134,7 @@ function GoalChips() {
       </div>
       <div>
         <p className="label mb-1">
-          {draft.lens === "freight" ? "Target: at most this much added to the pre-collapse trip times, in the same future" : "Target: within this of the pre-collapse network, in the same future"}
+          {draft.lens === "freight" ? "Target: added over pre-collapse, same future" : "Target: within this of pre-collapse, same future"}
         </p>
         <Seg label="Target" value={draft.targetDelta} options={tChoices.map((c) => ({ v: c.value, label: c.label }))} onChange={(v) => setDraft({ targetDelta: v })} />
       </div>
@@ -205,18 +208,24 @@ export default function MissionPanel() {
               ? "Describe the outcome you want first."
               : null;
 
+  const modeChip = (
+    <span className="chip h-6 shrink-0 px-2 text-xs" style={ai ? { color: "var(--color-ai)" } : undefined}>
+      {ai ? "AI planner" : "Deterministic search (no AI)"}
+    </span>
+  );
+
   return (
-    <section className="p-4" aria-labelledby="mission-h">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 id="mission-h" className="label">
-          Mission
+    <section aria-labelledby="mission-h">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 id="mission-h" className="text-base font-medium">
+          Goal
         </h2>
-        <span className="chip h-6 px-2 text-xs">{ai ? "AI planner" : "Deterministic search (no AI)"}</span>
+        {modeChip}
       </div>
       <HealthLine />
 
       {stage === "compose" && (phase === "idle" || phase === "parsing") && (
-        <div className="mt-3 space-y-3">
+        <div className="mt-4 space-y-4">
           {ai ? (
             <>
               <label htmlFor="goal" className="sr-only">
@@ -229,85 +238,97 @@ export default function MissionPanel() {
                 maxLength={300}
                 onChange={(e) => setGoal(e.target.value)}
                 placeholder="Describe the outcome you want, in plain language."
-                className="w-full resize-none rounded-ctl border border-border bg-surface p-2 text-sm text-text placeholder:text-muted focus:border-ai focus:outline-none"
+                className="w-full resize-none rounded-[10px] bg-[rgb(148_163_184/0.06)] p-3 text-sm text-text shadow-[inset_0_0_0_1px_var(--color-line-strong)] placeholder:text-muted focus:shadow-[inset_0_0_0_1px_var(--color-ai)] focus:outline-none"
               />
               <div className="flex flex-wrap gap-2">
                 {EXAMPLES.map((ex) => (
-                  <button key={ex} className="chip h-auto min-h-7 whitespace-normal py-1 text-left text-muted hover:text-text" onClick={() => setGoal(ex)}>
+                  <button key={ex} type="button" className="chip h-auto min-h-7 whitespace-normal py-1 text-left text-text-2 hover:text-text" onClick={() => setGoal(ex)}>
                     {ex}
                   </button>
                 ))}
               </div>
             </>
           ) : (
-            <GoalChips />
+            <div className="card p-3">
+              <p className="text-sm leading-5 text-text">{goalSentence(draft)}</p>
+              <Collapsible title="Adjust the goal" className="mt-1" headerClassName="!py-1.5">
+                <div className="pb-1 pt-2">
+                  <GoalChips />
+                </div>
+              </Collapsible>
+            </div>
           )}
-          {!removed && worldReady && (
-            <p className="text-xs text-muted">Tip: remove the Key Bridge link first. The search scores options in the world on screen.</p>
-          )}
+          {!removed && worldReady && <p className="text-xs text-warn">Remove the Key Bridge link first: the search scores options in the world on screen.</p>}
           <button
-            className="btn btn-primary h-auto w-full flex-col gap-0 py-2"
+            type="button"
+            className="btn btn-primary h-auto w-full flex-col gap-0 rounded-[12px] py-2.5"
             disabled={disabledReason !== null || phase === "parsing"}
             aria-describedby="find-reason"
             onClick={() => void find(goal)}
           >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 text-base">
               {phase === "parsing" ? <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Sparkles size={16} aria-hidden />}
               Find a better future
             </span>
             <span className="text-xs font-medium opacity-80">{ai ? `Planned by ${shortModel((health as { info: { roles: Record<string, string> } }).info.roles.planner)}` : "Deterministic search (no AI)"}</span>
           </button>
           <p id="find-reason" className="text-xs text-muted">
-            {phase === "parsing" ? "Reading your goal..." : disabledReason ?? `Next: confirm the goal. Nothing runs before you confirm.`}
+            {phase === "parsing" ? "Reading your goal..." : disabledReason ?? "Next: confirm the goal. Nothing runs before you confirm."}
           </p>
           {m?.degraded && phase === "idle" && (
             <p className="text-xs text-warn" role="status">
-              {m.degraded.reason === "budget_exhausted"
-                ? "Daily AI budget reached. Deterministic search (no AI) is still available." // no recorded run ships, so none is offered
-                : m.degraded.message}
+              {m.degraded.reason === "budget_exhausted" ? "Daily AI budget reached. Deterministic search (no AI) is still available." : m.degraded.message}
             </p>
           )}
         </div>
       )}
 
       {confirming && (
-        <div ref={confirmRef} className="mt-3 space-y-3 rounded-ctl border border-border bg-bg/40 p-3" role="group" aria-labelledby="confirm-h">
-          <h3 id="confirm-h" className="text-sm font-medium">
+        <div ref={confirmRef} className="mt-4 space-y-4" role="group" aria-labelledby="confirm-h">
+          <h3 id="confirm-h" className="label">
             Confirm the goal
           </h3>
           {phase === "confirmGoal" && <p className="text-xs text-muted">Read from your text by the AI parser. Check it; change anything before you confirm.</p>}
-          <GoalChips />
-          <p className="text-sm leading-5">{goalSentence(draft)}</p>
-          <p className="text-xs text-muted">
-            Each option is scored in the world on screen across {SEARCH_FUTURES.n[simLensFor(draft.lens)]} stress futures (seed {SEARCH_FUTURES.seed}), paired with the
-            pre-collapse network and with doing nothing. {ai && phase === "confirmGoal" ? "" : "Deterministic search (no AI): screens every eligible bundle with one free-flow run, then scores the top 12 across the futures."}
-          </p>
+          <div className="card p-3">
+            <p className="text-sm leading-5 text-text">{goalSentence(draft)}</p>
+          </div>
           <div className="flex gap-2">
-            <button className="btn flex-1 border-ai text-text" onClick={() => void confirmAndRun()} data-autofocus>
+            <button
+              type="button"
+              className="btn btn-primary h-10 flex-1"
+              onClick={() => void confirmAndRun()}
+              data-autofocus
+              title={`Scored in the world on screen across ${SEARCH_FUTURES.n[simLensFor(draft.lens)]} stress futures (seed ${SEARCH_FUTURES.seed}), paired with the pre-collapse network and with doing nothing.${ai && phase === "confirmGoal" ? "" : " Deterministic search (no AI): every eligible bundle is screened with one free-flow run, then the top 12 are scored across the futures."}`}
+            >
               Confirm and search
             </button>
-            <button className="btn" onClick={back}>
+            <button type="button" className="btn h-10" onClick={back}>
               Back
             </button>
           </div>
+          <Collapsible title="Adjust the goal" headerClassName="!py-1.5">
+            <div className="pb-1 pt-2">
+              <GoalChips />
+            </div>
+          </Collapsible>
         </div>
       )}
 
       {busy && (
-        <div className="mt-3 flex items-center justify-between gap-2">
+        <div className="mt-4 flex items-center justify-between gap-2">
           <p className="text-xs text-muted" role="status">
             {m?.mode === "ai" ? "AI planner" : "Deterministic search (no AI)"}: {phase === "evaluating" ? `scoring round ${m?.round}` : phase}...
           </p>
-          <button className="btn h-8 px-3 text-xs" onClick={cancel}>
-            <X size={12} aria-hidden /> Cancel
+          <button type="button" className="btn h-8 px-3 text-xs" onClick={cancel}>
+            <X size={12} aria-hidden /> Stop search
           </button>
         </div>
       )}
 
       {(phase === "finalists" || phase === "applied") && (
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <p className="text-xs text-muted">{phase === "applied" ? `Applied ${m?.appliedBundleId}. Reset (R) removes it.` : "Finalists are below. You decide what to apply."}</p>
-          <button className="btn h-8 shrink-0 whitespace-nowrap px-3 text-xs" onClick={resetSearch}>
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <p className="text-xs text-muted">{phase === "applied" ? `Applied ${m?.appliedBundleId}. Reset (R) removes it.` : "Finalists are ready. You decide what to apply."}</p>
+          <button type="button" className="btn h-8 shrink-0 whitespace-nowrap px-3 text-xs" onClick={resetSearch}>
             New search
           </button>
         </div>

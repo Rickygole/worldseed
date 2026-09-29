@@ -24,7 +24,7 @@ export const REPORTED_DETOUR = {
   afterMin: 41,
   modelAddedMin: 1.2,
   modelAddedBothTunnelsClosedMin: 9.4,
-  source: "Maryland Matters, 28 March 2025 (read via Baltimore Fishbowl and The Daily Record)",
+  source: "Capital News Service (via Baltimore Fishbowl), 28 March 2025",
 };
 
 /** Cross-check against the public OSRM router on current OpenStreetMap (section 6.2). */
@@ -47,3 +47,16 @@ export const LOWER_BOUND_SENTENCE =
 export const ROUTER_SENTENCE = `Rank agreement with the public OpenStreetMap router (OSRM) is very high (Spearman ${ROUTER_CHECK.spearman}); the model is about ${Math.round(
   (1 - ROUTER_CHECK.medianRatio) * 100,
 )}% faster than that router because free-flow has no signals.`;
+
+/** Size of the free-flow speed variation in the study (all speeds x0.8 and x1.2), percent. */
+export const SPEED_VARIANT_PCT = 20;
+
+/**
+ * Error of the app's fast cross-harbor variant against the exact calculation for the headline count
+ * (METHODOLOGY section 7, fast_vs_exact.json, Key Bridge-removed world): about 2% at the deterministic
+ * default (64 anchors per shore), 9 to 11% at the anchor counts the futures use (16 and 32 per shore).
+ */
+export const FAST_ERR = { defaultPct: 2, futuresPct: { lo: 9, hi: 11 } };
+
+/** How study-derived figures are labeled wherever they appear. */
+export const STUDY_LABEL = "From our sensitivity study";
