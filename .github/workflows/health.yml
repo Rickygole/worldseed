@@ -1,0 +1,62 @@
+# Free uptime ping for the live demo. Unauthenticated GET requests only; no keys, no tokens, no store access.
+# See docs/CI.md. A failed run makes GitHub send a notification email.
+name: Health
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: ping live site and /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE: https://worldseed-mu.vercel.app
+    steps:
+      # No checkout needed: this job only calls the public site.
+      - name: Check home page
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -sS -L --max-time 30 -o page.html -w '%{http_code}' "$SITE/") || code=000
+            if [ "$code" = "200" ] && grep -q 'WorldSeed' page.html; then
+              echo "home page OK (attempt $attempt)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP $code, or the page did not contain the string WorldSeed"
+            [ "$attempt" -lt 3 ] && sleep $((attempt * 30))
+          done
+          echo "::error::home page check failed after 3 attempts"
+          exit 1
+
+      - name: Check /api/health
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -sS -L --max-time 30 -o health.json -w '%{http_code}' "$SITE/api/health") || code=000
+            if [ "$code" = "200" ] && python3 - <<'PY'
+          import json, sys
+          try:
+              body = json.load(open("health.json"))
+          except Exception as exc:
+              print("not valid JSON:", exc)
+              sys.exit(1)
+          if not isinstance(body, dict) or body.get("ok") is not True:
+              print("JSON has no ok:true")
+              sys.exit(1)
+          print("ok:true, degraded:", body.get("degraded"))
+          PY
+            then
+              echo "/api/health OK (attempt $attempt)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP $code, or the body was not valid JSON with ok:true"
+            [ "$attempt" -lt 3 ] && sleep $((attempt * 30))
+          done
+          echo "::error::/api/health check failed after 3 attempts"
+          exit 1

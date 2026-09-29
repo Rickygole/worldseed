@@ -1,0 +1,93 @@
+# Continuous integration for WorldSeed. Nothing here needs a key, a token, or a paid service.
+# See docs/CI.md for how to read the three jobs.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the older run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: frontend (types, lint, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint (warnings fail the run)
+        run: npx eslint . --max-warnings 0
+
+      # The tests read the committed snapshot in data/snapshot from the checkout. The simulator tests are slow
+      # (about 90 s), so the per-test and per-hook timeouts are raised well above the vitest.config.ts values.
+      - name: Unit tests
+        run: npx vitest run --testTimeout=180000 --hookTimeout=180000
+
+      # WS_REQUIRE_SNAPSHOT=1 makes the prebuild step fail on a missing or mismatched snapshot
+      # instead of silently falling back to the demo mock.
+      - name: Production build
+        run: npm run build
+        env:
+          WS_REQUIRE_SNAPSHOT: "1"
+
+  hygiene:
+    name: hygiene (forbidden words, secrets, required files)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history, so the commit-message check covers every commit and not only the tip.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The THIRD_PARTY_LICENSES.md staleness check is skipped here on purpose: it needs node_modules and the
+      # pipeline venv, which this job does not install, and it is only ever a warning.
+      - name: Repo hygiene
+        run: bash scripts/check-repo-hygiene.sh
+
+  pipeline:
+    name: pipeline (pytest on the committed snapshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: pipeline/uv.lock
+
+      # data/raw is git-ignored, so it does not exist in CI. Tests that need it skip with a stated reason
+      # (see needs_raw in pipeline/tests/test_snapshot.py); everything else runs on the committed files.
+      # --frozen installs exactly what uv.lock says and never rewrites the lock file.
+      - name: Tests
+        run: uv run --python 3.12 --frozen pytest -q -rs
