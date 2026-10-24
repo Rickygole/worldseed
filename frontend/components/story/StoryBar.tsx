@@ -20,8 +20,10 @@ export default function StoryBar({ variant = "header" }: { variant?: "header" | 
   const sheet = variant === "sheet";
 
   return (
-    <nav aria-label="Guided story" className="flex items-center gap-1">
-      <button type="button" className="btn-icon shrink-0" aria-label={`${T.common.back} (Left arrow)`} disabled={!prev} onClick={() => prev && goToStory(prev)}>
+    // Header: one glass pill (e1, like the Expert comparison strip), so the bar reads as a single control over
+    // bright terrain. Sheet: bare dots, the sheet is already the surface.
+    <nav aria-label="Guided story" className={sheet ? "flex items-center gap-1" : "panel flex items-center gap-0.5 !rounded-full p-1"}>
+      <button type="button" className={`btn-icon shrink-0 ${sheet ? "" : "!rounded-full"}`} aria-label={`${T.common.back} (Left arrow)`} disabled={!prev} onClick={() => prev && goToStory(prev)}>
         <ChevronLeft size={18} aria-hidden />
       </button>
       <ol className={`flex items-center ${sheet ? "gap-1.5" : "gap-1"}`}>
@@ -41,7 +43,7 @@ export default function StoryBar({ variant = "header" }: { variant?: "header" | 
                 className={
                   sheet
                     ? `block h-1.5 rounded-full ${on ? "w-6 bg-text" : done ? "w-3 bg-text-2" : "w-3 bg-faint"}`
-                    : `flex h-8 items-center gap-2 rounded-full text-sm transition-colors duration-150 ${
+                    : `flex h-8 items-center gap-2 rounded-full text-sm transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                         on ? "bg-[rgb(238_242_247/0.12)] pl-2 pr-3 text-text shadow-[inset_0_0_0_1px_rgb(238_242_247/0.18)]" : "w-8 justify-center text-muted hover:bg-[rgb(148_163_184/0.12)] hover:text-text"
                       }`
                 }
@@ -61,7 +63,7 @@ export default function StoryBar({ variant = "header" }: { variant?: "header" | 
           );
         })}
       </ol>
-      <button type="button" className="btn-icon shrink-0" aria-label={`${T.common.next} (Right arrow)`} disabled={!next} onClick={() => next && goToStory(next)}>
+      <button type="button" className={`btn-icon shrink-0 ${sheet ? "" : "!rounded-full"}`} aria-label={`${T.common.next} (Right arrow)`} disabled={!next} onClick={() => next && goToStory(next)}>
         <ChevronRight size={18} aria-hidden />
       </button>
       {sheet && cur !== null && (

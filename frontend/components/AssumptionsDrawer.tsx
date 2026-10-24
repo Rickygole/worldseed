@@ -117,7 +117,7 @@ function DrawerInner({ onClose }: { onClose: () => void }) {
     <>
       <motion.div
         className="fixed inset-0 z-30"
-        style={{ background: "rgb(10 14 20 / 0.5)" }}
+        style={{ background: "rgb(4 7 12 / 0.6)" }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0, transition: { duration: 0.15 } }}

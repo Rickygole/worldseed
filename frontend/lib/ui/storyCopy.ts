@@ -54,6 +54,8 @@ export const PRIVACY_RETENTION_DAYS = 2;
 export const INTRO = {
   dedication: "In memory of the six construction workers who died when the Key Bridge fell, March 26, 2024.",
   sentence: "See who is affected if the bridge is removed.",
+  /** The phrase inside `sentence` the intro sets in the people figure's tone (`critical`, as in scene 2). */
+  accent: "who is affected",
   primary: "Start the walk-through",
 };
 

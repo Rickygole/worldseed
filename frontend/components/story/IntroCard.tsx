@@ -8,6 +8,23 @@ import { goToStory } from "@/lib/ui/modes";
 import { markStarted } from "@/lib/ui/routes";
 
 /**
+ * The sentence with one phrase in the tone the people count wears later (scene 2), so the intro's only accent
+ * points at the story's subject. Emphasis only: the sentence reads the same without the color. Falls back to
+ * plain text if the copy changes and the phrase is no longer in it.
+ */
+function AccentedSentence({ text, accent }: { text: string; accent: string }) {
+  const at = text.indexOf(accent);
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <span className="text-critical">{accent}</span>
+      {text.slice(at + accent.length)}
+    </>
+  );
+}
+
+/**
  * The first screen: the map, the name (header), the dedication line, ONE sentence and ONE button. Escape skips.
  * No auto-advance, no imagery, no numbers.
  */
@@ -40,7 +57,7 @@ export default function IntroCard() {
           {INTRO.dedication}
         </motion.p>
         <motion.h2 id="intro-sentence" className="display mt-6 text-[30px] font-medium leading-[38px] text-text md:text-[44px] md:leading-[52px]" {...item(1)}>
-          {INTRO.sentence}
+          <AccentedSentence text={INTRO.sentence} accent={INTRO.accent} />
         </motion.h2>
         <motion.div className="mt-10" {...item(2)}>
           <button type="button" className="btn btn-light h-14 rounded-full px-8 text-lg" onClick={start} data-autofocus>

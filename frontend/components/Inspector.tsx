@@ -156,10 +156,10 @@ export default function Inspector() {
           aria-labelledby="inspector-h"
           className="panel pointer-events-auto absolute bottom-12 right-4 top-4 z-20 flex flex-col overflow-hidden"
           style={{ width: "var(--ws-right)" }}
-          initial={reduced ? { opacity: 0 } : { opacity: 0, x: 24 }}
+          initial={reduced ? { opacity: 0 } : { opacity: 0, x: 32 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={reduced ? { opacity: 0, transition: { duration: 0.15 } } : { opacity: 0, x: 24, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          exit={reduced ? { opacity: 0, transition: { duration: 0.15 } } : { opacity: 0, x: 32, transition: { duration: 0.15, ease: [0.4, 0, 1, 1] } }}
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-4 py-2">
             <div className="min-w-0">
