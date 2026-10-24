@@ -195,7 +195,8 @@ Four roles (planner, critic, parser, extractor) each have an ordered candidate l
 `frontend/lib/server/models.ts`. Model IDs are resolved at runtime from the
 account's `/models` list (`/api/health` reports which one each role got), so the app
 shows the model that actually ran. The candidate IDs were read from the public
-catalog; none has answered a real call yet.
+catalog and, as of 2026-10-24, verified live: all four resolve against the real
+account (see [Verification status](#how-nvidia-nemotron-and-nebius-token-factory-are-used) below).
 
 | Role | Model class | What it does | What it does NOT do |
 | --- | --- | --- | --- |
@@ -385,8 +386,9 @@ take the western I-695 arc, the alternate route MDTA names: a hazmat truck adds 
 - **Escorted windows are hypothetical.** The two escort-window options are not an MDTA
   program, proposal or finding, and nothing here says they would be safe or lawful. In
   the app each escort option title carries the suffix "(hypothetical; not an MDTA
-  program)". **[VERIFY AFTER REDESIGN: confirm the suffix and the wording below in the
-  freight panel and story scene 4.]** The escort delay is an assumed number.
+  program)". The escort delay is an assumed number. The freight-panel and scene-4
+  wording check against the live build is tracked in
+  [docs/SUBMISSION_CHECKLIST.md](docs/SUBMISSION_CHECKLIST.md) section 4c, not yet done.
 
 Disclaimer shown with the freight results:
 
@@ -481,12 +483,15 @@ demo is on Vercel Hobby).
 
 The interface is a map-first guided story of six scenes with an **Expert mode** toggle
 that opens the full analyst workspace (copy deck: [docs/STORY.md](docs/STORY.md)).
-**[VERIFY AFTER REDESIGN: the story mode was being rebuilt when this was written.
-Confirm every scene name, button label and number below against the deployed build.]**
+The redesign shipped 2026-09-29 and has had several rounds of work since; steps 1-2
+below were re-checked live against the running app on 2026-10-24 (intro copy, the
+**Start the walk-through** button and scene 1's exact wording all match). Steps 3-7
+have not been re-walked this pass; the full scene-by-scene acceptance check is tracked
+in [docs/SUBMISSION_CHECKLIST.md](docs/SUBMISSION_CHECKLIST.md) section 4b.
 
 1. Open the live demo, or run the frontend locally. Read the dedication card and click
    **Start the walk-through** (or skip to the map).
-2. **The crossing is removed.** Click **Remove the Key Bridge link**. The regional
+2. **The crossing is removed.** Click **Remove the Key Bridge**. The regional
    average drive to jobs grows by about 3 seconds, because most trips never used the
    bridge. A "Is this too small?" note gives the reported Dundalk to Ferndale commute
    for comparison.
@@ -503,8 +508,8 @@ Confirm every scene name, button label and number below against the deployed bui
    deterministic two-stage search, labeled "not AI", unless the AI planner is
    available). **Apply the top option** to see the residual: the count of residents
    reaching more than 10% fewer cross-harbor jobs falls from about 20,000 to about
-   15,000 in the best result, and about 15,000 remain. **[VERIFY AFTER REDESIGN: the
-   scene must name this measure on screen.]**
+   15,000 in the best result, and about 15,000 remain. Whether the scene names this
+   measure on screen is part of the section 4b check above, not yet done.
 7. **Now explore.** Click **Open expert mode**: every lens, the hexagon inspector
    (block group, Census figures, the route that changed), the Assumptions panel, the
    planner with hazmat as a selectable goal, Compare and Preview, the decision log, the
@@ -513,8 +518,11 @@ Confirm every scene name, button label and number below against the deployed bui
 8. To check the numbers without the UI: `cd frontend && npm test` runs the simulator
    against the reference results in `data/snapshot/golden.json`.
 
-The earlier guided tour (`?tour=keybridge`) is superseded by the story. **[VERIFY AFTER
-REDESIGN: confirm the old tour URL is removed or redirects.]**
+The earlier guided tour (`?tour=keybridge`) is superseded by the story: checked
+2026-10-24, the `tour` query param is no longer read anywhere in the app (the only
+remaining `"tour"` references are an unrelated `Origin` enum value in the simulator's
+world-compile contract), so the old URL isn't redirected, it just opens the current
+intro like a plain visit.
 
 ## Validation
 
