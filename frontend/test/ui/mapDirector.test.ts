@@ -125,11 +125,14 @@ describe("goToScene", () => {
     const d = await load();
     const f = fakeDriver(); // bearing 350
     d.registerMapDriver(f.driver);
-    void d.goToScene("crossing"); // target 24: 34 degrees away through north, not 326 the long way
+    const target = d.SCENES.crossing.camera.bearing;
+    expect(target).toBeGreaterThan(0); // a target just past north: the short way from 350 goes through 360
+    expect(target).toBeLessThan(170);
+    void d.goToScene("crossing");
     h.run(500);
     expect(f.cam.bearing).toBeGreaterThan(350);
     h.run(3000);
-    expect(((f.cam.bearing % 360) + 360) % 360).toBeCloseTo(24, 5);
+    expect(((f.cam.bearing % 360) + 360) % 360).toBeCloseTo(target, 5);
   });
 
   it("is an instant cut with { instant: true } and under reduced motion", async () => {

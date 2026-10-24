@@ -18,7 +18,7 @@ import { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useApp, simInfo, scenarioKey } from "@/lib/store";
-import { BASE_VIEW, BRIDGE, PLACES, distKm, focusView } from "@/lib/geo";
+import { BASE_VIEW, BRIDGE, PLACES, distKm, focusView, type PlaceId } from "@/lib/geo";
 import { easeOutCubic, fmtMin, fmtPct1 } from "@/lib/format";
 import { TerrainAnimator } from "@/lib/ui/terrainAnimator";
 import { encode, MAGENTA, type LensId } from "@/lib/ui/lenses";
@@ -66,6 +66,7 @@ import { originPulseLayer, shockwaveLayers, travelingPulseLayer } from "./map/di
 import { buildTinTopology, refreshTinNormals, tinTerrainLayer, TIN_OPTION_KEY, type TinMeshTopology } from "./map/TinTerrainLayer";
 import { loadFacilities, stationLayers, FACILITY_LABEL, type Facility } from "./map/stations";
 import { loadTrailRoutes } from "./map/trails";
+import { ghostLabelText, ghostPeak, nextGhost, type Ghost, type GhostField } from "./map/ghost";
 import type { TrailRoute } from "./map/trailModel";
 import type { LabelDef } from "./map/labelLayout";
 
@@ -198,6 +199,27 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
     const smoothed = smoothField(target, adjacency);
     return { elev: applyJitter(cellIds, smoothed.elev, new Float32Array(smoothed.elev.length)), rgb: smoothed.rgb, hatch: smoothed.hatch };
   }, [target, adjacency, cellIds]);
+
+  // ---------- the "before" (scenes 1 and 5): the previous world's field, for the change printed on the terrain ----------
+  const worldKey = scenarioKey(scenario);
+  const lastField = useRef<GhostField | null>(null);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
+  useEffect(() => {
+    if (!renderTarget || !view) return;
+    const now: GhostField = { elev: renderTarget.elev, minutes: view.minutes, lens: encLens, worldKey, bridgeRemoved: removed, mutations: scenario.mutations?.length ?? 0 };
+    const prev = lastField.current;
+    lastField.current = now;
+    // A world change computed in the same lens: the field just replaced becomes the ghost (see map/ghost.ts).
+    setGhost((g) => nextGhost(g, prev, now, currentScene()));
+    // worldKey and the lens arrive in the same store update as the new view
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderTarget]);
+  // Only in the scene it was made in, and only while the terrain still shows the same quantity.
+  const activeGhost = ghost && ghost.scene === sceneNow && ghost.lens === encLens && renderTarget ? ghost : null;
+  const ghostPeakAt = useMemo(
+    () => (activeGhost && renderTarget && world ? ghostPeak(activeGhost.elev, renderTarget.elev, undefined, (i) => (world.cells[i]?.residents ?? 0) > 0) : null),
+    [activeGhost, renderTarget, world],
+  );
 
   // The real max distance from the bridge (a fixed property of the region, not the scenario): what the
   // disruption shockwave's radius is normalized against, so its radius always means the same real distance.
@@ -501,6 +523,19 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
         strong: p.kind === "link",
       });
     });
+    // The change, printed on the terrain where it is largest: before and after minutes at that hexagon.
+    if (activeGhost && ghostPeakAt && ghostPeakAt.index >= 0 && view && S && world) {
+      const i = ghostPeakAt.index;
+      const c = world.cells[i];
+      // Named after the nearest place, unless that place's own label is already on screen.
+      const near = PLACES.filter((p) => p.kind === "place").reduce<{ id: PlaceId; text: string; d: number } | null>((b, p) => {
+        const d = distKm(c.lat, c.lng, p.lat, p.lng);
+        return d < 2.5 && (!b || d < b.d) ? { id: p.id, text: p.text, d } : b;
+      }, null);
+      const name = near && visual.labels[near.id] < 0.5 ? near.text : null;
+      const z = Math.max(activeGhost.elev[i], S.elev[i]) + 14;
+      out.unshift({ id: "ghost-peak", text: ghostLabelText(activeGhost.minutes[i], view.minutes[i], name), lng: c.lng, lat: c.lat, z, color: TEXT, visible: 1, strong: true });
+    }
     if (freightSel) {
       const any = Object.keys(freightSel.routes).length > 0;
       out.push({ id: "trip-o", text: freightSel.ends.oName.split(" (")[0].toUpperCase(), lng: freightSel.ends.o[0], lat: freightSel.ends.o[1], z: 40, color: TEXT, visible: 1, strong: true });
@@ -515,7 +550,7 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
     return out;
     // tick keeps label anchors on the moving terrain
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buffers, placeHex, removed, closedTunnels, visualVersion, appliedLabel, drawT, freightSel, inspection, tick, hatchTick]);
+  }, [buffers, placeHex, removed, closedTunnels, visualVersion, appliedLabel, drawT, freightSel, inspection, tick, hatchTick, activeGhost, ghostPeakAt, view, world]);
 
   // ---------- layers ----------
   const glow = qLevel < 1;

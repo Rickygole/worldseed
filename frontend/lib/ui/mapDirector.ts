@@ -78,8 +78,10 @@ export const SCENES: Record<SceneId, SceneSpec> = {
   crossing: {
     id: "crossing",
     label: "The Patapsco crossing",
-    camera: { longitude: -76.5275, latitude: 39.2195, zoom: 12.85, pitch: 58, bearing: 24, durationMs: 2300, curve: "fly", driftDegPerSec: 0 },
-    layers: { terrain: 1, hatch: false, bridgeEmphasis: 1, tunnels: false, trails: "off", stations: false, hospitals: false, labels: ["keybridge", "hawkins", "sparrows"] },
+    // The crossing in front, and far enough out that the peninsula behind it (Sparrows Point to Edgemere), where
+    // the terrain rises when the link is removed, is in the frame too.
+    camera: { longitude: -76.499, latitude: 39.2235, zoom: 12.15, pitch: 56, bearing: 14, durationMs: 2300, curve: "fly", driftDegPerSec: 0 },
+    layers: { terrain: 1, hatch: false, bridgeEmphasis: 1, tunnels: false, trails: "off", stations: false, hospitals: false, labels: ["keybridge", "hawkins", "sparrows", "edgemere"] },
     orbit: false,
   },
   averages: {

@@ -155,7 +155,11 @@ async function setSceneLens(id: SceneId): Promise<void> {
   if (id === "held") await setHeldEncoding(true);
   else await setHeldEncoding(false);
   const lens = SCENE_LENS[id];
-  if (lens && useApp.getState().lens !== lens) await useApp.getState().setLens(lens);
+  const app = useApp.getState();
+  // Also when the store already names the lens but the terrain was computed in another one: a deep link asks for
+  // the lens before the snapshot is ready, and that early request cannot compute anything.
+  const drawn = app.view?.detail?.lens;
+  if (lens && (app.lens !== lens || (drawn !== undefined && drawn !== lens))) await app.setLens(lens);
 }
 
 async function showMap(id: SceneId, opts: { instant?: boolean } = {}): Promise<void> {
