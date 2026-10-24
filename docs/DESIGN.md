@@ -132,6 +132,7 @@ Motion says where a thing came from and where it went. Nothing loops except prog
 | `scene` | 250 ms per element, 60 ms stagger | ease-out | story card content: eyebrow, number, sentence, action |
 | `roll` | 900 ms | ease-out | number roll-ups when a value changes |
 | `camera` | owned by the map director (`goToScene`) | - | fly-to between scenes |
+| `globe` | 2.4 deg/s turn; 5.2 s descent | ease-in-out, turn first, zoom next, tilt last | first intro visit only: the whole Earth turns slowly (pauses while dragged, resumes after 5 s); "Start the walk-through" flies down into scene 1 |
 
 Scene change choreography: old content exits down 8 px and fades (150 ms, ease-in); the camera starts at
 the same moment; new content enters up 12 px in the order eyebrow, number, sentence, action (60 ms
@@ -139,7 +140,8 @@ stagger); the number rolls from the previous scene's value only when both are th
 it fades in.
 
 **Reduced motion** (`prefers-reduced-motion: reduce`): crossfades only (120 ms), numbers land instantly,
-camera cuts (`goToScene(id, { instant: true })`), no orbit, no shimmer.
+camera cuts (`goToScene(id, { instant: true })`), no orbit, no shimmer, no globe (the intro opens on the
+regional view).
 
 ## 7. Layout
 

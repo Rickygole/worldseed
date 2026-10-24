@@ -68,6 +68,18 @@ export const BUILDING_LAYER_IDS = ["building-3d"] as const;
 /** The ocean/bay polygon is one huge ring: its shoreline is drawn by the fill alone (a line layer over it exceeds the tile vertex limit). */
 const NOT_OCEAN: ExpressionSpecification = ["!=", ["get", "class"], "ocean"];
 
+/**
+ * Whole-Earth opening (lib/ui/mapDirector.ts, `enterGlobe`): a sphere at low zoom that flattens into plain Web
+ * Mercator by zoom 7. MapLibre's own "globe" preset only flattens at 12, inside the app's regional range, where
+ * the deck.gl layers (always Mercator) would drift off the imagery; finishing by 7 keeps every view the app
+ * shows at zoom 9 and up exactly as it was. The director hides the deck layers below 7.
+ */
+export const GLOBE_FULL_ZOOM = 5;
+export const GLOBE_FLAT_ZOOM = 7;
+const PROJECTION: StyleSpecification["projection"] = {
+  type: ["interpolate", ["linear"], ["zoom"], GLOBE_FULL_ZOOM, "vertical-perspective", GLOBE_FLAT_ZOOM, "mercator"],
+};
+
 const layers: LayerSpecification[] = [
   { id: "background", type: "background", paint: { "background-color": C.land } },
   {
@@ -226,6 +238,8 @@ const layers: LayerSpecification[] = [
     source: "openmaptiles",
     "source-layer": "place",
     filter: ["in", ["get", "class"], ["literal", ["city", "town"]]],
+    // No city names scattered over the globe on the intro; the app's own views start at zoom 9.
+    minzoom: GLOBE_FLAT_ZOOM,
     maxzoom: 12.5,
     layout: {
       "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
@@ -255,7 +269,8 @@ const SKY: StyleSpecification["sky"] = {
   "sky-horizon-blend": 0.7,
   "horizon-fog-blend": 0.8,
   "fog-ground-blend": 0.85,
-  "atmosphere-blend": 0,
+  // The thin rim of air around the globe on the intro, gone before the map flattens (none at regional zoom).
+  "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, GLOBE_FULL_ZOOM, 1, GLOBE_FLAT_ZOOM, 0],
 };
 
 /** The premium dark vector style: the original hero look, and the safety net under satellite imagery. */
@@ -265,6 +280,7 @@ export const VECTOR_STYLE: StyleSpecification = {
   glyphs: GLYPHS,
   sources: { openmaptiles: OPENMAPTILES_SOURCE },
   sky: SKY,
+  projection: PROJECTION,
   layers,
 };
 
@@ -309,7 +325,11 @@ const satelliteLayers: LayerSpecification[] = [
   {
     id: "satellite-scrim",
     type: "background",
-    paint: { "background-color": "#04070d", "background-opacity": SATELLITE_SCRIM_OPACITY },
+    // Light from space (the globe reads as the Earth), the full scrim by the time the region is in view.
+    paint: {
+      "background-color": "#04070d",
+      "background-opacity": ["interpolate", ["linear"], ["zoom"], GLOBE_FULL_ZOOM, 0.08, GLOBE_FLAT_ZOOM + 1, SATELLITE_SCRIM_OPACITY],
+    },
   },
   ...satelliteOverlay,
 ];
@@ -330,6 +350,7 @@ export const SATELLITE_STYLE: StyleSpecification = {
     openmaptiles: OPENMAPTILES_SOURCE,
   },
   sky: SKY,
+  projection: PROJECTION,
   layers: satelliteLayers,
 };
 
@@ -349,6 +370,7 @@ export const FALLBACK_STYLE: StyleSpecification = {
       attribution: "(c) OpenStreetMap contributors, US Census Bureau",
     },
   },
+  projection: PROJECTION,
   layers: [
     { id: "background", type: "background", paint: { "background-color": C.water } },
     { id: "land", type: "fill", source: "land", paint: { "fill-color": C.landuse, "fill-opacity": 1 } },

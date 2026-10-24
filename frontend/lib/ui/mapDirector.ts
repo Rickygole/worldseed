@@ -14,6 +14,7 @@
  * itself). Nothing here animates a collapse, a ship or traffic. The Key Bridge is a static dashed marker.
  */
 import { BASE_VIEW, type CameraView, type PlaceId } from "../geo";
+import { GLOBE_FLAT_ZOOM } from "../mapStyle";
 
 // ---------------------------------------------------------------------------------------------------------
 // Contract
@@ -151,6 +152,30 @@ export interface Padding {
   bottom: number;
 }
 
+/**
+ * The whole-Earth opening. On a first visit to the intro (never under reduced motion, never once the camera has
+ * framed the region) the camera starts in space and the globe turns slowly; "Start the walk-through" flies it
+ * down into the first scene. `orbit` while it turns, `descent` during that one flight, `off` otherwise.
+ */
+export type GlobeStage = "off" | "orbit" | "descent";
+
+/** Earth from space, Atlantic in front so the Chesapeake comes round within a few seconds (zoom for a 900 px tall screen). */
+export const GLOBE_VIEW: CameraState = { longitude: -38, latitude: 26, zoom: 1.9, pitch: 0, bearing: 0 };
+/** Westward turn of the camera (the Earth appears to rotate eastward, as it does), degrees of longitude per second. */
+export const GLOBE_SPIN_DEG_PER_SEC = -2.4;
+/** The turn resumes this long after the visitor last dragged or scrolled. */
+export const GLOBE_RESUME_MS = 5000;
+/** How far out the visitor may zoom while the globe is up. */
+export const GLOBE_MIN_ZOOM = 0.5;
+/**
+ * Below GLOBE_FLAT_ZOOM the base map draws a sphere (lib/mapStyle.ts flattens it into Web Mercator by then), so
+ * the deck.gl data layers, which are always Mercator, are hidden underneath it. The app's regional floor (9) is
+ * well above it: every story and Expert view is pure Mercator, exactly as before the globe existed.
+ */
+export { GLOBE_FLAT_ZOOM };
+/** The flight from space down into the region. */
+export const GLOBE_DESCENT_MS = 5200;
+
 /** What the mounted map gives the director. */
 export interface MapDriver {
   getCamera(): CameraState;
@@ -172,7 +197,12 @@ let userControl = false;
 let padding: Padding | null = null;
 let highlightedTrip: string | null = null;
 let orbitOverride: boolean | null = null;
+let globe: GlobeStage = "off";
+/** The camera has framed the region at least once: the globe never comes back (no flying out to space). */
+let framed = false;
+let lastInteraction = -Infinity;
 
+const globeSubs = new Set<() => void>();
 const sceneSubs = new Set<(id: SceneId | null) => void>();
 const visualSubs = new Set<() => void>();
 const paddingSubs = new Set<() => void>();
@@ -219,6 +249,8 @@ const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+/** Longitude back into [-180, 180). */
+const wrapLng = (lng: number) => ((((lng + 180) % 360) + 360) % 360) - 180;
 const shortestAngle = (from: number, to: number) => {
   const d = ((((to - from) % 360) + 540) % 360) - 180;
   return from + d;
@@ -264,6 +296,7 @@ export function isMapReady(): boolean {
 /** MapStage registers how to read and write the camera. Returns the unregister function. */
 export function registerMapDriver(d: MapDriver): () => void {
   driver = d;
+  if (globe === "orbit") d.setCamera(globeView());
   // A scene asked for before the map existed, or a remount (hot reload, strict mode): frame it now.
   const p = pendingScene ?? (scene !== null ? { id: scene, instant: true } : null);
   if (p) {
@@ -288,6 +321,10 @@ interface Move {
   ms: number;
   curve: (t: number) => number;
   arc: number;
+  /** The flight from space: the globe turns to the region first, the zoom follows, the tilt comes last. */
+  descent: boolean;
+  /** Descent only: the highest zoom the turn may happen at (farther = higher up). */
+  travelZoom: number;
   done: () => void;
 }
 
@@ -308,7 +345,33 @@ function frame(now: number): void {
   lastFrame = now;
   let again = false;
 
-  if (move && driver) {
+  if (move && driver && move.descent) {
+    const m = move;
+    const t = clamp01((now - m.t0) / m.ms);
+    const tilt = easeInOutCubic(clamp01((t - 0.5) / 0.5));
+    let pos: number;
+    let zoom: number;
+    if (m.from.zoom > m.travelZoom) {
+      // The visitor zoomed in somewhere far away: rise to a height the turn reads from, then come down.
+      pos = easeInOutCubic(clamp01((t - 0.15) / 0.5));
+      zoom = t < 0.35 ? lerp(m.from.zoom, m.travelZoom, easeInOutCubic(t / 0.35)) : lerp(m.travelZoom, m.to.zoom, easeInOutCubic((t - 0.35) / 0.65));
+    } else {
+      pos = easeInOutCubic(clamp01(t / 0.6));
+      zoom = lerp(m.from.zoom, m.to.zoom, easeInOutCubic(clamp01((t - 0.08) / 0.92)));
+    }
+    driver.setCamera({
+      longitude: wrapLng(lerp(m.from.longitude, m.to.longitude, pos)),
+      latitude: lerp(m.from.latitude, m.to.latitude, pos),
+      zoom,
+      pitch: lerp(m.from.pitch, m.to.pitch, tilt),
+      bearing: lerp(m.from.bearing, m.to.bearing, tilt),
+    });
+    if (t >= 1) {
+      move = null;
+      m.done();
+    }
+    again = true;
+  } else if (move && driver) {
     const m = move;
     const t = clamp01((now - m.t0) / m.ms);
     const p = m.curve(t);
@@ -324,6 +387,14 @@ function frame(now: number): void {
     if (t >= 1) {
       move = null;
       m.done();
+    }
+    again = true;
+  } else if (globe === "orbit" && driver && !prefersReducedMotion()) {
+    // The globe turns by itself, pauses while the visitor handles it, and resumes a few seconds after.
+    const c = driver.getCamera();
+    const idle = now - lastInteraction > GLOBE_RESUME_MS;
+    if (idle && c.zoom <= globeView().zoom + 1 && (typeof document === "undefined" || !document.hidden)) {
+      driver.setCamera({ ...c, longitude: wrapLng(c.longitude + GLOBE_SPIN_DEG_PER_SEC * dt) });
     }
     again = true;
   } else if (drift !== 0 && driver && !userControl && !prefersReducedMotion() && (typeof document === "undefined" || !document.hidden)) {
@@ -345,7 +416,11 @@ function cancelMove(): void {
 
 /** The user grabbed the camera (drag, scroll, pinch): stop any move and the ambient drift. Free camera from here. */
 export function interruptCamera(): void {
+  // The flight down from space is short and lands on the first scene: it is not interruptible (the map's
+  // controller is off while it runs), so a stray scroll cannot strand the camera between space and the region.
+  if (globe === "descent") return;
   userControl = true;
+  lastInteraction = isBrowser() ? performance.now() : 0;
   cancelMove();
 }
 
@@ -464,6 +539,16 @@ export function goToScene(id: SceneId, opts: { instant?: boolean } = {}): Promis
     return Promise.resolve();
   }
 
+  // The intro while the globe is up: the layers follow the scene, the camera stays in space.
+  if (id === "intro" && globe === "orbit") {
+    cancelMove();
+    applyLayers(spec.layers, instant);
+    ensureLoop();
+    return Promise.resolve();
+  }
+
+  // Leaving space (or arriving while a flight down from it was still under way): the descent, or a cut.
+  const fromSpace = globe !== "off";
   cancelMove();
   applyLayers(spec.layers, instant);
   const from = driver.getCamera();
@@ -471,19 +556,39 @@ export function goToScene(id: SceneId, opts: { instant?: boolean } = {}): Promis
   const restDrift = spec.orbit && orbitOverride !== false ? spec.camera.driftDegPerSec : 0;
 
   if (instant) {
+    setGlobe("off");
+    framed = true;
     driver.setCamera(to);
     drift = restDrift;
     if (drift) ensureLoop();
     return Promise.resolve();
   }
 
+  if (fromSpace) {
+    setGlobe("descent");
+    return startMove(from, to, GLOBE_DESCENT_MS, "easeInOut", () => {
+      setGlobe("off");
+      framed = true;
+      if (scene === id && !userControl) drift = restDrift;
+    }, true);
+  }
+
+  framed = true;
   return startMove(from, to, spec.camera.durationMs, spec.camera.curve, () => {
     if (scene === id && !userControl) drift = restDrift;
   });
 }
 
-function startMove(from: CameraState, to: CameraState, durationMs: number, curve: CameraCurve, onDone: () => void): Promise<void> {
+/** About 60 degrees of turn reads well from the opening height; each halving of the distance allows one zoom level more. */
+function travelZoom(toZoom: number, distDeg: number): number {
+  const base = globeView().zoom;
+  return Math.min(toZoom, Math.max(base, base + Math.log2(60 / Math.max(distDeg, 1e-3))));
+}
+
+function startMove(from: CameraState, to: CameraState, durationMs: number, curve: CameraCurve, onDone: () => void, descent = false): Promise<void> {
   to.bearing = shortestAngle(from.bearing, to.bearing);
+  // From space the globe turns the short way round (the spin can leave the camera anywhere in longitude).
+  if (descent) to.longitude = shortestAngle(from.longitude, to.longitude);
   const dLng = (to.longitude - from.longitude) * Math.cos((to.latitude * Math.PI) / 180);
   const distDeg = Math.hypot(dLng, to.latitude - from.latitude);
   // Zoom-out arc scales with how far the eye travels, capped so a hop never leaves the harbor.
@@ -495,7 +600,9 @@ function startMove(from: CameraState, to: CameraState, durationMs: number, curve
       t0: performance.now(),
       ms: durationMs,
       curve: CURVES[curve],
-      arc,
+      arc: descent ? 0 : arc,
+      travelZoom: travelZoom(to.zoom, distDeg),
+      descent,
       done: () => {
         onDone();
         resolve();
@@ -536,6 +643,52 @@ export function setOrbit(on: boolean | null): void {
   const spec = SCENES[scene ?? "explore"];
   drift = on === true ? (spec.camera.driftDegPerSec || 0.8) : on === false ? 0 : spec.orbit ? spec.camera.driftDegPerSec : 0;
   if (drift) ensureLoop();
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Globe (the whole-Earth opening)
+// ---------------------------------------------------------------------------------------------------------
+
+function setGlobe(g: GlobeStage): void {
+  if (globe === g) return;
+  globe = g;
+  for (const f of globeSubs) f();
+}
+
+/**
+ * Start the intro in space. Refused (returns false) under reduced motion and once the camera has framed the
+ * region in this page load: the globe is an opening, never a destination. The next scene move flies down.
+ */
+/** The opening view sized to the screen: the globe fills about the same share of a phone as of a laptop. */
+export function globeView(): CameraState {
+  const w = isBrowser() ? window.innerWidth : 0;
+  const h = isBrowser() ? window.innerHeight : 0;
+  if (!(w > 0 && h > 0)) return { ...GLOBE_VIEW };
+  return { ...GLOBE_VIEW, zoom: Math.max(GLOBE_MIN_ZOOM, GLOBE_VIEW.zoom + Math.log2(Math.min(w, h) / 900)) };
+}
+
+export function enterGlobe(): boolean {
+  if (globe !== "off") return true;
+  if (framed || prefersReducedMotion()) return false;
+  setGlobe("orbit");
+  userControl = false;
+  lastInteraction = -Infinity;
+  drift = 0;
+  if (driver) {
+    cancelMove();
+    driver.setCamera(globeView());
+    ensureLoop();
+  }
+  return true;
+}
+
+export function globeStage(): GlobeStage {
+  return globe;
+}
+
+export function subscribeGlobe(fn: () => void): () => void {
+  globeSubs.add(fn);
+  return () => void globeSubs.delete(fn);
 }
 
 // ---------------------------------------------------------------------------------------------------------

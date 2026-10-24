@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { setViewportPadding } from "@/lib/ui/mapDirector";
+import { globeStage, setViewportPadding, subscribeGlobe } from "@/lib/ui/mapDirector";
 import type { StoryScene } from "@/lib/ui/story";
 import type { SceneId } from "@/lib/ui/mapDirector";
 import NoticeLine from "../DisclaimerBanner";
@@ -41,20 +41,25 @@ export default function StoryLayer({ scene }: { scene: SceneId }) {
   const reduced = !!useReducedMotion();
   const sheetRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const globe = useSyncExternalStore(subscribeGlobe, globeStage, () => "off" as const);
 
   // Camera safe area and attribution placement follow the card / sheet.
   useEffect(() => {
     const root = document.documentElement;
     if (!phone) {
-      setViewportPadding({ left: scene === "intro" ? 0 : CARD_W + GAP * 2, right: 0, top: 56, bottom: 32 });
+      // The globe sits right of the intro copy (about where the scene card will be, so the flight down starts
+      // without a jump); the regional intro keeps the full width.
+      const left = scene !== "intro" ? CARD_W + GAP * 2 : globe === "orbit" ? Math.round(window.innerWidth * 0.36) : 0;
+      setViewportPadding({ left, right: 0, top: 56, bottom: 32 });
       root.style.setProperty("--ws-attrib-bottom", "10px");
       root.style.setProperty("--ws-attrib-right", "16px");
       return;
     }
     const el = sheetRef.current;
     if (!el) {
-      // The intro on a phone: the notice line sits at the bottom, the attribution just above it.
-      setViewportPadding({ left: 0, right: 0, top: 56, bottom: 0 });
+      // The intro on a phone: the notice line sits at the bottom, the attribution just above it. The globe sits
+      // in the upper half, above the copy.
+      setViewportPadding({ left: 0, right: 0, top: 56, bottom: globe === "orbit" ? Math.round(window.innerHeight * 0.42) : 0 });
       root.style.setProperty("--ws-attrib-bottom", "44px");
       root.style.setProperty("--ws-attrib-right", "8px");
       return;
@@ -69,7 +74,7 @@ export default function StoryLayer({ scene }: { scene: SceneId }) {
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [phone, scene, collapsed]);
+  }, [phone, scene, collapsed, globe]);
 
   const intro = scene === "intro";
   const note = useStory((s) => s.routeNote);

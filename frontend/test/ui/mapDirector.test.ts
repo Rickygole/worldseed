@@ -335,3 +335,139 @@ describe("quality tiers", () => {
     stop();
   });
 });
+
+describe("the whole-Earth intro (globe)", () => {
+  it("starts in space and the globe turns westward by itself", async () => {
+    const h = harness();
+    const d = await load();
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    expect(d.enterGlobe()).toBe(true);
+    await d.goToScene("intro");
+    expect(d.globeStage()).toBe("orbit");
+    expect(f.cam.zoom).toBe(d.GLOBE_VIEW.zoom);
+    expect(f.cam.pitch).toBe(0);
+    const lng0 = f.cam.longitude;
+    h.run(2000);
+    const turned = f.cam.longitude - lng0;
+    expect(Math.sign(turned)).toBe(Math.sign(d.GLOBE_SPIN_DEG_PER_SEC));
+    expect(Math.abs(turned)).toBeCloseTo(Math.abs(d.GLOBE_SPIN_DEG_PER_SEC) * 2, 0);
+    // The intro scene does not pull the camera out of space.
+    expect(f.cam.zoom).toBe(d.GLOBE_VIEW.zoom);
+  });
+
+  it("frames the globe when the map mounts after the intro asked for it", async () => {
+    const h = harness();
+    const d = await load();
+    d.enterGlobe();
+    await d.goToScene("intro");
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    h.run(100);
+    expect(f.cam.zoom).toBe(d.GLOBE_VIEW.zoom);
+    expect(d.globeStage()).toBe("orbit");
+  });
+
+  it("pauses while the visitor handles the globe and resumes a few seconds later", async () => {
+    const h = harness();
+    const d = await load();
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    d.enterGlobe();
+    await d.goToScene("intro");
+    h.run(500);
+    d.interruptCamera();
+    const lng = f.cam.longitude;
+    h.run(d.GLOBE_RESUME_MS - 500);
+    expect(f.cam.longitude).toBe(lng);
+    h.run(1500);
+    expect(f.cam.longitude).not.toBe(lng);
+  });
+
+  it("the next scene flies down from space, cannot be interrupted, lands exactly, and the globe never comes back", async () => {
+    const h = harness();
+    const d = await load();
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    d.enterGlobe();
+    await d.goToScene("intro");
+    h.run(40000); // the spin can leave the camera anywhere in longitude
+    let done = false;
+    const p = d.goToScene("crossing").then(() => (done = true));
+    expect(d.globeStage()).toBe("descent");
+    h.run(d.GLOBE_DESCENT_MS * 0.4);
+    d.interruptCamera(); // a stray scroll mid-flight
+    expect(d.isUserControlled()).toBe(false);
+    // The turn comes before the tilt: still looking straight down this early.
+    expect(f.cam.pitch).toBe(0);
+    h.run(d.GLOBE_DESCENT_MS);
+    await p;
+    expect(done).toBe(true);
+    const c = d.SCENES.crossing.camera;
+    expect(f.cam.longitude).toBeCloseTo(c.longitude, 6);
+    expect(f.cam.latitude).toBeCloseTo(c.latitude, 6);
+    expect(f.cam.zoom).toBeCloseTo(c.zoom, 6);
+    expect(f.cam.pitch).toBeCloseTo(c.pitch, 6);
+    expect(d.globeStage()).toBe("off");
+    expect(d.enterGlobe()).toBe(false);
+  });
+
+  it("from a zoomed-in spot far away, the flight rises before it turns (no whip across the planet at street level)", async () => {
+    const h = harness();
+    const d = await load();
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    d.enterGlobe();
+    await d.goToScene("intro");
+    f.driver.setCamera({ longitude: 44, latitude: 9.5, zoom: 14, pitch: 0, bearing: 0 });
+    d.interruptCamera();
+    const p = d.goToScene("crossing");
+    let minZoom = Infinity;
+    let lngWhileHigh = 0;
+    for (let e = 0; e < d.GLOBE_DESCENT_MS + 100; e += 16) {
+      h.step(16);
+      minZoom = Math.min(minZoom, f.cam.zoom);
+      if (f.cam.zoom > 8 && minZoom > 8) lngWhileHigh = Math.max(lngWhileHigh, Math.abs(f.cam.longitude - 44));
+    }
+    await p;
+    expect(minZoom).toBeLessThan(4);
+    expect(lngWhileHigh).toBeLessThan(1);
+    expect(f.cam.longitude).toBeCloseTo(d.SCENES.crossing.camera.longitude, 6);
+  });
+
+  it("an instant scene change (deep link, remount) cuts straight to the region", async () => {
+    harness();
+    const d = await load();
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    d.enterGlobe();
+    await d.goToScene("explore", { instant: true });
+    expect(d.globeStage()).toBe("off");
+    expect(f.cam.zoom).toBeCloseTo(d.SCENES.explore.camera.zoom, 6);
+  });
+
+  it("never under reduced motion: the intro is the regional view, exactly as without the globe", async () => {
+    const h = harness(true);
+    const d = await load();
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    expect(d.enterGlobe()).toBe(false);
+    await d.goToScene("intro");
+    expect(d.globeStage()).toBe("off");
+    expect(f.cam.zoom).toBeCloseTo(d.SCENES.intro.camera.zoom, 6);
+    const lng = f.cam.longitude;
+    h.run(3000);
+    expect(f.cam.longitude).toBe(lng);
+  });
+
+  it("never once the region has been shown (no flying back out to space)", async () => {
+    const h = harness();
+    const d = await load();
+    const f = fakeDriver();
+    d.registerMapDriver(f.driver);
+    void d.goToScene("crossing");
+    h.run(3000);
+    expect(d.enterGlobe()).toBe(false);
+    expect(d.globeStage()).toBe("off");
+  });
+});

@@ -408,6 +408,11 @@ body {
   }
 }
 
+/* The data canvas is hidden while the base map is a globe (DeckStage sets the value from the zoom). */
+.ws-map #deckgl-overlay {
+  opacity: var(--ws-deck-alpha, 1);
+}
+
 /* Compare: the main terrain canvas shows only left of the split; the compare canvas only right of it. */
 .ws-map[data-compare="true"] #deckgl-overlay {
   clip-path: inset(0 calc(100% - var(--split)) 0 0);

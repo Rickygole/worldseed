@@ -8,7 +8,7 @@
  * The map director drives the camera through the registered driver (eased moves, ambient drift); the user's
  * drag / scroll / pinch interrupts it and the camera is theirs until the next scene move.
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import DeckGL, { type DeckGLRef } from "@deck.gl/react";
 import type { Layer, MapViewState, PickingInfo } from "@deck.gl/core";
 import { Map, type MapRef } from "react-map-gl/maplibre";
@@ -18,11 +18,15 @@ import type { StyleSpecification } from "maplibre-gl";
 import { BASE_VIEW } from "@/lib/geo";
 import { BUILDING_LAYER_IDS, SATELLITE_ENABLED, STYLE_CHAIN } from "@/lib/mapStyle";
 import {
+  GLOBE_FLAT_ZOOM,
+  GLOBE_MIN_ZOOM,
+  globeStage,
   interruptCamera,
   markMapReady,
   qualityLevel,
   registerMapDriver,
   startFrameMonitor,
+  subscribeGlobe,
   subscribeQuality,
   type Padding,
   type QualityLevel,
@@ -39,6 +43,7 @@ type ViewState = MapViewState & { padding?: Padding; transitionDuration?: number
 const DEBUG = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("mapdebug");
 
 const NO_EFFECTS: never[] = [];
+const serverGlobe = () => "off" as const;
 
 const START: ViewState = { ...BASE_VIEW, maxPitch: 75, minZoom: 9, maxZoom: 16 };
 
@@ -71,6 +76,8 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
   const mapRef = useRef<MapRef>(null);
   const [size, setSize] = useState({ width: 1280, height: 720 });
   const [quality, setQuality] = useState<QualityLevel>(qualityLevel());
+  // The whole-Earth intro: the zoom floor opens up, and the flight down from space is not interruptible.
+  const globe = useSyncExternalStore(subscribeGlobe, globeStage, serverGlobe);
   // Quality-tier aware: a session already known to be low-tier skips the heavier satellite imagery and starts
   // on the vector style (index 1 of the chain when satellite is enabled, else index 0). Reduced motion needs
   // no special case here: every style swap below is an instant cut, never an animated crossfade.
@@ -245,7 +252,13 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
     return out;
   }, [layers, trails, drawn, trailsOn, trailT, quality, reduced, labelDefs, fontFamily, alphas]);
 
-  const viewState = useMemo(() => ({ ...camera, padding }), [camera, padding]);
+  const viewState = useMemo(() => ({ ...camera, minZoom: globe === "off" ? START.minZoom : GLOBE_MIN_ZOOM, padding }), [camera, padding, globe]);
+  // The data layers are Web Mercator; the base map is a sphere below GLOBE_FLAT_ZOOM. Hidden in space, faded in
+  // over the last stretch of the flight down (CSS opacity on the deck canvas only). The layers stay built the
+  // whole time, so their GPU upload happens while the globe idles, not as a hitch in the middle of the flight;
+  // only picking is off while they cannot be seen.
+  const deckAlpha = Math.min(1, Math.max(0, (camera.zoom - GLOBE_FLAT_ZOOM - 0.2) / 0.8));
+  const hidden = deckAlpha === 0;
   const dpr = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
   const pixelRatio = quality === 0 ? Math.min(2, dpr) : quality === 1 ? Math.min(1.5, dpr) : 1;
 
@@ -260,19 +273,19 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
   const style: StyleSpecification = styleEntry.style;
 
   return (
-    <div ref={wrapRef} className="absolute inset-0" data-quality={quality} data-style={style.name}>
+    <div ref={wrapRef} className="absolute inset-0" data-quality={quality} data-style={style.name} data-globe={globe} style={{ ["--ws-deck-alpha" as string]: deckAlpha }}>
       <DeckGL
         ref={deckRef}
         viewState={viewState}
         onViewStateChange={onViewStateChange as never}
-        onClick={onClick}
-        onHover={onHover}
-        controller={{ dragRotate: true, touchRotate: true, inertia: 220 }}
+        onClick={hidden ? undefined : onClick}
+        onHover={hidden ? undefined : onHover}
+        controller={globe === "descent" ? false : { dragRotate: true, touchRotate: true, inertia: 220 }}
         layers={allLayers}
         effects={quality >= 2 ? NO_EFFECTS : effects}
         useDevicePixels={pixelRatio}
-        getTooltip={getTooltip as never}
-        getCursor={({ isHovering, isDragging }) => (isDragging ? "grabbing" : isHovering ? "pointer" : "grab")}
+        getTooltip={(hidden ? null : getTooltip) as never}
+        getCursor={({ isHovering, isDragging }) => (isDragging ? "grabbing" : isHovering && !hidden ? "pointer" : "grab")}
         onAfterRender={() => {
           markMapReady();
           if (!hooked.current) {

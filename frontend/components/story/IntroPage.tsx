@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { navigate } from "@/lib/ui/nav";
 import { hasStarted, lastScene, pathForScene } from "@/lib/ui/routes";
 import { goScene } from "@/lib/ui/story";
+import { enterGlobe } from "@/lib/ui/mapDirector";
 import StoryLayer from "./StoryLayer";
 
 /** /: the intro (scene 0). A visitor who already started continues at their scene; `/?intro=1` always shows it. */
@@ -22,6 +23,8 @@ export default function IntroPage() {
     // Session storage decides, so the intro shows only after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setShow(true);
+    // The whole-Earth opening (refused under reduced motion, or once the region has been shown this visit).
+    enterGlobe();
     void goScene("intro");
   }, [force]);
 

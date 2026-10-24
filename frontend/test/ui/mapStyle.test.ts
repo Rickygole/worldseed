@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
+import { expression, validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
 import {
   BUILDING_LAYER_IDS,
   FALLBACK_STYLE,
+  GLOBE_FLAT_ZOOM,
+  GLOBE_FULL_ZOOM,
   MAP_STYLE,
   SATELLITE_ATTRIBUTION,
   SATELLITE_ENABLED,
@@ -12,6 +14,14 @@ import {
   styleLayerIds,
   VECTOR_STYLE,
 } from "../../lib/mapStyle";
+
+/** Evaluates a zoom-only style expression (or a constant) at one zoom. */
+function zoomValue(value: unknown, rootKey: string, zoom: number): number {
+  if (typeof value === "number") return value;
+  const e = expression.createExpression(value, rootKey);
+  if (e.result !== "success") throw new Error(`not an expression: ${JSON.stringify(value)}`);
+  return e.value.evaluate({ zoom }) as number;
+}
 
 describe("vector style (the dark hero look)", () => {
   it("is a valid MapLibre style", () => {
@@ -84,13 +94,16 @@ describe("satellite style (the imagery hero look)", () => {
     for (const id of ["water", "landuse", "landcover", "park", "building-3d", "building-flat", "coast"]) expect(ids).not.toContain(id);
   });
 
-  it("the scrim opacity is set and tunable within the documented range", () => {
+  it("the scrim opacity is set and tunable within the documented range, and is the full scrim at every regional zoom", () => {
     const scrim = SATELLITE_STYLE.layers.find((l) => l.id === "satellite-scrim");
     expect(scrim?.type).toBe("background");
-    const paint = (scrim as { paint?: { "background-opacity"?: number } }).paint;
-    expect(paint?.["background-opacity"]).toBe(SATELLITE_SCRIM_OPACITY);
+    const paint = (scrim as { paint?: { "background-opacity"?: unknown } }).paint;
     expect(SATELLITE_SCRIM_OPACITY).toBeGreaterThanOrEqual(0.4);
     expect(SATELLITE_SCRIM_OPACITY).toBeLessThanOrEqual(0.7);
+    // Lighter only in space (the whole-Earth intro); the app's own views start at zoom 9.
+    const at = (zoom: number) => zoomValue(paint?.["background-opacity"], "layers[2].paint.background-opacity", zoom);
+    for (const z of [9, 10.25, 12.85, 16]) expect(at(z)).toBeCloseTo(SATELLITE_SCRIM_OPACITY, 6);
+    expect(at(2)).toBeLessThan(0.2);
   });
 
   it("keeps every layer's source declared", () => {
@@ -99,6 +112,30 @@ describe("satellite style (the imagery hero look)", () => {
 
   it("shares the vector style's atmosphere", () => {
     expect(SATELLITE_STYLE.sky).toEqual(VECTOR_STYLE.sky);
+  });
+});
+
+describe("the whole-Earth intro (globe projection)", () => {
+  const styles = [VECTOR_STYLE, SATELLITE_STYLE, FALLBACK_STYLE];
+
+  it("every style in the chain is a globe in space and plain Web Mercator from GLOBE_FLAT_ZOOM up", () => {
+    expect(GLOBE_FULL_ZOOM).toBeLessThan(GLOBE_FLAT_ZOOM);
+    // The deck.gl layers are always Mercator: the base map must be flat well below the app's regional floor (9).
+    expect(GLOBE_FLAT_ZOOM).toBeLessThan(9);
+    for (const s of styles) {
+      expect(s.projection?.type).toEqual(["interpolate", ["linear"], ["zoom"], GLOBE_FULL_ZOOM, "vertical-perspective", GLOBE_FLAT_ZOOM, "mercator"]);
+    }
+  });
+
+  it("the atmosphere rim shows in space and is gone before the map flattens", () => {
+    const blend = SATELLITE_STYLE.sky?.["atmosphere-blend"];
+    const at = (zoom: number) => zoomValue(blend, "sky.atmosphere-blend", zoom);
+    expect(at(1.9)).toBe(1);
+    for (const z of [GLOBE_FLAT_ZOOM, 9, 12]) expect(at(z)).toBe(0);
+  });
+
+  it("no city names over the globe: place labels start where the map is flat", () => {
+    for (const s of [VECTOR_STYLE, SATELLITE_STYLE]) expect(s.layers.find((l) => l.id === "place-label")?.minzoom).toBe(GLOBE_FLAT_ZOOM);
   });
 });
 
