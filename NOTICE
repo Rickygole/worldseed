@@ -6,6 +6,8 @@ v1.0; see data/snapshot/LICENSE.md.
 Map data (c) OpenStreetMap contributors, available under the ODbL
 (https://www.openstreetmap.org/copyright).
 Basemap tiles: OpenFreeMap (c) OpenMapTiles. Data from OpenStreetMap.
+Satellite imagery and globe intro: Esri, Vantor, Earthstar Geographics, and the
+GIS User Community (Esri World Imagery, a free keyless service).
 Demographic and jobs data: U.S. Census Bureau (American Community Survey 5-Year
 Estimates, TIGER/Line Shapefiles, LEHD LODES), public domain U.S. government works.
 The ACS tables were obtained through the Census Reporter API, a third-party mirror

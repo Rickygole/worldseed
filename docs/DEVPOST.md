@@ -44,10 +44,11 @@ A good planning tool also shows what didn't break.
 
 ## One-line version
 
-WorldSeed is a counterfactual screening tool: remove a bridge, and a simulator — never
-a language model — computes who loses job access, whether first response holds, and
-how far hazmat trucks must detour. An NVIDIA Nemotron model sits on top as a search
-policy that can only choose from a catalog the simulator itself checks.
+A regional model said losing the Key Bridge cost about 3 seconds on average; WorldSeed
+found the 20,000 people on one peninsula that average was hiding, using a simulator —
+never a language model — to compute who loses job access, whether first response
+holds, and how far hazmat trucks must detour, with an NVIDIA Nemotron model sitting on
+top as a search policy that can only choose from a catalog the simulator itself checks.
 
 ## Two-sentence version
 
@@ -94,19 +95,27 @@ leaderboard the planner just proposed, and the simulator is forced to re-score e
 leader under that exact stress. The model can't game its way to a good-looking bundle,
 because the thing attacking its bundle is also deterministic and auditable.
 
-That idea is provable without AI in the loop at all, and we proved it: a deterministic
+That idea is checkable without AI in the loop at all, and we checked it: a deterministic
 two-stage search — screen every eligible bundle once, then paired stress futures on the
-top 12 — already finds the rank-1 bundle out of all 129 eligible combinations in the
-exhaustive audit (`frontend/lib/agent/exhaustive.ts`). Nemotron is wired in as the search
-*policy* over that identical simulator, proposing bundles from a plain-language goal
-instead of brute force, with the same adversarial critic enforcing the same stress
-tests. As of today the real Nebius Token Factory API is live and verified: `GET
-/v1/models` resolves all four role model IDs, and structured `json_schema` output and
-streaming both work on both models used. What hasn't happened yet is one full live
-mission through the app's own routes (parse → plan → critique → finalize) and production
-wiring on the deployed site — pending one shared rate-limit store, so a single script
-can't drain the shared AI budget across serverless instances. Both land before judging;
-until then the deployed demo runs the deterministic path and says so.
+top 12 — finds the rank-1 bundle out of all 129 eligible combinations in the exhaustive
+audit (`frontend/lib/agent/exhaustive.ts`). That isn't evidence the AI is unnecessary;
+it's the provably-correct baseline the AI is checked against, which is what makes it
+safe to demo in the first place. Nemotron's actual job starts upstream of ranking
+bundles: turning an open-ended, plain-language goal into the structured mission that
+search runs on — not something a catalog of 129 combinations can brute-force, because
+there's no catalog of English sentences to enumerate — and then its critic plays
+adversary, choosing the one stress test most likely to break the leading bundle, which
+the simulator has to survive. As of 2026-10-24 the real Nebius Token Factory API is live
+and verified: `GET /v1/models` resolves all four role model IDs, structured
+`json_schema` output and streaming both work on both models used, and a real
+end-to-end mission through the app's own routes (parse → plan → critique → finalize)
+ran locally the same day: 30 provider-backed calls, 90% valid on the first turn, and 3
+clean falls-back to the deterministic critic on the rest — proof the catalog-only
+validator holds against a real model's real mistakes, not just fake-provider tests.
+What's still open is wiring that same key into the deployed site's production
+environment, pending one shared rate-limit store so a single script can't drain the
+shared AI budget across serverless instances. That lands before judging; until then the
+deployed demo runs the deterministic path and says so.
 
 Three lenses stay on screen together so no number hides another, for state DOT and MPO
 resilience analysts asking "if this crossing is lost, who loses access, and where would
@@ -305,9 +314,10 @@ OpenStreetMap Foundation. In an emergency, call 911.
 ## Privacy
 
 WorldSeed has no accounts and sets no cookies. Your browser's session storage keeps a
-random session id and whether you've seen the intro. The server keeps a salted hash of
-your IP and session id in a counter store for at most about two days to enforce
-fair-use limits; it never stores raw IP addresses. The host (Vercel) processes request
-data, including IP addresses, in its own logs. Text you type as a goal is sent to Nebius
-Token Factory to run the AI model — don't enter personal information. Questions: open a
-GitHub issue.
+random session id and whether you've seen the intro. Once the shared rate-limit store
+is configured in production, the server keeps a salted hash of your IP and session id
+in it for at most about two days to enforce fair-use limits, and never stores raw IP
+addresses; until then, limits are enforced per server instance instead and nothing is
+stored centrally. The host (Vercel) processes request data, including IP addresses, in
+its own logs. Text you type as a goal is sent to Nebius Token Factory to run the AI
+model — don't enter personal information. Questions: open a GitHub issue.

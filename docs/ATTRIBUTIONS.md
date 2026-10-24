@@ -8,7 +8,7 @@ the primary pages linked below (fetched 2026-09-26). This is a compliance record
 Related files: `NOTICE` (short form shipped with the code), `THIRD_PARTY_LICENSES.md` (generated inventory of every
 software license, with full texts for direct runtime dependencies), `data/snapshot/LICENSE.md` (the ODbL notice for the data).
 
-WorldSeed is not affiliated with or endorsed by OpenStreetMap Foundation, OpenFreeMap, OpenMapTiles, the U.S. Census
+WorldSeed is not affiliated with or endorsed by OpenStreetMap Foundation, OpenFreeMap, OpenMapTiles, Esri, the U.S. Census
 Bureau, the State of Maryland, the Maryland Transportation Authority (MDTA), the NTSB, NVIDIA, Nebius, Tavily, Vercel, or any
 agency, hospital, fire company or EMS provider.
 
@@ -18,7 +18,7 @@ Read from the source on 2026-09-26; re-check after UI changes.
 
 | Place | What it shows |
 |---|---|
-| Map corner (MapLibre attribution control, `attributionControl={{ compact: false }}` in `frontend/components/MapStage.tsx`) | The attribution string that OpenFreeMap's tile description carries (see the OpenFreeMap entry below). Must stay on. |
+| Map corner (MapLibre attribution control, `attributionControl={{ compact: false }}` in `frontend/components/MapStage.tsx`) | Re-derived automatically from whichever sources the active style uses: OpenFreeMap's tile credit on the vector style, and the live Esri credit ("Esri, Vantor, Earthstar Geographics, and the GIS User Community") on the satellite style and the globe intro (see the Esri entry below). Must stay on. |
 | Footer (`frontend/components/Footer.tsx`) | "(c) OpenStreetMap contributors" (linked to the OSM copyright page) (ODbL), U.S. Census Bureau ACS/TIGER/LEHD, NVIDIA Nemotron via Nebius Token Factory (Terms link), Tavily, "AI-generated text may be inaccurate". |
 | About dialog (`frontend/components/AboutDialog.tsx`) | The same data credits, "Map tiles: OpenFreeMap, (c) OpenMapTiles", intended-use text, and the "not affiliated" list. |
 
@@ -50,6 +50,18 @@ Not shown in the app yet (as of 2026-09-26): the State of Maryland acknowledgeme
   users is unverified.
 - Style and fonts: the style is WorldSeed's own (`frontend/lib/mapStyle.ts`); map label glyphs are loaded from OpenFreeMap's hosted
   font endpoint (`https://tiles.openfreemap.org/fonts/...`). The license of those glyph fonts is unverified.
+
+### Esri World Imagery (satellite style and globe intro)
+
+- Source: the free, keyless `World_Imagery/MapServer` endpoint (`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer`),
+  used for the satellite basemap and the whole-Earth globe intro. No API key, no sign-in, CORS open. Full verification detail
+  and the exact live credit string are documented in `frontend/lib/mapStyle.ts`'s header comment, read 2026-09-28.
+- Attribution text, exactly as the service's own `copyrightText` returned: `Source: Esri, Vantor, Earthstar Geographics, and
+  the GIS User Community`. Shown by MapLibre's attribution control automatically whenever satellite imagery or the globe is
+  the active source, and dropped automatically if the map falls back to the vector style.
+- Terms: ArcGIS Online's general terms describe this shared content as typically available for personal or noncommercial use
+  (`doc.arcgis.com/en/arcgis-online/reference/terms-of-use.htm`); this project is a $0, non-commercial hackathon demo (see
+  `docs/LEGAL.md`), which fits. No published rate limit for this specific keyless endpoint.
 
 ### U.S. Census Bureau (ACS, TIGER/Line, LEHD LODES)
 

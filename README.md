@@ -24,12 +24,16 @@ WorldSeed is a counterfactual infrastructure-planning simulator and a screening
 tool. It computes consequences on the 2024 OpenStreetMap road network at free-flow
 speeds (congestion appears only in stress futures), with Census population and jobs
 data. You remove a link and see who is affected. It then screens a catalog of 16
-hypothetical scenario options for where mitigation would matter, with a
-deterministic two-stage search that needs no AI key. An NVIDIA Nemotron planner on
-Nebius Token Factory is built as an alternative planner and is not yet verified
-against live models. No language model ever produces a number: the simulator
-computes every metric, cited Census data supplies the population figures, and
-application templates write every result sentence.
+hypothetical scenario options for where mitigation would matter. A deterministic
+two-stage search needs no AI key and is checked against an exhaustive audit of every
+eligible bundle, so its answer is provably the best the catalog allows. An NVIDIA
+Nemotron planner on Nebius Token Factory turns an open-ended goal into that same
+checked search, and its critic picks the one stress test most likely to break the
+leaders, which the simulator then has to survive. No language model ever produces a
+number: the simulator computes every metric, cited Census data supplies the
+population figures, and application templates write every result sentence. (Verified
+live against the raw Token Factory API as of 2026-10-24; not yet wired into the
+deployed site's production environment — see [Status](#status).)
 
 Built for the Nebius x NVIDIA Global AI Hackathon, track **Best Apps and Agents**.
 
@@ -92,7 +96,7 @@ interesting result is somewhere else.
 | --- | --- |
 | Did first-response times change? | **No. It held.** The simulated 90th-percentile time stays at 6.1 min; 96% of residents remain within 8 min. Both shores have their own fire stations and hospitals. |
 | Did regional job access change? | **Barely.** About +3 seconds on the average drive to the region's main job centers. Most trips in the region never used the bridge. |
-| Did cross-harbor job access change? | **Yes, for the Sparrows Point / Edgemere peninsula.** The 8 hardest-hit block groups lose 27-77% of the jobs on the other shore reachable within 30 minutes. About 20,000 residents lose more than 10% of those jobs (the app shows 20,100; the exact reference is 19,705); about 11,400 lose more than 25%. The worst-off 1% add at least 4.3 min to the average cross-harbor trip. **These counts depend on speed and time-budget assumptions: about 6,700 to 96,000 across the variants we tested.** The time-based measures (about 11 to 17 s average added) and the identity of the worst-hit block groups are stable. |
+| Did cross-harbor job access change? | **Yes, for the Sparrows Point / Edgemere peninsula.** The 8 hardest-hit block groups lose 27-77% of the jobs on the other shore reachable within 30 minutes. About 20,000 residents lose more than 10% of those jobs (the app shows 20,100; the exact reference is 19,705); about 11,400 lose more than 25%; **about 4,900 lose more than half**. The worst-off 1% add at least 4.3 min to the average cross-harbor trip. **These counts depend on speed and time-budget assumptions: about 6,700 to 96,000 across the variants we tested.** The time-based measures (about 11 to 17 s average added) and the identity of the worst-hit block groups are stable. For scale: losing the Harbor Tunnel instead hits 3.2x more people at the 10% threshold (about 63,000), but spread thinner — the bridge is the more *concentrated* cut, not the biggest one (`docs/METHODOLOGY.md`). |
 | Were low-wage workers hit harder? | **Not disproportionately.** 1,380 low-wage workers lose more than 10% of cross-harbor jobs: 1.8% of low-wage workers against 1.9% of all residents. The tool reports this gap either way. |
 | Did freight change? | **Yes, sharply, for hazmat trucks.** Vehicles carrying the hazardous materials MDTA lists are barred from both harbor tunnels; that the Key Bridge carried them is an assumption (the MDTA rule page does not cover the bridge). In the model, with the bridge removed they take the western I-695 arc. Across 24 cross-harbor trips at free-flow, removing the bridge adds about 5.8 min on average for a car and about 14.7 min for a hazmat truck; 23 of the 24 hazmat trips add more than 5 minutes. Closing the Harbor Tunnel as well makes no difference to hazmat trucks. Two hypothetical escorted-window options let hazmat trucks use a tunnel at an assumed fixed delay; in the reference run the Harbor Tunnel escort window cuts the hazmat mean from +14.7 to +10.2 min. Only this one MDTA rule is modeled, and the escort delay is an assumption. |
 | Did the tool find a fix? | **No, only a partial reduction.** The best two-stage search result (Beltway flow + Harbor Tunnel approaches + I-95 flow) reduces "residents who reach more than 10% fewer cross-harbor jobs" from about 20,000 to about 15,000, about a quarter fewer. About 15,000 remain. That is based on assumed corridor speed factors and hypothetical options, not an agency study, and it is a cliff-edge count: the sensitivity study was not run on this option world. Shuttle links did not help in the catalog measurements. |
@@ -219,11 +223,11 @@ copies Nebius serves carry the same terms is unverified. Which model actually ru
 a role is resolved at runtime and shown by `/api/health`, so the license that applies
 is the one for the model that ran.
 
-**The AI search loop (built, not verified live).** Propose, simulate, stress, refine,
-finalize. The planner proposes bundles; the browser simulator scores them across many
-futures; the critic picks one stress test from a closed set (a tunnel closed and/or a
-time of day); the simulator re-scores the leaders under that stress; the planner
-refines; then it finalizes three finalists.
+**The AI search loop.** Propose, simulate, stress, refine, finalize. The planner
+proposes bundles; the browser simulator scores them across many futures; the critic
+picks one stress test from a closed set (a tunnel closed and/or a time of day); the
+simulator re-scores the leaders under that stress; the planner refines; then it
+finalizes three finalists.
 
 **The deterministic two-stage search (built, works without a key).** Used whenever the
 AI is unavailable, its output is rejected, or the budget is spent, and labeled
@@ -235,6 +239,19 @@ futures on the same seeds. A deterministic critic then re-scores the leaders und
 single-link closure that hurts them most, and the search returns three finalists with
 no two near-duplicates. No model call is made at any point. The seed is shown and runs
 are reproducible.
+
+**Why there are two paths, stated plainly.** The catalog is small enough (16 options,
+129 eligible bundles) that it can be exhaustively enumerated, and an audit of every
+bundle confirms the deterministic search's own pick already ranks first. That is not
+an argument against the AI planner; it is the reason the AI planner is safe to demo at
+all: its output is checked against a provably-correct baseline instead of being taken
+on faith. The planner's real job is upstream of ranking bundles — turning an
+open-ended, plain-language goal (something exhaustive search cannot do; there is no
+catalog of English sentences to enumerate) into the structured mission that search runs
+against — and the critic's job is adversarial, not just "pick a good one": it chooses
+the single stress test most likely to break the leading bundle, which the simulator
+then has to survive. A planner that could only re-derive the brute-force answer would
+be pointless; one that is checked against it, every time, is the actual design.
 
 **The guardrails that make this safe to demo:**
 
@@ -423,7 +440,8 @@ shared. Questions: open a GitHub issue.
 | Population, households, vehicles | U.S. Census Bureau ACS 5-year (2020-2024) via the Census Reporter mirror | Public domain (U.S. Government work); mirror terms to be confirmed |
 | Block-group geometry | Census TIGER/Line cartographic boundaries 2023 | Public domain |
 | Jobs and low-wage workers | Census LEHD LODES8, Maryland 2023 | Public domain |
-| Basemap tiles | OpenFreeMap, (c) OpenMapTiles, data from OpenStreetMap | See map attribution in the app |
+| Basemap tiles (vector style) | OpenFreeMap, (c) OpenMapTiles, data from OpenStreetMap | See map attribution in the app |
+| Satellite imagery and globe (satellite style, globe intro) | Esri World Imagery (free, keyless `World_Imagery/MapServer` endpoint), credited live as "Esri, Vantor, Earthstar Geographics, and the GIS User Community" | Esri ArcGIS Online terms: typically for personal/noncommercial use; this is a $0 non-commercial hackathon demo (see docs/LEGAL.md). See map attribution in the app |
 | Hazardous-materials tunnel rule | Maryland Transportation Authority (MDTA), cited and linked, accessed 2026-09-26 | State of Maryland web content, cited for reference only; not affiliated (to be confirmed by legal review) |
 
 Full detail, fetch methods, merge rules and known gaps: [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md).
@@ -630,11 +648,12 @@ each Live item on https://worldseed-mu.vercel.app before submitting.
 - [x] **Live.** Deterministic two-stage search (screen every eligible bundle, then paired stress futures on the top 12), labeled "not AI", with the deterministic stress critic
 - [x] **Live.** Stress tests (futures fan, stress step), finalist cards, Compare, Preview and Apply
 - [x] **Live.** Exhaustive audit of the search against every eligible bundle (top pick ranks 1 of 129 in the reference run)
+- [x] **Live.** The guided story (six scenes, Expert mode toggle): shipped 2026-09-29, several rounds of work since; replaces the earlier `?tour=keybridge` tour (confirmed dead, not redirected, as of 2026-10-24)
+- [x] **Live.** Whole-Earth globe intro (MapLibre's native globe projection over the existing Esri imagery), draggable and zoomable, flies down into the regional view; added and verified live 2026-10-24
 - [ ] **Verified against the real service, not yet live on the deployed site.** AI planner and critic on Nemotron via Token Factory: all four role models resolve against the real account, structured output and streaming both confirmed working (2026-10-24, `docs/FEEDBACK_NOTES.md`); the key is not yet in the deployed site's production environment, pending a shared rate-limit store
 - [ ] **Built, not verified against a real service.** Tavily road-closure feed and the reality-check evidence drawer (code and tests complete; live lookups pending a deployed key)
 - [ ] **Built, not verified against a real service.** Upstash shared rate limits and daily budget (without it limits are per process; this is also the blocker on deploying the Nebius and Tavily keys to production)
 - [ ] **Built, not verified against a real service.** Turnstile check hook
-- [ ] **In progress.** The guided story (six scenes, Expert mode toggle): being rebuilt; it replaces the earlier `?tour=keybridge` tour
 - [ ] **Planned.** Screening other crossings from the app (the pipeline is bbox-configurable today)
 - [ ] **Planned.** Quantitative comparison of model output to published observations
 - [ ] **Not done.** Demo video (under 3:00) and final Devpost submission
