@@ -57,10 +57,10 @@ that average, about 20,000 people on one peninsula lose over 10% of the jobs the
 reach across the harbor, first response doesn't change at all, and hazmat trucks lose
 15 minutes to a published detour rule — three true, different answers the regional
 number hides. A deterministic search already proves the architecture works, finding the
-exhaustive-audit top bundle of 129 with no AI; Nemotron is wired in as a search policy
-over that identical simulator, with an adversarial critic that picks a stress test from a
-closed set to break the runner-up, verified live against the real Token Factory API
-today.
+exhaustive-audit top bundle of 129 with no AI; Nemotron turns an open-ended goal into
+that same checked search — the one job brute force can't do — with a critic that adds a
+second check, picking a stress test from a closed set to try to break the runner-up,
+verified live against the real Token Factory API today.
 
 ---
 
@@ -89,11 +89,13 @@ verify.
 ### What it does, and the idea behind it
 
 The non-obvious part isn't "the model never outputs a number" — that's a constraint.
-The idea is the adversarial critic: Nemotron picks one stress test from a closed,
-enumerable set (close a tunnel, shift the time of day) specifically to break the
-leaderboard the planner just proposed, and the simulator is forced to re-score every
-leader under that exact stress. The model can't game its way to a good-looking bundle,
-because the thing attacking its bundle is also deterministic and auditable.
+The idea is that Nemotron's job is the one piece a brute-force search genuinely can't
+do: turning an open-ended, plain-language goal into the structured mission the search
+runs on. A second model, the critic, adds a check on top: it picks one stress test from
+a closed, enumerable set (close a tunnel, shift the time of day) specifically to break
+the leaderboard the planner just proposed, and the simulator is forced to re-score
+every leader under that exact stress. The model can't game its way to a good-looking
+bundle, because the thing attacking its bundle is also deterministic and auditable.
 
 That idea is checkable without AI in the loop at all, and we checked it: a deterministic
 two-stage search — screen every eligible bundle once, then paired stress futures on the
@@ -175,8 +177,9 @@ mitigation matter?":
   is a pick from eight fixed rationale kinds the application renders as a sentence.
 - **Verifying a real API against a plan built entirely from public docs.** Every model
   ID we guessed from documentation in September resolved correctly on the first live
-  `/models` call — a good sign, but it tells us the plumbing works, not that a full
-  mission does yet.
+  `/models` call, and ten real missions through the app's own routes then confirmed the
+  rest of the plumbing — the validator, the catalog-only constraint, the fallback path —
+  holds against a real model's real mistakes, not just the fake-provider tests.
 - **Tone.** This is built on a real loss. The bridge appears only as a removed link;
   nothing is animated; no one is named.
 
@@ -186,8 +189,9 @@ mitigation matter?":
 - A search architecture where the exhaustive audit — no AI, rank 1 of 129 — is also the
   proof that the AI search policy sitting on top of it has nothing to hide behind.
 - A real Token Factory account, verified live at the API level (model resolution,
-  structured output, streaming) six days before the deadline, with an honest account of
-  what's left: production wiring and one real mission.
+  structured output, streaming) six days before the deadline, with ten real missions
+  run through the app's own routes and an honest account of what's left: wiring that
+  same key into the deployed site's production environment.
 - A public demo with zero server compute cost for its core simulation.
 
 ### What we learned
@@ -268,13 +272,15 @@ Census Bureau ACS, TIGER/Line and LEHD LODES, Maryland iMAP.
 
 WorldSeed is a complete application, not a demo of a model: a real dataset, a
 simulator, a designed interface and a public deployment that needs no login. It's also
-an agent with an unusual constraint: a planner model searches a space of options, a
-simulator it cannot bypass scores every option across many futures, and an adversarial
-critic picks the stress test designed to break the leaders — all three steps already
-proven, without AI, by a deterministic search whose top pick audits out at rank 1 of
-129. Nemotron is wired on top of that exact architecture, verified live against the
-real Token Factory API, with production wiring and one end-to-end mission landing before
-judging.
+an agent with an unusual constraint: a planner model turns an open-ended goal into a
+structured search of options — the one job a brute-force search genuinely can't do — a
+simulator it cannot bypass scores every option across many futures, and a critic adds a
+second check, picking the stress test designed to break the leaders. The search itself
+is also provably correct without AI: a deterministic version of it already audits out
+at rank 1 of 129. Nemotron is wired on top of that exact architecture, verified live
+against the real Token Factory API, with ten real missions already run through the
+app's own routes; wiring that same key into the deployed site's production environment
+is what's left before judging.
 
 ## Disclaimer to keep at the end of the description
 
