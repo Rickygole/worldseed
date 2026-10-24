@@ -65,8 +65,8 @@ describe("the before ghost: the number on the terrain", () => {
   it("prints honest minutes: one decimal, before and after in plain words, no rounding up of a small change", () => {
     expect(fmtAddedShort(4.92)).toBe("+4.9");
     expect(fmtAddedShort(-0.2)).toBe("+0.0");
-    expect(ghostLabelText(4.92, 4.41, "EDGEMERE")).toBe("EDGEMERE  WAS +4.9, NOW +4.4 MIN");
-    expect(ghostLabelText(0, 3.4, null)).toBe("+3.4 MIN");
+    expect(ghostLabelText(4.92, 4.41, "EDGEMERE")).toBe("EDGEMERE  WORST: WAS +4.9, NOW +4.4 MIN");
+    expect(ghostLabelText(0, 3.4, null)).toBe("WORST: +3.4 MIN");
     expect(ghostLabelText(0, 3.4, "SPARROWS POINT")).not.toMatch(/→/);
   });
 });

@@ -100,12 +100,15 @@ two-stage search — screen every eligible bundle once, then paired stress futur
 top 12 — finds the rank-1 bundle out of all 129 eligible combinations in the exhaustive
 audit (`frontend/lib/agent/exhaustive.ts`). That isn't evidence the AI is unnecessary;
 it's the provably-correct baseline the AI is checked against, which is what makes it
-safe to demo in the first place. Nemotron's actual job starts upstream of ranking
-bundles: turning an open-ended, plain-language goal into the structured mission that
-search runs on — not something a catalog of 129 combinations can brute-force, because
-there's no catalog of English sentences to enumerate — and then its critic plays
-adversary, choosing the one stress test most likely to break the leading bundle, which
-the simulator has to survive. As of 2026-10-24 the real Nebius Token Factory API is live
+safe to demo in the first place. Nemotron's real job, the one piece exhaustive search
+genuinely can't do, starts upstream of ranking bundles: turning an open-ended,
+plain-language goal into the structured mission that search runs on — there's no
+catalog of English sentences to enumerate. The critic adds a smaller, second check on
+top: it picks one stress test from the same closed set the deterministic critic also
+checks, specifically to try to break the leading bundle, so nothing survives on an
+untested assumption. Neither role claims to out-rank brute force at its own game — the
+planner's job is one brute force can't attempt at all, the critic's is making sure the
+winner was actually tested. As of 2026-10-24 the real Nebius Token Factory API is live
 and verified: `GET /v1/models` resolves all four role model IDs, structured
 `json_schema` output and streaming both work on both models used, and a real
 end-to-end mission through the app's own routes (parse → plan → critique → finalize)
@@ -127,7 +130,9 @@ mitigation matter?":
   region's job centers.
 - **Cross-harbor access broke, locally.** About 20,000 residents on the peninsula lose
   more than 10% of the jobs across the harbor; the eight hardest-hit block groups lose
-  27-77%.
+  27-77%; about 4,900 lose more than half. For scale, losing the Harbor Tunnel instead
+  would hit 3.2x more people at the 10% threshold — the bridge is the more concentrated
+  cut, not the biggest one.
 - **Hazmat trucks lose the most minutes.** Vehicles carrying MDTA-listed hazardous
   materials are barred from both harbor tunnels; with the bridge gone, they detour the
   western I-695 arc — about 15 minutes added on average against about 6 for a car,
@@ -197,9 +202,9 @@ mitigation matter?":
 
 ### What's next
 
-- Finish Upstash-backed shared rate limiting, flip the key live in production, run the
-  first real end-to-end mission (parse → plan → critique → finalize), and record it in
-  `docs/FEEDBACK_NOTES.md`.
+- Finish Upstash-backed shared rate limiting, flip the key live in production, and
+  repeat the real end-to-end mission (parse → plan → critique → finalize) against the
+  deployed site — already run and recorded locally in `docs/FEEDBACK_NOTES.md`.
 - Screen other crossings; the pipeline is already bounding-box configurable.
 - Compare model output quantitatively to published post-collapse observations.
 
@@ -228,14 +233,17 @@ documentation back in September — `nvidia/Nemotron-3-Ultra-550b-a55b` for
 planner/critic, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` for parser/extractor — with no
 change needed. Structured `json_schema` output and streaming both work on both models,
 confirmed by real calls against the live API (latency, token counts and sample sizes in
-`docs/FEEDBACK_NOTES.md`). What hasn't happened: the key isn't yet wired into the
+`docs/FEEDBACK_NOTES.md`). A full mission has also run end to end through the app's own
+routes (parse → plan → critique → finalize), locally: 30 provider-backed calls across 10
+synthetic missions, 90% valid on the first turn, and 3 clean falls-back to the
+deterministic critic on the rest. What hasn't happened: the key isn't yet wired into the
 deployed site's production environment — that's waiting on one Upstash-backed shared
 rate-limit store, so a single script can't drain the shared AI budget across serverless
-instances — and no full mission has run end to end through the app's own routes, live or
-local. Both are in progress and expected to land before the deadline. Until they do, the
-deployed demo reports the AI planner as unavailable and runs the deterministic two-stage
-search, labeled "not AI," which needs no key and whose top pick already ranks first of
-129 in the exhaustive audit.
+instances — so the local mission above hasn't yet been repeated against the live site.
+That's in progress and expected to land before the deadline. Until it does, the deployed
+demo reports the AI planner as unavailable and runs the deterministic two-stage search,
+labeled "not AI," which needs no key and whose top pick already ranks first of 129 in
+the exhaustive audit.
 
 **Model licenses, by role.** Nemotron 3 Nano and Nemotron 3 Super: NVIDIA Nemotron Open
 Model License (last modified 2025-12-15). Nemotron 3 Ultra and Nemotron 3.5 Lightning:
@@ -302,10 +310,10 @@ OpenStreetMap Foundation. In an emergency, call 911.
   (36th percentile) and high on concentrated harm to a few people (92nd percentile for
   share losing more than 25% of cross-harbor jobs). We call it a concentrated
   cross-harbor bottleneck, not the most important road in the region.
-- **The AI planner's live, in-app mission hasn't run yet.** The Token Factory API is
-  verified live at the connectivity level (model resolution, structured output,
-  streaming); the first real parse → plan → critique → finalize mission, and production
-  wiring on the deployed site, land before judging — tracked in `docs/STATUS.md`.
+- **The AI planner hasn't run on the deployed site yet.** A full parse → plan → critique
+  → finalize mission has run for real, locally, against the live Token Factory API (30
+  calls, 90% valid first turn); production wiring on the deployed site — pending Upstash
+  — lands before judging, tracked in `docs/STATUS.md`.
 - **Not validated against observed post-collapse traffic**, beyond the one reported
   commute above.
 - One bridge, one region, one historical snapshot: this is a screening tool, not a

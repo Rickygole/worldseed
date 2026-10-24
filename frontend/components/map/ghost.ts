@@ -89,10 +89,13 @@ export function fmtAddedShort(min: number): string {
 }
 
 /**
- * The on-terrain label at the peak: "EDGEMERE  WAS +4.9, NOW +4.4 MIN", or "+3.4 MIN" when the old value was
- * nothing. Plain words, not an arrow: the self-hosted label font is a Latin subset.
+ * The on-terrain label at the peak: "EDGEMERE  WORST: WAS +4.9, NOW +4.4 MIN", or "WORST: +3.4 MIN" when the
+ * old value was nothing. "WORST" disambiguates this from the card's region-wide average in the same scene
+ * (for example "about 3 seconds"): this label is the single hardest-hit hex, not the region, and the two
+ * numbers are meant to look nothing alike. Plain words, not an arrow: the self-hosted label font is a Latin
+ * subset.
  */
 export function ghostLabelText(before: number, after: number, place: string | null): string {
-  const value = before < 0.05 ? `${fmtAddedShort(after)} MIN` : `WAS ${fmtAddedShort(before)}, NOW ${fmtAddedShort(after)} MIN`;
+  const value = before < 0.05 ? `WORST: ${fmtAddedShort(after)} MIN` : `WORST: WAS ${fmtAddedShort(before)}, NOW ${fmtAddedShort(after)} MIN`;
   return place ? `${place}  ${value}` : value;
 }

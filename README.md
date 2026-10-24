@@ -245,12 +245,16 @@ are reproducible.
 bundle confirms the deterministic search's own pick already ranks first. That is not
 an argument against the AI planner; it is the reason the AI planner is safe to demo at
 all: its output is checked against a provably-correct baseline instead of being taken
-on faith. The planner's real job is upstream of ranking bundles — turning an
-open-ended, plain-language goal (something exhaustive search cannot do; there is no
-catalog of English sentences to enumerate) into the structured mission that search runs
-against — and the critic's job is adversarial, not just "pick a good one": it chooses
-the single stress test most likely to break the leading bundle, which the simulator
-then has to survive. A planner that could only re-derive the brute-force answer would
+on faith. The planner's real job, and the one piece of this that exhaustive search
+genuinely cannot do, is upstream of ranking bundles — turning an open-ended,
+plain-language goal (there is no catalog of English sentences to enumerate) into the
+structured mission that search runs against. The critic adds a second, smaller check:
+it doesn't just pick a good bundle, it chooses one stress test from the same closed set
+the deterministic critic also checks, specifically to try to break the leader, so a
+bundle that only looks strong under easy conditions doesn't survive unexamined. Neither
+role is claimed to beat brute force at its own game; the planner's job is one brute
+force can't attempt at all, and the critic's job is making sure nothing slips through on
+an untested assumption. A planner that could only re-derive the brute-force answer would
 be pointless; one that is checked against it, every time, is the actual design.
 
 **The guardrails that make this safe to demo:**
