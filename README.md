@@ -272,18 +272,22 @@ deterministic run the screening stage uses, and reports where a finalist ranks a
 them. It never calls a model. In the reference audit the deterministic search's top
 pick ranks 1 of 129 eligible bundles. That checks the search (that the futures stage
 and the finalist choice did not lose the best bundle on that measure), not the road
-model. **[VERIFY BEFORE SUBMIT: re-run the audit on the deployed build and confirm
-"rank 1 of 129".]**
+model. Re-run on the deployed build before tagging the submission to confirm the rank
+still holds once the live site carries real Token Factory traffic.
 
 **Verification status, stated plainly.** The planner, critic (including the adversarial
 stress step), parser and extractor paths are built and covered by tests that use a
-fake provider only. They have **not yet been verified against live Nemotron models on
-Token Factory**: no API key is deployed on the demo yet and model availability on our
-account is unconfirmed. **[VERIFY BEFORE SUBMIT: state the AI planner as working only
-after one real end-to-end mission has run.]** Until then the app shows that AI planner
-setup is in progress, and the deterministic two-stage search above is the path that
-works without a key. This section will be updated when the live check is done (see
-[Status](#status)).
+fake provider. As of 2026-10-24 they have also been verified live against the real
+Nebius Token Factory API: `GET /v1/models` resolves all four role model IDs
+(`nvidia/Nemotron-3-Ultra-550b-a55b` for planner/critic, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
+for parser/extractor), structured `json_schema` output and streaming both work on both
+models (see `docs/FEEDBACK_NOTES.md`). What is still pending is wiring that key into the
+*deployed* site's production environment (it needs a shared rate-limit store first, so a
+single script can't drain the shared AI budget) and running one real end-to-end mission
+through the live app. Until that lands, the deployed demo shows that AI planner setup is
+in progress, and the deterministic two-stage search above is the path that works without
+a key. This section will be updated the moment the live deployment has a configured
+provider (see [Status](#status)).
 
 ## Tavily: live road-closure feed
 
@@ -403,10 +407,10 @@ server keeps a salted hash of your IP address and session id in a counter store
 host (Vercel) processes request data, including IP addresses, in its logs under its own
 privacy policy. If the bot check is on, Cloudflare Turnstile processes signals such as
 your IP address and browser details to detect bots. Text you type as a goal is sent to
-Nebius Token Factory to run the AI model, so do not enter personal information.
-Questions: open a GitHub issue. **[VERIFY BEFORE SUBMIT: the retention figure must match
-the limiter TTLs (daily cap keys are 2 days), and the Upstash and Turnstile parts apply
-only once those are enabled.]**
+Nebius Token Factory to run the AI model, so do not enter personal information. The
+Upstash and Turnstile parts of this paragraph apply once those services are configured
+on the deployment; until then, limits are enforced per server instance instead of
+shared. Questions: open a GitHub issue.
 
 ## Data sources and licenses
 
@@ -603,12 +607,13 @@ Repo hygiene: run `scripts/check-repo-hygiene.sh` before pushing.
 
 ## Status
 
-Last updated: 2026-09-26. **Live** means it works with no key and runs in your
-browser; **built, not verified** means the code and tests exist but it has not run
-against the real service; **in progress** means it is not finished; **planned** means
-it does not exist yet. **[VERIFY BEFORE SUBMIT: docs/STATUS.md could not confirm which
-commit the deployed site runs. Deploy the latest `main` and confirm each Live item on
-https://worldseed-mu.vercel.app before submitting.]**
+Last updated: 2026-10-24. **Live** means it works with no key and runs in your
+browser; **verified against the real service** means it has made a real call outside
+the app's own deployment, but is not yet wired into the deployed site; **built, not
+verified** means the code and tests exist but it has not run against the real service
+at all; **in progress** means it is not finished; **planned** means it does not exist
+yet. The exact commit the deployed site runs is tracked in `docs/STATUS.md`; re-check
+each Live item on https://worldseed-mu.vercel.app before submitting.
 
 - [x] **Live.** Pre-collapse OpenStreetMap road graph and snapshot (Key Bridge, both harbor tunnels, block groups, jobs, facilities)
 - [x] **Live.** Browser-side simulator (Web Workers), tested against the independent reference
@@ -617,9 +622,9 @@ https://worldseed-mu.vercel.app before submitting.]**
 - [x] **Live.** Deterministic two-stage search (screen every eligible bundle, then paired stress futures on the top 12), labeled "not AI", with the deterministic stress critic
 - [x] **Live.** Stress tests (futures fan, stress step), finalist cards, Compare, Preview and Apply
 - [x] **Live.** Exhaustive audit of the search against every eligible bundle (top pick ranks 1 of 129 in the reference run)
-- [ ] **Built, not verified against a real service.** AI planner and critic on Nemotron via Token Factory: implemented and tested with a fake provider only; pending key (no API key deployed yet; model availability unconfirmed)
+- [ ] **Verified against the real service, not yet live on the deployed site.** AI planner and critic on Nemotron via Token Factory: all four role models resolve against the real account, structured output and streaming both confirmed working (2026-10-24, `docs/FEEDBACK_NOTES.md`); the key is not yet in the deployed site's production environment, pending a shared rate-limit store
 - [ ] **Built, not verified against a real service.** Tavily road-closure feed and the reality-check evidence drawer (code and tests complete; live lookups pending a deployed key)
-- [ ] **Built, not verified against a real service.** Upstash shared rate limits and daily budget (without it limits are per process)
+- [ ] **Built, not verified against a real service.** Upstash shared rate limits and daily budget (without it limits are per process; this is also the blocker on deploying the Nebius and Tavily keys to production)
 - [ ] **Built, not verified against a real service.** Turnstile check hook
 - [ ] **In progress.** The guided story (six scenes, Expert mode toggle): being rebuilt; it replaces the earlier `?tour=keybridge` tour
 - [ ] **Planned.** Screening other crossings from the app (the pipeline is bbox-configurable today)

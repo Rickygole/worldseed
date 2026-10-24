@@ -132,10 +132,10 @@ with versions as pinned in `frontend/package-lock.json` at generation time:
 | JetBrains Mono | Monospace font | SIL OFL 1.1 | Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) |
 | Space Grotesk | Display font for numbers and headlines | SIL OFL 1.1 | Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk) |
 
-Font notes: both are loaded with `next/font/google` (`frontend/app/layout.tsx`), which downloads them at build time and serves them
-from the app's own origin. The copyright lines above were read from the Google Fonts repository copies of `OFL.txt` on
-2026-09-26 (the upstream Inter repository states 2016 in its own copy). The OFL text is reproduced in `THIRD_PARTY_LICENSES.md`.
-Space Grotesk, listed in earlier drafts, is not used anywhere in `frontend/` and has been removed from this list.
+Font notes: all three are loaded with `next/font/google` (`frontend/app/layout.tsx`), which downloads them at build time and
+serves them from the app's own origin. The copyright lines above were read from the Google Fonts repository copies of
+`OFL.txt` on 2026-09-26 (the upstream Inter repository states 2016 in its own copy). The OFL text is reproduced in
+`THIRD_PARTY_LICENSES.md`.
 
 Items in `THIRD_PARTY_LICENSES.md` under "Needs a human look" (LGPL `sharp-libvips` optional packages, MPL-2.0 dev tools,
 CC-BY-4.0 `caniuse-lite`, Python packages that ship GPL/LGPL text) are open until reviewed.

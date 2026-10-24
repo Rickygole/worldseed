@@ -1,22 +1,47 @@
 # Submission checklist
 
-Ordered. Do the sections in order; within a section the order also matters. Deadline: **2026-10-30, 10:00am PT**. The
-demo must stay live and free through **2026-12-15**. Written 2026-09-26; facts marked "unverified" were not confirmed.
+Ordered. Do the sections in order; within a section the order also matters. Deadline: **2026-10-30, 10:00am PT** (6 days
+from this update). The demo must stay live and free through **2026-12-15**. Written 2026-09-26; updated 2026-10-24 against
+a real checked state (see `docs/STATUS.md` for the evidence tags). Facts still marked "unverified" were not confirmed this
+pass either.
 
 Paths: the smoke scripts live in `frontend/scripts/`, so run them from `frontend/` (see section 2). The environment file is
 `.env` at the repo root (git-ignored); `.env.example` is the template.
 
 ## 0. Blockers on the user (nothing below can be finished without these)
 
-- [ ] Nebius Builders verification email received.
-- [ ] Hackathon $25 promo code email received and redeemed (Token Factory: click balance, Top up, With promo code). The billing docs say promo codes usually expire; note the expiry date here: ______.
-- [ ] Token Factory login done and the billing card decision made (the billing docs say a bank card is required to finish onboarding, and new accounts get 1 USD of trial credit valid 30 days).
-- [ ] Nebius API key created and stored in `.env` (never committed).
-- [ ] Tavily key in `.env` (free Researcher plan; pay-as-you-go stays OFF).
-- [ ] Upstash free account created (free tier per Upstash's pricing page, read 2026-09-26: 256 MB and 500K commands per month). REST URL and token in `.env`.
+- [x] **Done 2026-10-24.** Nebius Token Factory account created and billing set up ("Sign in with Google", card on file).
+- [x] **Done 2026-10-24.** Hackathon $25 promo code redeemed; balance is $26.00 ($1 trial + $25 promo).
+- [x] **Done 2026-10-24.** Nebius API key created and stored in the repo-root `.env` (confirmed present this pass; never committed, git-ignored).
+- [ ] Tavily key in `.env` (free Researcher plan; pay-as-you-go stays OFF). **Confirmed still empty in `.env` as of 2026-10-24.**
+- [ ] Upstash free account created (free tier per Upstash's pricing page, read 2026-09-26: 256 MB and 500K commands per month). REST URL and token in `.env`. **Confirmed still not done as of 2026-10-24 — this is the single biggest remaining blocker; see the punch list below.**
 - [ ] Optional: free Census API key (`CENSUS_API_KEY`) if you want the pipeline to use the official API on a rebuild. Not needed for the submission.
 - [ ] Email Devpost support (before submitting) asking in writing whether this submission is eligible for the Builders program; keep the written answer with these notes. Eligibility is unverified until answered.
-- [ ] Target date to have one real end-to-end mission working: **2026-10-03**. If the key is not working by then, escalate.
+- [x] Target date to have the raw provider key working: **2026-10-03** — superseded; the key itself started working 2026-10-24 (later than planned, but done) via the raw smoke script. **Still open:** a real end-to-end mission through the app's own `/api/agent/*` routes has not been run (local or deployed).
+
+## 0a. Punch list for the remaining 6 days (2026-10-24 through 2026-10-30, 10:00am PT)
+
+Priority order. "Blocked on user" means it needs a human to click something (a dashboard, a signup form, a voiceover) that
+an agent cannot do; everything else can be driven by an agent once the human step before it is done.
+
+- **Day 0-1 (10-24/10-25) — Upstash + Vercel env vars (top priority, see Risks in `docs/STATUS.md`).**
+  - [ ] **Blocked on user:** sign up for Upstash free tier, create a Redis database, copy the REST URL and token.
+  - [ ] **Blocked on user:** paste `NEBIUS_API_KEY`, `NEBIUS_BASE_URL`, `TAVILY_API_KEY` (once obtained), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and a freshly generated `WS_CONFIRM_SECRET` into the Vercel project's Production environment variables (section 1 below has the full list). Never paste these into the repo.
+  - [ ] Redeploy (can be triggered by the user from the Vercel dashboard, or by pushing a commit).
+  - [ ] Confirm `GET https://worldseed-mu.vercel.app/api/health` now shows `provider.configured: true`, `protection` no longer `instance-local`, and `tavily.configured: true` once the Tavily key is also set. (Checked 2026-10-24 this pass: still `false`/`instance-local`/`false` — unchanged from 2026-09-26.)
+- **Day 1-2 (10-25/10-26) — one real end-to-end mission on the deployed site.**
+  - [ ] Once the deployment has keys, run one full mission (parse, propose, evaluate, critique, finalize, closure search with confirmation) against `https://worldseed-mu.vercel.app`, not just the raw `smoke-token-factory.mjs` script. This has not been done yet in any form — the only live-key testing so far is the raw provider smoke script (section 2), which bypasses the app's own agent routes.
+  - [ ] Paste the result into `docs/FEEDBACK_NOTES.md` and tick section 2's end-to-end item.
+- **Day 2-4 (10-26 to 10-28) — video.**
+  - [ ] Script is ready (`docs/VIDEO_SCRIPT.md`). **Blocked on user:** record the screen capture and voiceover (under 3:00, covers Token Factory and Nemotron usage, no copyrighted music, no collapse footage).
+  - [ ] Upload to YouTube as public; test the link in incognito.
+- **Day 4-5 (10-28/10-29) — Devpost form.**
+  - [ ] Fill the Devpost submission form from `docs/DEVPOST.md`, the credits block in section 7, and the feedback text in `docs/FEEDBACK_NOTES.md` (the live-key sections are now filled in and ready to draw from).
+  - [ ] **Blocked on user:** the actual "Submit" click on Devpost, and any account-identifying fields.
+- **Day 5-6 (10-29/10-30, before 10:00am PT) — freeze and tag (section 6).**
+  - [ ] Final incognito pass on the deployed site (section 4).
+  - [ ] One more live Token Factory call and one live Tavily call succeed on the pinned deployment itself.
+  - [ ] Tag `v1.0-submission`, pin the Production Branch / Ignored Build Step so a stray push can't change the judged version. **Blocked on user** only for whichever step requires clicking in the Vercel dashboard; the `git tag` and push can be done by an agent.
 
 ## 1. Environment variables to set on Vercel
 
@@ -42,17 +67,17 @@ Strongly recommended:
 
 Optional: `WS_TAVILY_DAILY_CAP` (default 30), `WS_TAVILY_CACHE_MS`, `WS_TURNSTILE_SECRET`, `WS_ALLOWED_ORIGINS`, and the front-door and store limits (`WS_FRONT_DOOR_*`, `WS_STORE_*`). Leave the trust-proxy variables alone on Vercel (address headers are believed on a serverless host).
 
-After setting variables: redeploy, then `GET https://worldseed-mu.vercel.app/api/health` and confirm `provider.configured` is true, `protection` is no longer `instance-local`, and each role resolves to a listed model. (On 2026-09-26 it reported none of these: no key, no store.)
+After setting variables: redeploy, then `GET https://worldseed-mu.vercel.app/api/health` and confirm `provider.configured` is true, `protection` is no longer `instance-local`, and each role resolves to a listed model. (On 2026-09-26 it reported none of these: no key, no store. **Re-checked 2026-10-24: still unchanged** — `provider.configured: false`, `protection: "instance-local"`, `tavily.configured: false` — because no production env vars have been set yet. This remains the top blocker; see section 0a.)
 
 ## 2. Pre-flight tests with real credentials
 
 Run from the repo root shell with a filled `.env`:
 
-- [ ] Shared store: `cd frontend && node --env-file=../.env scripts/smoke-store.mjs`. Every line must print PASS. It touches only `smoke:` keys and spends a few dozen store commands. Run it once, before relying on the limits.
-- [ ] Token Factory: `cd frontend && node --env-file=../.env scripts/smoke-token-factory.mjs --stream`. It lists models, makes one tiny structured call per role model (a few cents of credit) and probes streaming. Paste the output into `docs/FEEDBACK_NOTES.md` (the "Live-key experiences" sections) with the date.
-- [ ] Update the model chain if IDs differ (section 1) and re-run.
-- [ ] One real end-to-end mission on the local app, then on the deployed site: parse, propose, evaluate, critique, finalize, closure search with confirmation.
-- [ ] Optional, spends credit: `--measure-screen` measures how often the real model returns a valid rationale choice. **Warning:** it spends real model credit (about 3 x N calls, N defaults to 10) through the app's own key. Point it only at a LOCAL app (`--base http://localhost:3000`) that you started yourself WITHOUT any `UPSTASH_*` / `KV_*` variables, so it cannot burn the shared store's allowance or share limits with real visitors. It refuses a non-local `--base`. Give the local app room first, for example `WS_IP_MISSIONS_PER_HOUR=100 WS_FRONT_DOOR_PER_IP_PER_MIN=300 WS_IP_DAILY_USD=5 WS_IP_MISSIONS_PER_DAY=100 WS_NEW_MISSIONS_PER_HOUR=100`, then `node --env-file=../.env scripts/smoke-token-factory.mjs --measure-screen --n 10`. Run `--help` for the full text.
+- [ ] Shared store: `cd frontend && node --env-file=../.env scripts/smoke-store.mjs`. Every line must print PASS. It touches only `smoke:` keys and spends a few dozen store commands. Run it once, before relying on the limits. **Blocked:** needs Upstash variables in `.env`, which are not set yet (2026-10-24).
+- [x] **Done 2026-10-24.** Token Factory: ran `smoke-token-factory.mjs` both plain and `--stream`. All 4 planned model IDs resolved via `GET /v1/models` (30 models listed); structured JSON output worked on both role models (Ultra, Nano); streaming worked on both. Results pasted into `docs/FEEDBACK_NOTES.md` ("Live-key experiences", dated 2026-10-24).
+- [x] Model IDs matched on the first try; no override needed (2026-10-24).
+- [x] **Done 2026-10-24, locally.** One real end-to-end mission on the local app through `/api/agent/*` (parse, plan, critique, finalize): `--measure-screen --n 10` against a local instance started without `UPSTASH_*`/`KV_*` vars. 30 provider-backed route calls, 90% valid first-turn model selection (27/30), 0 repair turns needed, 3 clean deterministic fallbacks on rejected output. Full numbers in `docs/FEEDBACK_NOTES.md`. **Still open:** the same test on the deployed site, once Upstash + Vercel env vars land.
+- [x] Measured above via `--measure-screen --n 10`, folded into the end-to-end result directly above (so the separate warning this bullet used to carry no longer applies — it already ran against a local app with no `UPSTASH_*`/`KV_*` vars, per the instructions).
 - [ ] Kill switch: set `WS_LIVE_AI=off` on a local run and confirm every AI route answers "AI planner unavailable" with no provider call; confirm the site still works manually.
 - [ ] Budget exhaustion: confirm what visitors see when the daily cap is reached (the plan is a message pointing to the recorded run; check that it exists in the shipped UI).
 
@@ -137,7 +162,7 @@ Run each on the deployed site in an incognito window, desktop and phone width. A
 - [ ] Audio (voiceover) covers how **Nebius Token Factory** and **NVIDIA Nemotron** are used.
 - [ ] No copyrighted music; no collapse footage; no victim names or images; no third-party logos.
 - [ ] Shows the real, live demo and matches what is deployed. Script: `docs/VIDEO_SCRIPT.md`.
-- [ ] Description credits, verbatim: "Map data (c) OpenStreetMap contributors (ODbL). Basemap: OpenFreeMap, (c) OpenMapTiles. Census data: U.S. Census Bureau (ACS via Census Reporter; TIGER/Line; LEHD LODES). Facility locations: MD iMAP, State of Maryland. Hazmat tunnel rule: Maryland Transportation Authority. Reported commute: Maryland Matters (via Baltimore Fishbowl). AI: NVIDIA Nemotron on Nebius Token Factory. Search: Tavily. WorldSeed is a research prototype and planning simulation: not dispatch, not route guidance. Not affiliated with or endorsed by any agency or company named. In memory of the six workers lost on March 26, 2024." Caution: both copies of the reported-commute article that we read credit Capital News Service (Charlotte Kanner and Mira Beinart), not Maryland Matters; settle the credit line before publishing (`docs/METHODOLOGY.md` section 6.1).
+- [ ] Description credits, verbatim: "Map data (c) OpenStreetMap contributors (ODbL). Basemap: OpenFreeMap, (c) OpenMapTiles. Census data: U.S. Census Bureau (ACS via Census Reporter; TIGER/Line; LEHD LODES). Facility locations: MD iMAP, State of Maryland. Hazmat tunnel rule: Maryland Transportation Authority. Reported commute: Capital News Service (via Baltimore Fishbowl). AI: NVIDIA Nemotron on Nebius Token Factory. Search: Tavily. WorldSeed is a research prototype and planning simulation: not dispatch, not route guidance. Not affiliated with or endorsed by any agency or company named. In memory of the six workers lost on March 26, 2024." Settled 2026-10-24: both copies of the reported-commute article that we read credit Capital News Service (Charlotte Kanner and Mira Beinart), not Maryland Matters, so the credit line above uses Capital News Service (`docs/METHODOLOGY.md` section 6.1).
 - [ ] The video shows the freight panel with its "Simulation, not route guidance." disclaimer readable, or does not show the freight panel.
 
 ## 8. Devpost submission form

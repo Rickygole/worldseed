@@ -192,44 +192,36 @@ feasibility spike (`spikes/SPIKE_REPORT.md`, which also read pages only) and are
 Fill each section only with what actually happens. `frontend/scripts/smoke-token-factory.mjs` prints output meant to be pasted here. Date each entry.
 
 ### Model availability on our key
-Which IDs `GET /v1/models` lists, and whether our four IDs resolve.
-
-(empty)
+2026-10-24. `GET /v1/models` on `api.tokenfactory.nebius.com` lists 30 models. All four IDs the architecture doc guessed back on 2026-09-26, purely from public docs with no key, resolved exactly as written, with no change needed:
+- `nvidia/Nemotron-3-Ultra-550b-a55b` (planner, critic)
+- `nvidia/nemotron-3-super-120b-a12b` (critic fallback)
+- `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` (parser, extractor)
+- `nvidia/Nemotron-3_5-Lightning` (parser/extractor fallback)
+The account also lists `nvidia/Nemotron-3.5-Super-VL`, a vision-language model not in our registry; not evaluated.
 
 ### Latency
-Time to first token and total time per role, for a typical mission call, measured in our own app.
-
-(empty)
+2026-10-24, via `smoke-token-factory.mjs` (one structured call per role model, non-streaming): Ultra 614 ms (run 1) / 383 ms (run 2, streamed); Nano 2048 ms (run 1) / 1050 ms (run 2, streamed). Not yet measured inside the real app's agent routes (reserve/settle overhead, network from Vercel) or for a full multi-call mission.
 
 ### JSON-schema (`response_format`) output support
-Per model: accepted, ignored, or rejected; how often output validated first time; repair-turn rate.
-
-(empty)
+2026-10-24. Both role models accepted `response_format: json_schema` and returned valid, schema-conforming JSON on the first call, no repair turn needed, in all four calls run (2 models x 2 runs). Sample size is tiny (1 call per model per run); repair-turn rate under real traffic is still unmeasured.
 
 ### Streaming
-Whether `stream: true` works with structured output, and event behavior.
-
-(empty)
+2026-10-24. `stream: true` works with structured output on both models: Ultra returned 1 content chunk, Nano returned 3 content chunks, both still valid JSON once reassembled. No malformed-stream or truncation issues observed.
 
 ### Reasoning-token behavior
-Whether reasoning tokens appear in output or usage, and whether there is a request parameter to turn reasoning on or off (none is sent today because none has been verified).
-
-(empty)
+Not yet observed: the smoke calls were small (43 input tokens) and fast, with no visible reasoning preamble in the output or usage fields. Unconfirmed whether a request parameter exists to toggle reasoning; none is sent today.
 
 ### Real usage numbers
-Tokens in and out per mission, dollars per mission, and the balance drop as seen in the console.
-
-(empty)
+2026-10-24, 4 calls total: Ultra 43 in / 50 out, Ultra 43 in / 50 out (streamed), Nano 43 in / 79 out, Nano 43 in / 63 out (streamed). At the account's listed $1/$3 per million tokens (Ultra) and presumed similar order for Nano, each call cost well under a tenth of a cent. Account balance after top-up: $1.00 trial + $25.00 promo code = $26.00 available. Not yet measured: tokens/dollars for a real multi-step mission (parse + plan + critique + finalize).
 
 ### Rate limits and errors seen
-Real limits from the account page and headers; exact error messages and status codes.
+None seen yet: all 4 initial smoke calls, and all 30 of the real-mission provider calls below, succeeded with no 429s or error statuses. Real account rate-limit headers not yet inspected.
 
-(empty)
+### Real end-to-end mission, through the app's own agent routes (not just the raw provider)
+2026-10-24, `scripts/smoke-token-factory.mjs --measure-screen --n 10` against a local instance of the actual app (`/api/agent/*` routes: parse, plan, critique, finalize), with real credit: 10 synthetic missions, 30 provider-backed route calls total. 27 of 30 returned a valid model selection on the first turn (90% valid selection rate; the one built-in repair turn was never needed here — 0 repairs). 3 of 30 produced an invalid/out-of-catalog model selection and the validator correctly rejected it, falling back to the deterministic critic running the stress test instead — proof the safety architecture (model can only select IDs from a precomputed catalog; anything else is discarded) works against a real model's real failure modes, not just a fake provider in tests. Rationale-kind distribution across the 10 missions: `mix_of_types` x10, `spread_mechanisms` x9, `cheap_first` x5, `worst_case` x3, plus 3 missions where the critic's chosen stress test was a specific closed-set scenario (`stress:close_link:L-HARBORTUNNEL` x4, `stress:combined:L-HARBORTUNNEL:pm` x2, `stress:combined:L-HARBORTUNNEL:am` x1). No model output ever reached a displayed number; the only free text a model can add is the optional, screened "reasoning" aside shown collapsed in the decision log.
 
 ### Onboarding as experienced
-Whether the card was required, how long each step took, when the promo code arrived.
-
-(empty)
+2026-10-23 to 2026-10-24. A Token Factory account was created via "Sign in with Google" with no password step. Completing billing details (required before any API use) demanded a credit/debit card; the promo-code email itself explains this in advance ("a $0 verification charge... no other charges will apply"). The first card tried gave a generic Stripe error ("We are unable to authenticate your payment method"); a different, non-virtual card succeeded. The $25 promo code (`...global AI hackathon` code, requested via the Resources-tab form on 2026-09-29) was emailed within minutes of submitting the form, but the email landed in Gmail's Promotions tab and sat unread/unnoticed for 25 days; the "Welcome to Nebius Token Factory" account-activation email, sent separately once billing succeeded, landed in the main Updates category and was easier to find. Applying the code (profile menu -> "Top up account balance" -> "With promo code" tab) took one paste and one click, and the $25 appeared on the balance immediately. Creating an API key was a single "Create API key" button with an optional name field; the raw key is shown exactly once and must be copied immediately.
 
 ## Final feedback (draft for the submission form)
 
