@@ -303,8 +303,9 @@ function DeckStage({ layers, compareLayers, compareSplit, labelDefs, trails, pad
           mapStyle={style}
           // A static OSM baseline credit; MapLibre's own AttributionControl additionally lists whichever
           // sources are actually in use by the current style (each source below declares its own
-          // `attribution`) and re-derives that list on every style swap, so the Esri credit appears only
-          // while satellite imagery is the active source and disappears the moment it falls back.
+          // `attribution`) and re-derives that list on every style swap, so the Esri data credit and its
+          // "Powered by Esri" credit (both on the imagery source, see `SATELLITE_SOURCE_ATTRIBUTION`) appear
+          // only while satellite imagery is the active source and disappear the moment it falls back.
           attributionControl={{ compact: false, customAttribution: "© OpenStreetMap contributors" }}
           reuseMaps
           onLoad={(e) => {

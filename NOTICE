@@ -7,7 +7,8 @@ Map data (c) OpenStreetMap contributors, available under the ODbL
 (https://www.openstreetmap.org/copyright).
 Basemap tiles: OpenFreeMap (c) OpenMapTiles. Data from OpenStreetMap.
 Satellite imagery and globe intro: Esri, Vantor, Earthstar Geographics, and the
-GIS User Community (Esri World Imagery, a free keyless service).
+GIS User Community (Esri World Imagery, a free keyless service). Powered by Esri
+(https://www.esri.com).
 Demographic and jobs data: U.S. Census Bureau (American Community Survey 5-Year
 Estimates, TIGER/Line Shapefiles, LEHD LODES), public domain U.S. government works.
 The ACS tables were obtained through the Census Reporter API, a third-party mirror
@@ -49,6 +50,6 @@ components:
   (https://github.com/floriankarsten/space-grotesk)
 
 WorldSeed is not affiliated with or endorsed by the OpenStreetMap Foundation,
-OpenFreeMap, the U.S. Census Bureau, the State of Maryland, the Maryland Transportation
-Authority (MDTA), the NTSB, NVIDIA, Nebius, Tavily, Vercel, or any hospital, fire, EMS,
-or government agency.
+OpenFreeMap, Esri, the U.S. Census Bureau, the State of Maryland, the Maryland
+Transportation Authority (MDTA), the NTSB, NVIDIA, Nebius, Tavily, Vercel, or any
+hospital, fire, EMS, or government agency.

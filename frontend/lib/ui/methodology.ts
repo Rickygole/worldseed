@@ -26,7 +26,7 @@ export const REPORTED_DETOUR = {
   afterMin: 41,
   modelAddedMin: 1.2,
   modelAddedBothTunnelsClosedMin: 9.4,
-  source: "Capital News Service (via Baltimore Fishbowl), 28 March 2025",
+  source: "Capital News Service (via Baltimore Fishbowl), 27 March 2025",
 };
 
 /** The news piece behind REPORTED_DETOUR (METHODOLOGY section 6.1 and "News citations"; one clause only, link out). */

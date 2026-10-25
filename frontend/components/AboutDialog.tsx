@@ -77,6 +77,13 @@ export default function AboutContent() {
           Data from OpenStreetMap.
         </li>
         <li>
+          Satellite imagery: Esri World Imagery (Esri, Vantor, Earthstar Geographics, and the GIS User Community). Powered by{" "}
+          <a className="underline decoration-border underline-offset-2 hover:text-text" href="https://www.esri.com" target="_blank" rel="noreferrer">
+            Esri
+          </a>
+          .
+        </li>
+        <li>
           U.S. Census Bureau: American Community Survey 5-year estimates (population, vehicles; obtained via the Census Reporter mirror), TIGER/Line
           boundaries, and LEHD LODES (jobs, low-wage workers). Per-hexagon values are derived estimates.
         </li>
@@ -102,10 +109,10 @@ export default function AboutContent() {
           </a>
           , accessed 26 September 2026. Cited and linked, not affiliated.
         </li>
-        <li>Reported commute: Capital News Service (via Baltimore Fishbowl), 28 March 2025.</li>
+        <li>Reported commute: Capital News Service (via Baltimore Fishbowl), 27 March 2025.</li>
       </ul>
       <p className="text-muted">
-        WorldSeed is not affiliated with or endorsed by the OpenStreetMap Foundation, OpenFreeMap, OpenMapTiles, the U.S. Census Bureau, the State of
+        WorldSeed is not affiliated with or endorsed by the OpenStreetMap Foundation, OpenFreeMap, OpenMapTiles, Esri, the U.S. Census Bureau, the State of
         Maryland, the Maryland Transportation Authority (MDTA), the NTSB, NVIDIA, Nebius, Tavily, or any agency, hospital, fire company or EMS provider.
       </p>
 

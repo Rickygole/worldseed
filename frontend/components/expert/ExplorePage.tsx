@@ -96,7 +96,8 @@ export default function ExplorePage() {
     const root = document.documentElement;
     setViewportPadding(panels ? { left: 312, right: 392, top: 16, bottom: 72 } : { left: 0, right: 0, top: 0, bottom: 0 });
     root.style.setProperty("--ws-attrib-right", panels ? "392px" : "12px");
-    root.style.setProperty("--ws-attrib-bottom", panels ? "76px" : "12px");
+    // Presentation floats the footer over the map; the attribution sits just above it, whatever its height.
+    root.style.setProperty("--ws-attrib-bottom", panels ? "76px" : "calc(var(--ws-footer-h, 32px) + 8px)");
   }, [panels]);
 
   const panelIn = (dir: -1 | 1) => ({

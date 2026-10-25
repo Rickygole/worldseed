@@ -6,6 +6,7 @@ import {
   GLOBE_FLAT_ZOOM,
   GLOBE_FULL_ZOOM,
   MAP_STYLE,
+  ESRI_POWERED_BY,
   SATELLITE_ATTRIBUTION,
   SATELLITE_ENABLED,
   SATELLITE_SCRIM_OPACITY,
@@ -75,7 +76,13 @@ describe("satellite style (the imagery hero look)", () => {
   it("names the exact attribution string used, and carries it on the source", () => {
     expect(SATELLITE_ATTRIBUTION).toMatch(/Esri/);
     const src = SATELLITE_STYLE.sources["esri-imagery"] as { attribution?: string };
-    expect(src.attribution).toBe(SATELLITE_ATTRIBUTION);
+    expect(src.attribution).toBe(`${SATELLITE_ATTRIBUTION} | ${ESRI_POWERED_BY}`);
+  });
+
+  it("carries Esri's separate \"Powered by Esri\" credit on the imagery source, linked to esri.com", () => {
+    expect(ESRI_POWERED_BY).toMatch(/^Powered by <a href="https:\/\/www\.esri\.com"[^>]*>Esri<\/a>$/);
+    const src = SATELLITE_STYLE.sources["esri-imagery"] as { attribution?: string };
+    expect(src.attribution).toContain(ESRI_POWERED_BY);
   });
 
   it("keeps the OpenFreeMap vector source too, for the road and label overlay", () => {

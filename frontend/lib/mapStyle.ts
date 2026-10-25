@@ -290,6 +290,13 @@ export const VECTOR_STYLE: StyleSpecification = {
 
 /** See the file-level doc comment for the source, its terms and the verification date. */
 export const SATELLITE_ATTRIBUTION = "Esri, Vantor, Earthstar Geographics, and the GIS User Community";
+/**
+ * Esri's basemap-attribution rules also require a "Powered by Esri" credit, separate from the data credit
+ * above (developers.arcgis.com/documentation/esri-and-data-attribution/). It rides on the same source, so it
+ * shows and drops with the imagery exactly as the data credit does. MapLibre renders source attribution as HTML.
+ */
+export const ESRI_POWERED_BY = 'Powered by <a href="https://www.esri.com" target="_blank" rel="noreferrer">Esri</a>';
+export const SATELLITE_SOURCE_ATTRIBUTION = `${SATELLITE_ATTRIBUTION} | ${ESRI_POWERED_BY}`;
 const SATELLITE_TILE_URL = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 /**
@@ -345,7 +352,7 @@ export const SATELLITE_STYLE: StyleSpecification = {
       tiles: [SATELLITE_TILE_URL],
       tileSize: 256,
       maxzoom: 19,
-      attribution: SATELLITE_ATTRIBUTION,
+      attribution: SATELLITE_SOURCE_ATTRIBUTION,
     },
     openmaptiles: OPENMAPTILES_SOURCE,
   },

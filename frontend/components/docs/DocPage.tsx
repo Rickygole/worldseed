@@ -69,7 +69,7 @@ export default function DocPage({
         </motion.article>
       </div>
       <div className="pointer-events-auto absolute bottom-0 left-0 z-20 flex h-8 items-center px-6">
-        <NoticeLine compact />
+        <NoticeLine variant="compact" />
       </div>
     </>
   );

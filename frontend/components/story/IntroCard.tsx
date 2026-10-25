@@ -46,7 +46,7 @@ export default function IntroCard() {
       ref={ref}
       role="region"
       aria-labelledby="intro-sentence"
-      className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-end px-6 pb-28 md:justify-center md:px-16 md:pb-0 lg:px-24"
+      className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-end px-6 pb-36 md:justify-center md:px-16 md:pb-0 lg:px-24"
       style={{ background: "linear-gradient(90deg, rgb(7 11 18 / 0.94) 0%, rgb(7 11 18 / 0.86) 38%, rgb(7 11 18 / 0.35) 62%, rgb(7 11 18 / 0) 85%)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
