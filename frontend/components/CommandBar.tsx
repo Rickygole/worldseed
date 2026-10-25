@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CornerDownLeft, Loader2, Search } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp, waitUntilIdle } from "@/lib/store";
 import { useDialog } from "@/lib/ui/useDialog";
 import { useSearch } from "@/lib/ui/search";
 import { createFetchAgentApi } from "@/lib/agent/api";
@@ -116,7 +116,21 @@ function CommandBarInner() {
       if (crossingId) {
         const info = CROSSING_BY_ID[crossingId];
         if (closedCrossingIds(app.scenario).has(crossingId)) return setPending({ text: `${info.fullName} is already closed.` });
-        return setPending({ text: `Close: ${info.fullName}. Run?`, run: () => void app.toggleCrossing(crossingId) });
+        return setPending({
+          text: `Close: ${info.fullName}. Run?`,
+          run: () => {
+            // The prompt's "Close... Run?" can go stale between being built and Run being clicked (another
+            // closure, a reset, the story's reactive guard). toggleCrossing only flips whatever is true right
+            // then, so re-derive the direction live at Run time: if it is already closed by then, do nothing
+            // rather than have toggleCrossing reopen it against what the prompt told the user would happen.
+            void (async () => {
+              await waitUntilIdle();
+              const live = useApp.getState();
+              if (closedCrossingIds(live.scenario).has(crossingId)) return;
+              void live.toggleCrossing(crossingId);
+            })();
+          },
+        });
       }
       const mut = closeMutation(e);
       if (!mut) return setPending({ text: `${e.name} is a corridor; name one of its roads or links to close it.` });
@@ -124,8 +138,15 @@ function CommandBarInner() {
         text: `Close: ${e.name}. Run?`,
         note: "Adds a closure to the simulated road network. Reset (R) removes it.",
         run: () => {
-          app.log("USER", `Close ${e.name} (command bar)`);
-          void app.applyScenario({ removedLinks: app.scenario.removedLinks, mutations: [...(app.scenario.mutations ?? []), mut] });
+          // Wait out any scenario change already in flight (e.g. a bridge removal), THEN read fresh: reading
+          // fresh while `busy` is still true would still return the pre-change scenario, silently dropping it
+          // (the world may also have changed - another closure, a reset - which a stale read would resurrect).
+          void (async () => {
+            await waitUntilIdle();
+            const live = useApp.getState();
+            live.log("USER", `Close ${e.name} (command bar)`);
+            void live.applyScenario({ removedLinks: live.scenario.removedLinks, mutations: [...(live.scenario.mutations ?? []), mut] });
+          })();
         },
       });
     }

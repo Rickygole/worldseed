@@ -71,13 +71,16 @@ describe("finding N1(d): store commands per AI call", () => {
     expect(total).toBeLessThan(110);
     expect(500_000 / total).toBeGreaterThan(4_500); // free-plan monthly capacity in full missions
   });
-  it("a request refused by the per-client quota costs at most 3 commands", async () => {
+  it("a request refused by the per-client quota costs at most 6 commands", async () => {
     const { s, fake } = upstashServer(Array.from({ length: 12 }, () => parseReply()), { ipMissionsPerHour: 2 });
     for (let i = 0; i < 2; i++) await readSse(await handleParse(post("/api/agent/parse", parseBody(`MISSION-CMD-10${i}`)), s.deps));
     const before = fake.commands;
     const res = await handleParse(post("/api/agent/parse", parseBody("MISSION-CMD-109")), s.deps);
     expect(res.status).toBe(429);
-    expect(fake.commands - before).toBeLessThanOrEqual(3);
+    // 1 (isBound) + 2 (hourly rule's INCRBY+PEXPIRE) + 2 (the daily rule's, run in parallel with the
+    // hourly one - both the per-IP hourly AND daily mission rule are enforced now) + 1 (refunding the
+    // daily rule, which did not itself go over its limit, since the hourly one is what refused this call).
+    expect(fake.commands - before).toBeLessThanOrEqual(6);
   });
   it("preflight and repeat requests read the store only when they must: the budget total and the known pair are cached in process", async () => {
     const { s, fake } = upstashServer(Array.from({ length: 6 }, () => parseReply()), { dailyBudgetUsd: 50, ipDailyUsd: 50 });

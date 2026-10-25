@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ExternalLink, Loader2, Newspaper, X } from "lucide-react";
-import { useApp } from "@/lib/store";
+import { useApp, waitUntilIdle } from "@/lib/store";
 import { assertMutationRecordAllowed, confirmClosureProposal, fetchClosures, recordUserConfirmation, toMutationRecord } from "@/lib/agent/closures";
 import { useSearch } from "@/lib/ui/search";
 import type { ClosureProposal, ClosuresResponse } from "@/lib/agent/protocol";
@@ -46,7 +46,6 @@ const host = (u: string) => {
 function Proposal({ p }: { p: ClosureProposal }) {
   const [step, setStep] = useState<"idle" | "confirm" | "working" | "done" | "error">("idle");
   const [err, setErr] = useState("");
-  const scenario = useApp((s) => s.scenario);
   const applyScenario = useApp((s) => s.applyScenario);
   const log = useApp((s) => s.log);
   // A low-confidence proposal (the quote may not state a current closure) needs the source opened first.
@@ -106,7 +105,12 @@ function Proposal({ p }: { p: ClosureProposal }) {
                   const record = toMutationRecord(confirmed);
                   assertMutationRecordAllowed(record);
                   log("USER", `Confirmed closure from an unverified news report: ${record.label}`);
-                  await applyScenario({ removedLinks: scenario.removedLinks, mutations: [...(scenario.mutations ?? []), record] }, { strict: true });
+                  // Wait out any scenario change already in flight, THEN read fresh: the world may have
+                  // changed (another closure, a reactive story reset) during the network round trip above,
+                  // and reading fresh while `busy` is still true would still see the pre-change scenario.
+                  await waitUntilIdle();
+                  const live = useApp.getState().scenario;
+                  await applyScenario({ removedLinks: live.removedLinks, mutations: [...(live.mutations ?? []), record] }, { strict: true });
                   setStep("done");
                 } catch (e) {
                   setErr(e instanceof Error ? e.message : String(e));

@@ -10,7 +10,7 @@
  * and fly the camera. Until then the map stays on the previous view, so the number lands before the map moves.
  */
 import { create } from "zustand";
-import { isBridgeRemoved, simInfo, useApp } from "../store";
+import { isBridgeRemoved, scenarioKey, simInfo, useApp, waitUntilIdle } from "../store";
 import type { LensId } from "../sim/contract";
 import type { Scenario, SimOutput } from "../sim/types";
 import { goToScene, setFreightTripHighlight, type SceneId } from "./mapDirector";
@@ -25,7 +25,6 @@ import type { MutationRecord } from "../sim/contract";
 import { navigate } from "./nav";
 import { pathForScene, rememberScene } from "./routes";
 import { emsShowsChange, setEmsChangeBase } from "./lenses";
-import { closedCrossingIds } from "./crossings";
 
 export type StoryScene = Exclude<SceneId, "intro">;
 export const STORY_STEPS: StoryScene[] = ["crossing", "averages", "held", "freight", "fix", "explore"];
@@ -108,14 +107,26 @@ export const stepLabel = (id: SceneId | null): string | null => (id && id !== "i
 let enterSeq = 0;
 
 /**
- * True when anything other than the Key Bridge is closed: a crossing closed from Expert mode's picker (any
- * path - removedLinks or a close_link mutation, see closedCrossingIds). The guided story only ever models the
- * Key Bridge removed, alone or on the untouched network; it never carries another crossing's closure, because
- * every scene's number and copy assumes that single world (STORY.md section 5).
+ * True unless `scenario` is exactly a world the story itself can produce: the pre-collapse network, the Key
+ * Bridge removed alone, or the Key Bridge removed plus the story's own applied idea (an `apply_candidate`
+ * mutation - see `withBundle`/`candidateMutations` in agentBridge.ts). "The story's own" is not any
+ * `apply_candidate` mutation: `useStory`'s `appliedScenario` is the one scenario the story itself ever recorded
+ * as applied (set the moment its own search flow reaches "applied" - see the subscription at the bottom of this
+ * file), so a candidate-apply scenario only counts as the story's own if it deep-equals that record. Anything
+ * else - another crossing closed from Expert mode's picker (removedLinks or a close_link mutation), a Cmd-K or
+ * Tavily `close_edges` road closure, Expert mode's own finalist-apply picker, FreightPanel's own hazmat-escort
+ * apply action, or any other mutation kind - is an outside closure: every scene's number and copy assumes that
+ * single world (STORY.md section 5), so the story resets rather than silently describing a world it never built.
  */
 function hasOutsideClosures(scenario: Scenario): boolean {
-  for (const id of closedCrossingIds(scenario)) if (id !== "key_bridge") return true;
-  return false;
+  const removed = scenario.removedLinks;
+  const cleanLinks = removed.length === 0 || (removed.length === 1 && removed[0] === "key_bridge");
+  if (!cleanLinks) return true;
+  const mutations = scenario.mutations ?? [];
+  if (mutations.length === 0) return false;
+  if (mutations.some((m) => m.m.kind !== "apply_candidate")) return true;
+  const applied = useStory.getState().appliedScenario;
+  return applied === null || scenarioKey(scenario) !== scenarioKey(applied);
 }
 
 /**
@@ -123,23 +134,84 @@ function hasOutsideClosures(scenario: Scenario): boolean {
  * removes it (the story's own step); any other world is left as the user made it, and the copy switches to
  * its "in this scenario" templates (STORY.md section 11). A restored link shows the gate instead.
  *
- * Expert mode's crossing picker can close the Harbor Tunnel or Fort McHenry Tunnel, and the world carries over
- * unchanged when the visitor comes back to the story (lib/ui/modes.ts, STORY.md section 8 - but that promise
- * only ever covered the single Key-Bridge-only world the story itself produces). A scene entered or advanced
- * with one of those other crossings still closed would show its numbers as if they were the Key Bridge's own:
- * reset to baseline first, so every scene below starts from the one world it was written for.
+ * Expert mode's crossing picker (and Cmd-K's "close <road or link>", and a confirmed Tavily closure) can leave
+ * a closure the story never built, and the world carries over unchanged when the visitor comes back to the
+ * story (lib/ui/modes.ts, STORY.md section 8 - but that promise only ever covered the single Key-Bridge-only
+ * world the story itself produces). A scene entered or advanced with one of those closures still in place
+ * would show its numbers as if they were the Key Bridge's own: reset to baseline first (hasOutsideClosures),
+ * then put the scene's own removal back, so every scene below starts from the one world it was written for.
+ * Resolves true when it actually had to reset (an outside closure was found), false otherwise - the reactive
+ * watcher uses that to tell the visitor what just happened; scene entry does not (nothing looked wrong yet).
+ *
+ * Single-flight: a scene entry and the reactive watcher can both call this within the same tick (a closure
+ * made right as a scene is entered). Without this guard both would see the same outside closure and each
+ * run its own `resetWorld`/`removeBridge`, racing applySeq and logging a spurious "still recalculating"
+ * line for the loser. A concurrent call instead awaits the one already running.
  */
-async function ensureWorld(id: SceneId, auto: boolean): Promise<void> {
-  const app = useApp.getState();
-  if (app.status !== "ready") return;
+let ensureWorldInFlight: Promise<boolean> | null = null;
+
+async function ensureWorld(id: SceneId, auto: boolean): Promise<boolean> {
+  if (ensureWorldInFlight) return ensureWorldInFlight;
+  const run = ensureWorldBody(id, auto);
+  ensureWorldInFlight = run;
+  try {
+    return await run;
+  } finally {
+    if (ensureWorldInFlight === run) ensureWorldInFlight = null;
+  }
+}
+
+async function ensureWorldBody(id: SceneId, auto: boolean): Promise<boolean> {
+  if (useApp.getState().status !== "ready") return false;
+  // busy: a scenario change (a picker click, a just-confirmed closure) may still be in flight. Reading the
+  // scenario before it lands would see the pre-change world and decide, wrongly, that nothing needs resetting.
+  await waitUntilIdle();
+  let app = useApp.getState();
+  if (app.status !== "ready") return false;
+  let reset = false;
   if (hasOutsideClosures(app.scenario)) {
+    reset = true;
     await app.resetWorld();
     useSearch.getState().resetSearch();
     useStory.setState({ appliedScenario: null, topWorld: null, stressCheck: null, stoppedAt: null });
+    app = useApp.getState();
+    if (app.status !== "ready") return reset;
   }
   const needsRemoval = id === "averages" || id === "held" || id === "freight" || id === "fix";
-  if (needsRemoval && auto && isBaseline(useApp.getState().scenario)) await app.removeBridge();
+  if (needsRemoval && auto && isBaseline(app.scenario)) await app.removeBridge();
   if (id === "fix") void loadBridgeOnly();
+  return reset;
+}
+
+/**
+ * Keeps the invariant live while a story scene stays mounted, not only on entry: Cmd-K and the closures drawer
+ * are mounted globally (AppShell) and work on story pages too, so a closure made without navigating must still
+ * put the scene back on the world it describes - the same `ensureWorld` scene-entry runs, not just the reset
+ * half of it, so the card recovers its real number rather than landing on the gate. Active only while the
+ * given predicate (current mode/route) says we are on a story scene; returns the unsubscribe. Re-entrant: a
+ * reset or a bridge removal this itself triggers changes `scenario` again, but by then there is nothing left
+ * to fix, so the next run is a no-op.
+ */
+export function watchStoryWorld(isStoryScene: () => boolean): () => void {
+  return useApp.subscribe((s, prev) => {
+    if (s.scenario !== prev.scenario && isStoryScene() && s.scene !== "intro") void watchedEnsureWorld(s.scene);
+  });
+}
+
+/**
+ * The watcher's own call into `ensureWorld`: wrapped in `settling` like scene entry (lib/ui/story.ts `goScene`)
+ * so the card shows skeletons rather than a flash of the wrong (pre-reset) numbers while it resolves, and -
+ * only when it actually reset something - a brief `routeNote` so the visitor's own action (a Cmd-K closure
+ * made on a story page) does not look like it silently did nothing.
+ */
+async function watchedEnsureWorld(id: SceneId): Promise<void> {
+  useStory.setState({ settling: true });
+  try {
+    const reset = await ensureWorld(id, true);
+    if (reset) useStory.setState({ routeNote: "This story only shows the Key Bridge removed; reset to that world." });
+  } finally {
+    useStory.setState({ settling: false });
+  }
 }
 
 async function loadBridgeOnly(): Promise<void> {

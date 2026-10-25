@@ -169,7 +169,10 @@ export function readConfig(env: Env = process.env): ServerConfig {
     newMissionsPerHour: Math.floor(num(env, "WS_NEW_MISSIONS_PER_HOUR", 30)),
     newMissionsPerDay: Math.floor(num(env, "WS_NEW_MISSIONS_PER_DAY", 120)),
     turnstileSecret: env.WS_TURNSTILE_SECRET?.trim() || undefined,
-    ipClosuresPerHour: num(env, "WS_IP_CLOSURES_PER_HOUR", 10),
+    // Shared with evidence search; closures and evidence share the same per-IP bucket and the same global
+    // daily cap (tavilyDailyCap, below). At 10/hour one IP alone exhausts a 30/day global cap in 3 hours;
+    // at 3/hour it takes roughly 10, a meaningfully larger window without touching the global cap itself.
+    ipClosuresPerHour: num(env, "WS_IP_CLOSURES_PER_HOUR", 3),
     tavilyDailyCap: num(env, "WS_TAVILY_DAILY_CAP", 30),
     tavilyCacheMs: num(env, "WS_TAVILY_CACHE_MS", 6 * 3600_000),
     tavilyDegradedCacheMs: Math.min(num(env, "WS_TAVILY_CACHE_MS", 6 * 3600_000), 120_000),

@@ -8,7 +8,7 @@ import { useSearch } from "@/lib/ui/search";
 import { registerNav } from "@/lib/ui/nav";
 import { routeOf } from "@/lib/ui/routes";
 import { loadNodeCoords } from "@/lib/ui/snapshotAux";
-import { nextScene, prevScene, useStory } from "@/lib/ui/story";
+import { nextScene, prevScene, useStory, watchStoryWorld } from "@/lib/ui/story";
 import { enterStoryMode, goToStory, toggleUiMode } from "@/lib/ui/modes";
 import TopBar from "./TopBar";
 import MetricsRibbon from "./MetricsRibbon";
@@ -114,6 +114,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!expert) enterStoryMode();
   }, [expert]);
+  // Cmd-K and the closures drawer are mounted here, globally, and work on story pages too: keep the
+  // story's "only the Key Bridge may be closed" invariant live while on a story scene, not only on scene
+  // entry/navigation (goScene/ensureSceneWorld). Mounted once for the app's life; the predicate decides,
+  // on every scenario change, whether the page on screen right now is a story scene.
+  useEffect(() => watchStoryWorld(() => routeOf(window.location.pathname).kind === "story"), []);
   useHotkeys();
 
   return (

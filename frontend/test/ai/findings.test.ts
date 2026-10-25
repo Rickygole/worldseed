@@ -67,10 +67,18 @@ describe("finding 1: one quota unit no longer buys unlimited model calls", () =>
   it("a burst beyond the allowance only ever hurts the sender: refused requests keep their count, the window still ends on time", async () => {
     const s = makeServer(Array.from({ length: 30 }, () => ({ text: parseReply(), delayMs: 5 })));
     await Promise.all(Array.from({ length: 20 }, () => doParse(s, "MISSION-00002").then(statusOf)));
-    expect(Number(await s.store.get(`rl:ip:${ipKey(IP)}:missions_per_hour`))).toBeGreaterThan(8);
+    // The burst exceeds the (lower) daily cap first: the daily rule is what refuses every further
+    // request, so it is the one left over its limit; the hourly rule, which passed those same
+    // calls on its own, is refunded back down rather than left inflated (consume() refunds every
+    // rule that passed when another rule in the same call blocks it).
+    expect(Number(await s.store.get(`rl:ip:${ipKey(IP)}:missions_per_day`))).toBeGreaterThan(s.config.ipMissionsPerDay);
     expect((await doParse(s, "MISSION-00099")).status).toBe(429);
     expect((await doParse(s, "MISSION-00099", "198.51.100.44")).status).toBe(200); // another client is unaffected
+    // An hour later the hourly window has ended, but the daily cap - a full day wide - still holds.
     s.clock.t += 3600_000 + 1;
+    expect((await doParse(s, "MISSION-00098")).status).toBe(429);
+    // Only once the daily window itself ends does the client recover.
+    s.clock.t += 24 * 3600_000;
     expect((await doParse(s, "MISSION-00098")).status).toBe(200);
   });
   it("a known mission id used from a DIFFERENT client is charged to that client's quota", async () => {

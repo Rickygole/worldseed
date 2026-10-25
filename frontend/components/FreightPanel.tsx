@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, ChevronsUpDown, ChevronUp, ExternalLink, Truck, X } from "lucide-react";
-import { useApp, snapshotSimulator } from "@/lib/store";
+import { useApp, snapshotSimulator, waitUntilIdle } from "@/lib/store";
 import { useSearch } from "@/lib/ui/search";
 import { withBundle } from "@/lib/ui/agentBridge";
 import type { TripClassResult, TripResult, TripsResult } from "@/lib/sim/trips";
@@ -157,8 +157,6 @@ function EscortOptions() {
   }, [catalog, raw]);
   const scenario = useApp((s) => s.scenario);
   const trips = useApp((s) => s.trips);
-  const applyScenario = useApp((s) => s.applyScenario);
-  const log = useApp((s) => s.log);
   const [rows, setRows] = useState<{ id: string; title: string; tier: string; res: TripsResult | null; applied: boolean }[] | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const appliedIds = useMemo(() => new Set((scenario.mutations ?? []).flatMap((r) => (r.m.kind === "apply_candidate" ? [r.m.candidateId] : []))), [scenario]);
@@ -213,8 +211,14 @@ function EscortOptions() {
                     className="btn h-7 border-ai px-2 text-xs"
                     onClick={async () => {
                       setConfirm(null);
-                      log("USER", `Apply hypothetical option ${r.id} (freight panel)`);
-                      await applyScenario(withBundle(scenario, "HW", [r.id], "user", catalog), { fx: { candidateIds: [r.id] } });
+                      // Wait out any scenario change already in flight, THEN read fresh: `scenario` here is
+                      // the value captured at render, which can go stale between the confirm being shown and
+                      // this click (another closure, a reactive story reset) the same way CommandBar's and
+                      // ClosuresDrawer's own Run/confirm actions were already fixed to guard against.
+                      await waitUntilIdle();
+                      const live = useApp.getState();
+                      live.log("USER", `Apply hypothetical option ${r.id} (freight panel)`);
+                      await live.applyScenario(withBundle(live.scenario, "HW", [r.id], "user", catalog), { fx: { candidateIds: [r.id] } });
                     }}
                   >
                     Apply

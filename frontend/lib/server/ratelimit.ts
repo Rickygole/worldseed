@@ -241,7 +241,12 @@ export function missionRules(perHour: number, perDay: number, ip: string = ""): 
 
 /* --------------------------------- client IP -------------------------------- */
 
-/** Canonical bucket for an address: IPv4 as is, IPv4-mapped IPv6 as IPv4, other IPv6 by /64. */
+/**
+ * Canonical bucket for an address: IPv4 as is, IPv4-mapped IPv6 as IPv4, other IPv6 by /56. /56, not /64:
+ * typical residential and mobile ISPs hand a single customer a /56 or /48 allocation, so bucketing by /64
+ * would let one real client mint many distinct rate-limit identities just by rotating within their own
+ * allocation, no header spoofing needed.
+ */
 export function bucketIp(raw: string): string | null {
   let s = raw.trim();
   if (s.startsWith("[") && s.includes("]")) s = s.slice(1, s.indexOf("]"));
@@ -258,7 +263,8 @@ export function bucketIp(raw: string): string | null {
   const fill = s.includes("::") ? Array(Math.max(0, 8 - h.length - t.length)).fill("0") : [];
   const groups = [...h, ...fill, ...t].map((g) => g.toLowerCase().padStart(4, "0"));
   if (groups.length !== 8) return null;
-  return `v6:${groups.slice(0, 4).join(":")}/64`;
+  // /56 = the first 3 groups (48 bits) plus the top 8 bits (first 2 hex digits) of the 4th group.
+  return `v6:${groups.slice(0, 3).join(":")}:${groups[3].slice(0, 2)}/56`;
 }
 
 /** The single bucket used when no proxy is trusted (local development, or a self-hosted server that is not behind one). */

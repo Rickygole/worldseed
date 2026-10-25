@@ -352,7 +352,7 @@ async function begin(
             };
           }
         }
-        const rules = missionRules(config.ipMissionsPerHour, config.ipMissionsPerDay, ip).slice(0, 1);
+        const rules = missionRules(config.ipMissionsPerHour, config.ipMissionsPerDay, ip);
         const r = await limiter.consume(quotaKey, rules);
         if (r.error) {
           logEvent("warn", "protection_unavailable", { where: "limiter" });

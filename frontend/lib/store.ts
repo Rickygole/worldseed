@@ -550,6 +550,24 @@ export const useApp = create<AppState>((set, get) => {
   };
 });
 
+/**
+ * Resolves once no scenario-changing operation (applyScenario and everything built on it: removeBridge,
+ * toggleCrossing, resetWorld...) is in flight, so a `useApp.getState()` read right after is the settled world,
+ * not a pre-change snapshot caught mid-flight. Any caller that reads `scenario` to build its *next* scenario
+ * (a Cmd-K Run, a closures-drawer confirm, a candidate apply) should await this immediately before that read.
+ */
+export function waitUntilIdle(): Promise<void> {
+  if (!useApp.getState().busy) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsub = useApp.subscribe((s) => {
+      if (!s.busy) {
+        unsub();
+        resolve();
+      }
+    });
+  });
+}
+
 export const isBridgeRemoved = (s: AppState): boolean =>
   s.scenario.removedLinks.includes("key_bridge");
 

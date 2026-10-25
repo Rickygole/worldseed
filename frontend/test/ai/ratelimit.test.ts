@@ -63,16 +63,20 @@ describe("finding 8: client IP", () => {
     // rotating the spoofable left side does not change the identity
     expect(clientIp(h({ "x-forwarded-for": "1.2.3.4, 9.9.9.9" }), T)).toBe(clientIp(h({ "x-forwarded-for": "5.6.7.8, 9.9.9.9" }), T));
   });
-  it("buckets IPv6 by /64 and unwraps IPv4-mapped addresses", () => {
+  it("buckets IPv6 by /56 (a typical ISP customer allocation) and unwraps IPv4-mapped addresses", () => {
     const a = clientIp(h({ "x-real-ip": "2001:db8:1:2:aaaa:bbbb:cccc:dddd" }), T);
     const b = clientIp(h({ "x-real-ip": "2001:db8:1:2:1:2:3:4" }), T);
-    const c = clientIp(h({ "x-real-ip": "2001:db8:1:3::1" }), T);
+    // Same /56 as a and b (differs only in the low byte of the 4th group, still inside one /56 allocation).
+    const sameAllocation = clientIp(h({ "x-real-ip": "2001:db8:1:3::1" }), T);
+    // A different /56 allocation (the top byte of the 4th group differs).
+    const c = clientIp(h({ "x-real-ip": "2001:db8:1:102::1" }), T);
     expect(a).toBe(b);
+    expect(a).toBe(sameAllocation);
     expect(a).not.toBe(c);
-    expect(a).toBe("v6:2001:0db8:0001:0002/64");
+    expect(a).toBe("v6:2001:0db8:0001:00/56");
     expect(bucketIp("::ffff:9.9.9.9")).toBe("9.9.9.9");
-    expect(bucketIp("2001:db8::1")).toBe("v6:2001:0db8:0000:0000/64");
-    expect(bucketIp("[2001:db8::1]")).toBe("v6:2001:0db8:0000:0000/64");
+    expect(bucketIp("2001:db8::1")).toBe("v6:2001:0db8:0000:00/56");
+    expect(bucketIp("[2001:db8::1]")).toBe("v6:2001:0db8:0000:00/56");
   });
   it("treats a missing or garbage address as its own 'unknown' bucket, with tighter limits", () => {
     expect(clientIp(h({}), T)).toBe("unknown");
