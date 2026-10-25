@@ -13,8 +13,8 @@ Paths: the smoke scripts live in `frontend/scripts/`, so run them from `frontend
 - [x] **Done 2026-10-24.** Nebius Token Factory account created and billing set up ("Sign in with Google", card on file).
 - [x] **Done 2026-10-24.** Hackathon $25 promo code redeemed; balance is $26.00 ($1 trial + $25 promo).
 - [x] **Done 2026-10-24.** Nebius API key created and stored in the repo-root `.env` (confirmed present this pass; never committed, git-ignored).
-- [ ] Tavily key in `.env` (free Researcher plan; pay-as-you-go stays OFF). **Confirmed still empty in `.env` as of 2026-10-24.**
-- [ ] Upstash free account created (free tier per Upstash's pricing page, read 2026-09-26: 256 MB and 500K commands per month). REST URL and token in `.env`. **Confirmed still not done as of 2026-10-24 — this is the single biggest remaining blocker; see the punch list below.**
+- [x] **Done 2026-10-24.** Tavily key generated (free Researcher plan; pay-as-you-go stays OFF) and set on Vercel's Production environment; `tavily.configured: true` verified live.
+- [x] **Done 2026-10-24.** Upstash free account created, Redis database made, REST URL and token wired into Vercel's Production environment; `protection: "shared"` verified live.
 - [ ] Optional: free Census API key (`CENSUS_API_KEY`) if you want the pipeline to use the official API on a rebuild. Not needed for the submission.
 - [ ] Email Devpost support (before submitting) asking in writing whether this submission is eligible for the Builders program; keep the written answer with these notes. Eligibility is unverified until answered.
 - [x] Target date to have the raw provider key working: **2026-10-03** — superseded; the key itself started working 2026-10-24 (later than planned, but done) via the raw smoke script. **Still open:** a real end-to-end mission through the app's own `/api/agent/*` routes has not been run (local or deployed).
@@ -24,11 +24,11 @@ Paths: the smoke scripts live in `frontend/scripts/`, so run them from `frontend
 Priority order. "Blocked on user" means it needs a human to click something (a dashboard, a signup form, a voiceover) that
 an agent cannot do; everything else can be driven by an agent once the human step before it is done.
 
-- **Day 0-1 (10-24/10-25) — Upstash + Vercel env vars (top priority, see Risks in `docs/STATUS.md`).**
-  - [ ] **Blocked on user:** sign up for Upstash free tier, create a Redis database, copy the REST URL and token.
-  - [ ] **Blocked on user:** paste `NEBIUS_API_KEY`, `NEBIUS_BASE_URL`, `TAVILY_API_KEY` (once obtained), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and a freshly generated `WS_CONFIRM_SECRET` into the Vercel project's Production environment variables (section 1 below has the full list). Never paste these into the repo.
-  - [ ] Redeploy (can be triggered by the user from the Vercel dashboard, or by pushing a commit).
-  - [x] Confirm `GET https://worldseed-mu.vercel.app/api/health` now shows `provider.configured: true`, `protection` no longer `instance-local`. **Done 2026-10-24, evening pass:** `provider.configured: true`, `protection: "shared"`, all roles resolve to real models. **Still open:** `tavily.configured: true` — Tavily key not yet obtained or deployed.
+- **Day 0-1 (10-24/10-25) — Upstash + Vercel env vars (top priority, see Risks in `docs/STATUS.md`).** — **Done 2026-10-24.**
+  - [x] Signed up for Upstash free tier, created a Redis database, copied the REST URL and token.
+  - [x] Pasted `NEBIUS_API_KEY`, `NEBIUS_BASE_URL`, `TAVILY_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and a freshly generated `WS_CONFIRM_SECRET` into the Vercel project's Production environment variables.
+  - [x] Redeployed after each env var addition.
+  - [x] Confirm `GET https://worldseed-mu.vercel.app/api/health` now shows `provider.configured: true`, `protection` no longer `instance-local`. **Done 2026-10-24, evening pass:** `provider.configured: true`, `protection: "shared"`, all roles resolve to real models. `tavily.configured: true` and `evidence.available: true`, confirmed later the same evening — no key gaps remain.
 - **Day 1-2 (10-25/10-26) — one real end-to-end mission on the deployed site.**
   - [ ] Once the deployment has keys, run one full mission (parse, propose, evaluate, critique, finalize, closure search with confirmation) against `https://worldseed-mu.vercel.app`, not just the raw `smoke-token-factory.mjs` script. This has not been done yet in any form — the only live-key testing so far is the raw provider smoke script (section 2), which bypasses the app's own agent routes.
   - [ ] Paste the result into `docs/FEEDBACK_NOTES.md` and tick section 2's end-to-end item.
@@ -48,13 +48,13 @@ an agent cannot do; everything else can be driven by an agent once the human ste
 Set in the Vercel project (`worldseed`) settings for Production, never in the repo. Names come from `.env.example`. Values marked
 "secret" must not appear in any `NEXT_PUBLIC_` variable.
 
-Required for the AI features:
+Required for the AI features — all set on Vercel's Production environment as of 2026-10-24:
 
-- [ ] `NEBIUS_API_KEY` (secret).
-- [ ] `NEBIUS_BASE_URL` = `https://api.tokenfactory.nebius.com/v1/` (must be https on `api.tokenfactory.nebius.com`, otherwise the provider is disabled).
-- [ ] `TAVILY_API_KEY` (secret).
-- [ ] `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (secret), or the marketplace names `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without them the deployment is "instance-local" and the daily budget drops to `WS_INSTANCE_LOCAL_BUDGET_USD` (default 0.25).
-- [ ] `WS_CONFIRM_SECRET` (secret; required in production, otherwise closure search answers "disabled"). Long random value, separate from every other secret, for example `openssl rand -hex 32`.
+- [x] `NEBIUS_API_KEY` (secret).
+- [x] `NEBIUS_BASE_URL` = `https://api.tokenfactory.nebius.com/v1/` (must be https on `api.tokenfactory.nebius.com`, otherwise the provider is disabled).
+- [x] `TAVILY_API_KEY` (secret).
+- [x] `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (secret), or the marketplace names `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without them the deployment is "instance-local" and the daily budget drops to `WS_INSTANCE_LOCAL_BUDGET_USD` (default 0.25).
+- [x] `WS_CONFIRM_SECRET` (secret; required in production, otherwise closure search answers "disabled"). Long random value, separate from every other secret, generated with `openssl rand -hex 32`.
 
 Strongly recommended:
 
@@ -67,13 +67,13 @@ Strongly recommended:
 
 Optional: `WS_TAVILY_DAILY_CAP` (default 30), `WS_TAVILY_CACHE_MS`, `WS_TURNSTILE_SECRET`, `WS_ALLOWED_ORIGINS`, and the front-door and store limits (`WS_FRONT_DOOR_*`, `WS_STORE_*`). Leave the trust-proxy variables alone on Vercel (address headers are believed on a serverless host).
 
-After setting variables: redeploy, then `GET https://worldseed-mu.vercel.app/api/health` and confirm `provider.configured` is true, `protection` is no longer `instance-local`, and each role resolves to a listed model. **Done 2026-10-24, evening pass:** `provider.configured: true`, `protection: "shared"`, all four roles resolve to real Nemotron model IDs. `tavily.configured` is still `false` — that key hasn't been obtained yet, tracked separately, lower priority than the AI planner itself.
+After setting variables: redeploy, then `GET https://worldseed-mu.vercel.app/api/health` and confirm `provider.configured` is true, `protection` is no longer `instance-local`, and each role resolves to a listed model. **Done 2026-10-24, evening pass:** `provider.configured: true`, `protection: "shared"`, all four roles resolve to real Nemotron model IDs, `tavily.configured: true`, `evidence.available: true`. No key gaps remain.
 
 ## 2. Pre-flight tests with real credentials
 
 Run from the repo root shell with a filled `.env`:
 
-- [ ] Shared store: `cd frontend && node --env-file=../.env scripts/smoke-store.mjs`. Every line must print PASS. It touches only `smoke:` keys and spends a few dozen store commands. Run it once, before relying on the limits. **Blocked:** needs Upstash variables in `.env`, which are not set yet (2026-10-24).
+- [ ] Shared store: `cd frontend && node --env-file=../.env scripts/smoke-store.mjs`. Every line must print PASS. It touches only `smoke:` keys and spends a few dozen store commands. Run it once, before relying on the limits. Upstash variables are now in `.env` (added 2026-10-24); this script has not been re-run since.
 - [x] **Done 2026-10-24.** Token Factory: ran `smoke-token-factory.mjs` both plain and `--stream`. All 4 planned model IDs resolved via `GET /v1/models` (30 models listed); structured JSON output worked on both role models (Ultra, Nano); streaming worked on both. Results pasted into `docs/FEEDBACK_NOTES.md` ("Live-key experiences", dated 2026-10-24).
 - [x] Model IDs matched on the first try; no override needed (2026-10-24).
 - [x] **Done 2026-10-24, locally.** One real end-to-end mission on the local app through `/api/agent/*` (parse, plan, critique, finalize): `--measure-screen --n 10` against a local instance started without `UPSTASH_*`/`KV_*` vars. 30 provider-backed route calls, 90% valid first-turn model selection (27/30), 0 repair turns needed, 3 clean deterministic fallbacks on rejected output. Full numbers in `docs/FEEDBACK_NOTES.md`. **Still open:** the same test on the deployed site, once Upstash + Vercel env vars land.

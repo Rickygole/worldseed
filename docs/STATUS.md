@@ -35,8 +35,11 @@ production env vars have been set since 2026-09-26, so the live deployment's AI-
   resolves to a real model (`nvidia/Nemotron-3-Ultra-550b-a55b` for planner/critic, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` for
   parser/extractor), `degraded: false`. Upstash is set up, the key is in Vercel's Production environment, and a real mission has been
   run through the live site itself (Expert mode: a plain-language goal through parse → plan → critique → finalize, with a real
-  finalist returned). **Tavily remains `configured: false`** — that key has not been obtained or deployed yet; this is now the only
-  remaining "no live key" gap.
+  finalist returned).
+- **Re-verified 2026-10-24 (later the same evening), `GET /api/health`:** `tavily.configured: true`, `evidence.available: true`.
+  The "Check live closure notices" button was clicked on the live deployed site itself: it called Tavily for real, returned 7 real
+  news sources (baltimorecity.gov, montgomerycountymd.gov, foxbaltimore.com), ran them through the Nemotron Nano extractor, and
+  correctly reported 0 matches to the model area (honest negative, not fabricated). No live key gaps remain.
 - **As reported (works without any key, not re-tested in a browser this pass):** the real browser-side simulator on the real snapshot
   with the cross-harbor, regional-access and first-response EMS lenses; freight trips (car and hazmat truck) and the freight search; the
   two-stage deterministic search; stress tests; the exhaustive check; compare and apply; closures and evidence drawers, which show an
@@ -58,8 +61,9 @@ production env vars have been set since 2026-09-26, so the live deployment's AI-
   falling back to the deterministic critic's own stress test — the model-can-only-select-from-a-catalog safety design held against a
   real model's real failure modes, not just the fake-provider tests. Full rationale-kind breakdown in `docs/FEEDBACK_NOTES.md`.
 - **Verified against the deployed site too, later the same day (2026-10-24):** Upstash was set up, the Nebius key and
-  `WS_CONFIRM_SECRET` were added to Vercel's Production environment, and a real mission ran through the live site itself. **Still
-  unverified:** Tavily and Turnstile remain completely unverified against real services — `TAVILY_API_KEY` is still empty, and no
+  `WS_CONFIRM_SECRET` were added to Vercel's Production environment, and a real mission ran through the live site itself. Later the
+  same evening, `TAVILY_API_KEY` was added to Vercel's Production environment too and verified with a real closure-notices search
+  against the live site (see above). **Still unverified:** Turnstile remains completely unverified against real services — no
   Turnstile keys have been obtained.
   Reasoning-token behavior and shared-store command counts also remain unverified (see `docs/FEEDBACK_NOTES.md` for exact gaps).
 
@@ -85,9 +89,9 @@ production env vars have been set since 2026-09-26, so the live deployment's AI-
 ### Blocked on the user
 
 - [x] **Done 2026-10-24.** Nebius Token Factory account, billing card, and the hackathon $25 promo code (balance $26.00).
-- [ ] **Top remaining blocker (2026-10-24):** Upstash free account and the store variables (shared spend counters; without it the deployment runs "instance-local" with a lower daily budget, and the standing decision is not to put `NEBIUS_API_KEY` / `TAVILY_API_KEY` into Vercel's production env until this exists). Needs the user to sign up and create a database; an agent can then wire the resulting REST URL/token into Vercel.
-- [ ] Pasting the confirmed keys into Vercel's Production environment variables (dashboard action; needs the user or someone with project access).
-- [ ] Tavily key (still not obtained/set as of 2026-10-24).
+- [x] **Done 2026-10-24.** Upstash free account and store variables, wired into Vercel's Production environment; `/api/health` shows `protection: "shared"`.
+- [x] **Done 2026-10-24.** `NEBIUS_API_KEY`, `NEBIUS_BASE_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `WS_CONFIRM_SECRET`, and `TAVILY_API_KEY` are all pasted into Vercel's Production environment variables.
+- [x] **Done 2026-10-24.** Tavily key generated and deployed; verified live against the real search API (see "State right now" above).
 - [ ] Optional: free Census API key (`CENSUS_API_KEY`) so a pipeline rebuild can use the official API instead of the Census Reporter mirror. Not needed for the submission.
 - [ ] Optional: Cloudflare Turnstile keys, if the extra abuse gate is wanted.
 - [ ] Devpost submission draft (text drafts: `docs/DEVPOST.md`) and the YouTube upload of the demo video (script: `docs/VIDEO_SCRIPT.md`) — recording/voiceover needs the user; form text can be drafted by an agent.
@@ -100,7 +104,7 @@ production env vars have been set since 2026-09-26, so the live deployment's AI-
 - [x] Devpost: joined the hackathon.
 - [x] **Done 2026-10-24.** Nebius Token Factory account created, billing set up, $25 hackathon promo code applied ($26 total balance), `NEBIUS_API_KEY` generated and stored in the repo-root `.env` (git-ignored, never committed).
 - [x] **Done 2026-10-24.** Raw-provider smoke test (`smoke-token-factory.mjs`, plain and `--stream`): all 4 planned model IDs resolve, structured JSON output and streaming both work on the planner/critic (Ultra) and parser/extractor (Nano) role models. Full numbers in `docs/FEEDBACK_NOTES.md`.
-- [x] Tavily free Researcher plan set up (pay-as-you-go is OFF), per the 2026-09-26 entry — not re-verified on Tavily's side this pass. **Confirmed 2026-10-24:** `TAVILY_API_KEY` is still empty in the repo-root `.env`, so the key has not actually been generated/stored yet even if the plan exists. Not set on Vercel either way (health shows Tavily not configured).
+- [x] Tavily free Researcher plan set up (pay-as-you-go is OFF), per the 2026-09-26 entry. **Done 2026-10-24:** `TAVILY_API_KEY` generated and set on Vercel's Production environment; `/api/health` shows `tavily.configured: true`, and a real closure-notices search against the live site returned real results.
 - [x] Architecture plan, legal checklist, data-source log, feasibility spike (`docs/`, `spikes/`).
 - [x] Snapshot pipeline and committed Key Bridge-era Baltimore snapshot (ODbL notice in `data/snapshot/LICENSE.md`).
 - [x] Browser simulator (CSR graph, Dijkstra, EMS / access / cross-harbor lenses, correlated futures, worker pool) with golden-matched tests.
@@ -144,8 +148,8 @@ Top priorities, roughly in order:
 - **No key means no stage-one API requirement — resolved 2026-10-24.** A real Nebius key is now live on the deployed site itself
   (`/api/health` reports `provider.configured: true`, `protection: "shared"`), with a real mission run through the app's own agent
   routes on the live site, not just the standalone smoke script. The submission can demonstrate Nemotron on Token Factory in the
-  thing judges will actually click. Remaining, lower-priority gap: Tavily is not yet deployed (affects the closure feed and the
-  Tavily bonus prize, not the core AI-planner requirement).
+  thing judges will actually click. Tavily is live too, as of the same evening: `tavily.configured: true`, and a real closure-notices
+  search against the live site returned real results — the Tavily bonus prize can also be demonstrated on the deployed site.
 - **Credits and the daily cap (credit-budget arithmetic).** `WS_DAILY_BUDGET_USD` defaults to 1 USD per day (`.env.example`). From 2026-10-30 to 2026-12-15 is 46 days, so the default could spend up to 46 USD, more than the 25 USD hackathon credit (unreceived) plus the 1 USD trial credit (documented as valid 30 days). Set `WS_DAILY_BUDGET_USD` from the real balance after testing: cap per day = (credit remaining) / (days to 2026-12-15), for example 20 USD left is about 0.40 USD per day. The cap is a flat number; a date-aware cap is not built.
 - **Model ID drift.** The catalog is moving (three models were removed from serverless on 2026-08-31). IDs may change between now and judging. Mitigation: runtime `/models` resolution and env overrides; re-run the smoke script shortly before tagging.
 - **Video and demo must match.** The judged demo must match the tagged video and description; no changes after the deadline.
@@ -172,7 +176,7 @@ Record decisions here with a date and a one-line reason.
 - 2026-09-26: The Key Bridge collapse is never animated, no individuals are named, and the tool is framed as a planning aid, not live dispatch (see `docs/DEDICATION.md`, `docs/LEGAL.md`).
 - 2026-09-26: Second legal review adopted: `docs/LEGAL.md` rules 11 (hazmat and freight framing), 12 (no vendor performance disclosures), 13 (raw model text) and 14 (privacy notice). Freight copy says "Simulation, not route guidance"; the escorted hazmat windows are labeled hypothetical, not an MDTA program.
 - 2026-09-26: Repo contains no AI-assistant attribution of any kind. Enforced by local git hooks (`.git/hooks/commit-msg`, `pre-commit`) and `scripts/check-repo-hygiene.sh`, which checks tracked files, paths and commit messages (and untracked files with `--include-untracked`).
-- 2026-10-24: Standing decision confirmed: do not add `NEBIUS_API_KEY` / `TAVILY_API_KEY` to Vercel's Production environment until Upstash exists, so the live deployment never silently runs on the much smaller `WS_INSTANCE_LOCAL_BUDGET_USD` fallback with real visitor traffic. This is why the live site still shows no AI keys configured even though a working key exists locally.
+- 2026-10-24: Standing decision from earlier in the day (do not add `NEBIUS_API_KEY` / `TAVILY_API_KEY` to Vercel's Production environment until Upstash exists, so the live deployment never silently runs on the much smaller `WS_INSTANCE_LOCAL_BUDGET_USD` fallback with real visitor traffic) is now satisfied: Upstash, Nebius and Tavily are all live on Vercel's Production environment as of the same evening.
 
 ## Submission checklist
 

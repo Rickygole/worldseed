@@ -207,8 +207,6 @@ mitigation matter?":
 
 ### What's next
 
-- Get a Tavily key onto production the same way (built and tested; live lookups still
-  pending a deployed key).
 - Compare model output quantitatively to published post-collapse observations.
 - Screen crossings beyond the three already shipped (Key Bridge, Harbor Tunnel, Fort
   McHenry Tunnel); the pipeline is already bounding-box configurable for a new one.
@@ -316,10 +314,6 @@ OpenStreetMap Foundation. In an emergency, call 911.
   (36th percentile) and high on concentrated harm to a few people (92nd percentile for
   share losing more than 25% of cross-harbor jobs). We call it a concentrated
   cross-harbor bottleneck, not the most important road in the region.
-- **Tavily isn't on the deployed site yet.** The closure feed and reality-check
-  evidence drawer are built and tested, pending a deployed Tavily key — tracked in
-  `docs/STATUS.md`. (The AI planner itself is live on the deployed site as of
-  2026-10-24, with a real mission run both locally and through the live site.)
 - **Not validated against observed post-collapse traffic**, beyond the one reported
   commute above.
 - One bridge, one region, one historical snapshot: this is a screening tool, not a
