@@ -14,8 +14,11 @@ No login, no payment, no install. The simulation, map, inspector, freight panel 
 deterministic search run in your browser with no limits and no key. As of 2026-10-24
 the deployed site's AI planner is live: the real Nebius Token Factory key is wired into
 production (see "How we used Token Factory and Nemotron" below), and a real mission can
-be run from Expert mode. Every finding and every number in this submission works
-without it too, with no key. Contact: [CONTACT EMAIL: a project address].
+be run from Expert mode. Live AI and news-search calls are free; to keep the shared free
+budget available to every judge through 15 December, they carry per-visitor fair-use
+limits. If a limit is reached the app says so and the same search continues without AI.
+Every finding and every number in this submission works without it too, with no key.
+Contact: [CONTACT EMAIL: a project address].
 
 ### Submission-form notes (do not paste)
 
@@ -35,7 +38,7 @@ WorldSeed
 
 ## Tagline
 
-Regional averages hide local disasters. WorldSeed shows you where.
+Regional averages hide the local story. WorldSeed shows you where.
 
 ## Thesis
 
@@ -43,23 +46,25 @@ A good planning tool also shows what didn't break.
 
 ## One-line version
 
-A regional model said losing the Key Bridge cost about 3 seconds on average; WorldSeed
-found the 20,000 people on one peninsula that average was hiding, using a simulator —
-never a language model — to compute who loses job access, whether first response
-holds, and how far hazmat trucks must detour, with an NVIDIA Nemotron model sitting on
-top as a search policy that can only choose from a catalog the simulator itself checks.
+Our regional lens said losing the Key Bridge cost about 3 seconds on average; WorldSeed
+found the about-20,000 people (6,700 to 96,000 depending on assumptions) on one
+peninsula that average was hiding, using a simulator — never a language model — to
+compute who loses job access, whether first response holds, and how far hazmat trucks
+must detour, with an NVIDIA Nemotron model sitting on top as a search policy that can
+only choose from a catalog the simulator itself checks.
 
 ## Two-sentence version
 
-A regional model says losing the Key Bridge costs about 3 seconds on average; underneath
-that average, about 20,000 people on one peninsula lose over 10% of the jobs they can
-reach across the harbor, first response doesn't change at all, and hazmat trucks lose
-15 minutes to a published detour rule — three true, different answers the regional
-number hides. A deterministic search already proves the architecture works, finding the
-exhaustive-audit top bundle of 129 with no AI; Nemotron turns an open-ended goal into
-that same checked search — the one job brute force can't do — with a critic that adds a
-second check, picking a stress test from a closed set to try to break the runner-up,
-verified live against the real Token Factory API today.
+Our regional lens says losing the Key Bridge costs about 3 seconds on average; underneath
+that average, about 20,000 people (6,700 to 96,000 depending on assumptions) on one
+peninsula lose over 10% of the jobs they can reach across the harbor, first response
+doesn't change at all, and hazmat trucks lose 15 minutes to a published detour rule —
+three true, different answers the regional number hides. A deterministic search already
+proves the architecture works, finding the exhaustive-audit top bundle of 129 with no
+AI; Nemotron turns an open-ended goal into that same checked search — the one job brute
+force can't do — with a critic that adds a second check, picking a stress test from a
+closed set to try to break the runner-up, verified live against the real Token Factory
+API and the deployed site itself.
 
 ---
 
@@ -72,12 +77,15 @@ not affiliated with or endorsed by any agency.*
 
 ### Inspiration
 
-A regional model says losing the Key Bridge costs about 3 seconds on average. That's
-true, and it's the wrong place to look: about 20,000 people, mostly on the Sparrows
-Point / Edgemere peninsula, lose more than 10% of the jobs they can reach across the
-harbor within 30 minutes — up to 77% in the eight hardest-hit block groups. We wanted a
-tool that shows the average and the local disaster side by side, and that also reports
-what held, because "the thing you feared didn't happen" is a finding too.
+Our first hero metric was flat: we expected first-response time to spike when we
+removed the Key Bridge, and it didn't, because both shores have their own stations. That
+forced an honest rebuild around a different, truer story. Our regional lens says losing
+the Key Bridge costs about 3 seconds on average. That's true, and it's the wrong place
+to look: about 20,000 people (6,700 to 96,000, depending on assumptions), mostly on the
+Sparrows Point / Edgemere peninsula, lose more than 10% of the jobs they can reach
+across the harbor within 30 minutes — up to 77% in the eight hardest-hit block groups.
+We wanted a tool that shows the average and the local story side by side, and that also
+reports what held, because "the thing you feared didn't happen" is a finding too.
 
 We also wanted an AI system that can't fake a result. Most hackathon agents either
 compute nothing (a model free-associating about traffic) or hide their computation (a
@@ -100,26 +108,24 @@ That idea is checkable without AI in the loop at all, and we checked it: a deter
 two-stage search — screen every eligible bundle once, then paired stress futures on the
 top 12 — finds the rank-1 bundle out of all 129 eligible combinations in the exhaustive
 audit (`frontend/lib/agent/exhaustive.ts`). That isn't evidence the AI is unnecessary;
-it's the provably-correct baseline the AI is checked against, which is what makes it
-safe to demo in the first place. Nemotron's real job, the one piece exhaustive search
-genuinely can't do, starts upstream of ranking bundles: turning an open-ended,
-plain-language goal into the structured mission that search runs on — there's no
-catalog of English sentences to enumerate. The critic adds a smaller, second check on
+it's how we calibrate the AI while the catalog is small enough to brute-force at all. At
+a few hundred options instead of 16, exhaustive search stops being possible and the
+planner becomes the only way to search the space — the audit is the harness that lets us
+trust it before that point, not a reason to skip it. Nemotron's real job, the one piece
+exhaustive search genuinely can't do, starts upstream of ranking bundles: turning an
+open-ended, plain-language goal into the structured mission that search runs on — there's
+no catalog of English sentences to enumerate. The critic adds a smaller, second check on
 top: it picks one stress test from the same closed set the deterministic critic also
 checks, specifically to try to break the leading bundle, so nothing survives on an
 untested assumption. Neither role claims to out-rank brute force at its own game — the
 planner's job is one brute force can't attempt at all, the critic's is making sure the
 winner was actually tested. As of 2026-10-24 the real Nebius Token Factory API is live
-and verified: `GET /v1/models` resolves all four role model IDs, structured
-`json_schema` output and streaming both work on both models used, and a real
-end-to-end mission through the app's own routes (parse → plan → critique → finalize)
-ran locally the same day: 30 provider-backed calls, 90% valid on the first turn, and 3
-clean falls-back to the deterministic critic on the rest — proof the catalog-only
-validator holds against a real model's real mistakes, not just fake-provider tests. As
-of 2026-10-24 that key is also wired into the deployed site's production environment,
-behind a shared rate-limit store, and a second real mission has run through the live
-site itself (Expert mode, a plain-language goal through parse → plan → critique →
-finalize). The deployed demo now runs the AI path live; it falls back to the
+and verified, wired into the deployed site's production environment behind a shared
+rate-limit store, and real missions have run end to end through the app's own routes
+(parse → plan → critique → finalize) both locally and against the live site itself —
+proof the catalog-only validator holds against a real model's real mistakes, not just
+fake-provider tests (observation counts and dates are in the Feedback section below, per
+Nebius's terms). The deployed demo now runs the AI path live; it falls back to the
 deterministic path, labeled "not AI," only if the AI is unavailable, its output is
 rejected, or the daily budget is spent.
 
@@ -171,8 +177,9 @@ mitigation matter?":
 
 ### Challenges we ran into
 
-- **Our first hero metric was flat.** We expected EMS response time to spike; it
-  didn't. We rebuilt the story around an honest finding instead of a dramatic one.
+- **Rebuilding the story after the flat result (see Inspiration).** Once first-response
+  stopped being the hero metric, we had to find the real finding instead of forcing the
+  one we expected.
 - **Keeping a model away from numbers structurally, not by prompting.** The catalog it
   sees carries no effect sizes; its output schema has no field for a number; its "why"
   is a pick from eight fixed rationale kinds the application renders as a sentence.
@@ -235,17 +242,14 @@ key exist. `GET /v1/models` resolves all four role IDs we had guessed from publi
 documentation back in September — `nvidia/Nemotron-3-Ultra-550b-a55b` for
 planner/critic, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` for parser/extractor — with no
 change needed. Structured `json_schema` output and streaming both work on both models,
-confirmed by real calls against the live API (latency, token counts and sample sizes in
-`docs/FEEDBACK_NOTES.md`). A full mission has run end to end through the app's own
-routes (parse → plan → critique → finalize), first locally (30 provider-backed calls
-across 10 synthetic missions, 90% valid on the first turn, 3 clean falls-back to the
-deterministic critic), then — as of 2026-10-24 — against the live deployed site itself,
-behind an Upstash-backed shared rate-limit store so a single script can't drain the
-shared AI budget across serverless instances. The deployed demo now runs the AI path
-live, falling back to the deterministic two-stage search, labeled "not AI," only if the
-AI is unavailable, its output is rejected, or the budget is spent — and that fallback's
-own top pick already ranks first of 129 in the exhaustive audit, so there's no bad
-outcome either way.
+confirmed by real calls against the live API (observation counts and dates are in the
+Feedback section below, per Nebius's terms). A full mission has run end to end through
+the app's own routes (parse → plan → critique → finalize), first against a batch of
+synthetic test missions run locally, then — as of 2026-10-24 — against the live deployed
+site itself, behind an Upstash-backed shared rate-limit store so a single script can't
+drain the shared AI budget across serverless instances. The deployed demo now runs the
+AI path live, falling back to the deterministic two-stage search, labeled "not AI," only
+if the AI is unavailable, its output is rejected, or the budget is spent.
 
 **Model licenses, by role.** Nemotron 3 Nano and Nemotron 3 Super: NVIDIA Nemotron Open
 Model License (last modified 2025-12-15). Nemotron 3 Ultra and Nemotron 3.5 Lightning:
@@ -262,9 +266,9 @@ missions, dates, "not a benchmark or comparison").
 ## Built with
 
 Nebius Token Factory, NVIDIA Nemotron, Tavily, Next.js, React, TypeScript, Web Workers,
-deck.gl, MapLibre GL, OpenFreeMap, H3, Zustand, Framer Motion, d3, zod, Vercel, Python,
-NumPy, SciPy, NetworkX, GeoPandas, Shapely, pandas, scikit-learn, OpenStreetMap, U.S.
-Census Bureau ACS, TIGER/Line and LEHD LODES, Maryland iMAP.
+deck.gl, MapLibre GL, OpenFreeMap, Esri World Imagery, H3, Zustand, Framer Motion, d3,
+zod, Vercel, Python, NumPy, SciPy, NetworkX, GeoPandas, Shapely, pandas, scikit-learn,
+OpenStreetMap, U.S. Census Bureau ACS, TIGER/Line and LEHD LODES, Maryland iMAP.
 
 ## Category choice: Best Apps and Agents
 
@@ -273,12 +277,13 @@ simulator, a designed interface and a public deployment that needs no login. It'
 an agent with an unusual constraint: a planner model turns an open-ended goal into a
 structured search of options — the one job a brute-force search genuinely can't do — a
 simulator it cannot bypass scores every option across many futures, and a critic adds a
-second check, picking the stress test designed to break the leaders. The search itself
-is also provably correct without AI: a deterministic version of it already audits out
-at rank 1 of 129. Nemotron is wired on top of that exact architecture, verified live
-against the real Token Factory API, with ten real missions already run through the
-app's own routes; wiring that same key into the deployed site's production environment
-is what's left before judging.
+second check, picking the stress test designed to break the leaders. A deterministic
+version of the same search, with no AI in the loop, audits out at rank 1 of 129 eligible
+bundles — the harness that calibrates the AI while the catalog is small enough to
+brute-force. Nemotron is wired on top of that exact architecture, verified live against
+the real Token Factory API and the deployed site itself: the key is live in production,
+behind a shared rate-limit store, with real missions run both locally and through the
+live site.
 
 ## Disclaimer to keep at the end of the description
 
@@ -322,10 +327,11 @@ OpenStreetMap Foundation. In an emergency, call 911.
 ## Privacy
 
 WorldSeed has no accounts and sets no cookies. Your browser's session storage keeps a
-random session id and whether you've seen the intro. Once the shared rate-limit store
-is configured in production, the server keeps a salted hash of your IP and session id
-in it for at most about two days to enforce fair-use limits, and never stores raw IP
-addresses; until then, limits are enforced per server instance instead and nothing is
-stored centrally. The host (Vercel) processes request data, including IP addresses, in
-its own logs. Text you type as a goal is sent to Nebius Token Factory to run the AI
-model — don't enter personal information. Questions: open a GitHub issue.
+random session id and whether you've seen the intro. To enforce fair-use limits, the
+server keeps a salted hash of your IP address and session id in a counter store
+(Upstash) for at most about two days; WorldSeed does not store raw IP addresses. The
+host (Vercel) processes request data, including IP addresses, in its logs under its own
+privacy policy. If the bot check is on, Cloudflare Turnstile processes signals such as
+your IP address and browser details to detect bots. Text you type as a goal is sent to
+Nebius Token Factory to run the AI model, so do not enter personal information.
+Questions: open a GitHub issue.

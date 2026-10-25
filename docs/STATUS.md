@@ -37,9 +37,10 @@ production env vars have been set since 2026-09-26, so the live deployment's AI-
   run through the live site itself (Expert mode: a plain-language goal through parse → plan → critique → finalize, with a real
   finalist returned).
 - **Re-verified 2026-10-24 (later the same evening), `GET /api/health`:** `tavily.configured: true`, `evidence.available: true`.
-  The "Check live closure notices" button was clicked on the live deployed site itself: it called Tavily for real, returned 7 real
-  news sources (baltimorecity.gov, montgomerycountymd.gov, foxbaltimore.com), ran them through the Nemotron Nano extractor, and
-  correctly reported 0 matches to the model area (honest negative, not fabricated). No live key gaps remain.
+  The "Check live closure notices" button was clicked on the live deployed site itself: a live Tavily call succeeded end to end,
+  and our own extraction, grounding and matching pipeline ran and reported an honest result (no fabricated closures). Per
+  `docs/LEGAL.md` rule 12, this note describes our own app's observations only, not Tavily's performance or behavior. No live
+  key gaps remain.
 - **As reported (works without any key, not re-tested in a browser this pass):** the real browser-side simulator on the real snapshot
   with the cross-harbor, regional-access and first-response EMS lenses; freight trips (car and hazmat truck) and the freight search; the
   two-stage deterministic search; stress tests; the exhaustive check; compare and apply; closures and evidence drawers, which show an

@@ -4,21 +4,21 @@ Tone: confident, sober, no hype. This is built on a real loss.
 
 Thesis: **A good tool also shows what didn't break.**
 
-Tagline: **Regional averages hide local disasters. WorldSeed shows you where.**
+Tagline: **Regional averages hide the local story. WorldSeed shows you where.**
 
 As of today (2026-10-24): a real Nebius Token Factory account, billing and API key
-exist, and the API is verified live — `GET /v1/models` resolves all four role model
-IDs, structured output and streaming both work on both models used. What's still
-pending: wiring that key into the deployed site's production environment (blocked on a
-shared Upstash rate-limit store, so one script can't drain the shared AI budget across
-serverless instances) and one full live mission through the app's own agent routes
-(parse → plan → critique → finalize). Both are expected before the deadline; until then,
-the deployed demo runs the deterministic search and says so. Every finding below is
-independent of that and is true on the deployed app today.
+exist, the API is verified live, and the key is wired into the deployed site's
+production environment behind a shared Upstash rate-limit store (so one script can't
+drain the shared AI budget across serverless instances). A full live mission has run
+through the app's own agent routes (parse → plan → critique → finalize) both locally
+and against the live deployed site itself. The deployed demo runs the AI path live and
+falls back to the deterministic search, labeled "not AI," only if the AI is
+unavailable, its output is rejected, or the daily budget is spent. Every finding below
+is independent of that and is true on the deployed app today.
 
 ## 30-second pitch
 
-A regional model says losing the Key Bridge costs about three seconds on average.
+Our regional lens says losing the Key Bridge costs about three seconds on average.
 Underneath that average: about twenty thousand people, mostly on the Sparrows Point and
 Edgemere peninsula, lose more than ten percent of the jobs they can reach across the
 harbor in thirty minutes. First-response times don't change at all, because both shores
@@ -36,7 +36,7 @@ decides.
 In memory of the six construction workers who died when the Francis Scott Key Bridge
 collapsed on March 26, 2024.
 
-When a crossing like that is lost, the average tells you very little. A regional model
+When a crossing like that is lost, the average tells you very little. Our regional lens
 says the Key Bridge costs about three seconds. That number is true, and it's the wrong
 place to look. WorldSeed loads the pre-collapse OpenStreetMap road network for
 Baltimore, dated March 1, 2024, with Census population and jobs data, and lets you
@@ -68,8 +68,8 @@ proposes, a simulator that can't be gamed scores everything, and an adversarial 
 picks one stress test from a closed set specifically to break the leaders. Nemotron on
 Nebius Token Factory is wired in as the search policy over that identical simulator,
 choosing only by catalog ID, with the same critic enforcing the same stress tests. The
-Token Factory API is verified live today; the first full mission through the app's own
-routes, and production wiring on the deployed site, land before judging. Even the best
+Token Factory API is verified live today, wired into the deployed site's production
+environment, with full missions run both locally and through the live site itself. Even the best
 search result is honest about its limits: Beltway flow plus Harbor Tunnel approaches
 plus I-95 flow cuts the residents losing more than ten percent of cross-harbor jobs from
 about twenty thousand to about fifteen thousand — a quarter fewer, not a fix. About
@@ -96,9 +96,9 @@ a car. A deterministic two-stage search already finds the exhaustive-audit rank-
 of 129 with no AI; a Nemotron model on Nebius Token Factory is wired in as the search
 policy over that identical simulator, with an adversarial critic that picks a stress
 test from a closed set to break the runner-up, verified live against the real Token
-Factory API today, with production wiring and one full live mission landing before
-judging. The best search result cuts the affected count by about a quarter, not to
-zero — the tool says so. It's a research prototype for resilience analysts, not a
+Factory API and the deployed site itself. The best search result cuts the affected
+count by about a quarter, not to zero — the tool says so. It's a research prototype for
+resilience analysts, not a
 dispatch system, and a human decides.
 
 ## Twelve likely judge questions
@@ -121,23 +121,24 @@ from a plain-language goal, the simulator scores them across many futures, and t
 critic — the actual non-obvious piece — picks one stress test from a closed, enumerable
 set specifically to break the leaderboard, forcing the simulator to re-score every
 leader under it. That's adversarial pressure the model can't dodge, because the thing
-attacking its answer is also deterministic and auditable. As of today the Token Factory
-API is verified live (model resolution, structured output, streaming on both models);
-what hasn't happened yet is one real end-to-end mission through the app's own routes.
-That lands before judging. Until then, the deployed demo runs the deterministic path and
-labels it "not AI."
+attacking its answer is also deterministic and auditable. The Token Factory API is
+verified live (model resolution, structured output, streaming on both models), wired
+into the deployed site's production environment, and a real end-to-end mission has run
+through the app's own routes both locally and against the live site itself. The
+deployed demo runs the AI path live and falls back to the deterministic path, labeled
+"not AI," only if the AI is unavailable, its output is rejected, or the budget is
+spent.
 
 **3. What is live, and what is not?**
 Live, no key needed: the road graph and snapshot, the browser simulator, removing the
 link, the cross-harbor, regional and first-response lenses, the inspector, the
 assumptions drawer, the freight trips and hazmat goal, the deterministic two-stage
-search with its stress tests, the exhaustive audit, and Compare, Preview and Apply.
-Verified live against the real Token Factory API, not yet wired into the deployed
-site's production path: the AI planner, critic, parser and extractor (model
-resolution, structured output and streaming all confirmed on 2026-10-24; production
-wiring is blocked on a shared Upstash rate-limit store). Built, not yet verified against
-a real service: the Tavily closure and evidence lookups, the Turnstile hook. Planned,
-not built: screening other crossings, a quantitative comparison to observations.
+search with its stress tests, the exhaustive audit, and Compare, Preview and Apply. Also
+live, on the deployed site itself as of 2026-10-24: the AI planner, critic, parser and
+extractor, wired into production behind a shared Upstash rate-limit store, and the
+Tavily closure and evidence lookups. Built, not yet verified against a real service: the
+Turnstile hook. Planned, not built: screening other crossings, a quantitative comparison
+to observations.
 
 **4. How do you know it's right?**
 We don't claim it's right; we claim we know how far it can be trusted. The TypeScript
@@ -265,7 +266,8 @@ here is route guidance; carriers follow posted and designated hazmat routes.
   15,000 remain.
 - AI: Token Factory account real, billing done, key live; `GET /v1/models` resolves all
   four role IDs; structured output and streaming confirmed on both models used
-  (2026-10-24, `docs/FEEDBACK_NOTES.md`). Not yet true: production wiring on the
-  deployed site, and one full live mission through the app's own routes.
+  (2026-10-24, `docs/FEEDBACK_NOTES.md`). Also true as of 2026-10-24: wired into the
+  deployed site's production environment, with full live missions run both locally and
+  through the deployed site itself.
 
 If a number on screen differs from one here, trust the screen and fix this file.

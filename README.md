@@ -2,11 +2,11 @@
 
 **Don't predict the future. Simulate it.**
 
-*Regional averages hide local disasters. A good tool also shows what didn't break.*
+*Regional averages hide the local story. A good tool also shows what didn't break.*
 
 Live demo: https://worldseed-mu.vercel.app (no login, runs in your browser)
 
-A regional model says losing the Key Bridge costs about 3 seconds on average. For
+Our regional lens says losing the Key Bridge costs about 3 seconds on average. For
 about 20,000 people, mostly on the Sparrows Point / Edgemere peninsula, it cut more
 than 10% of the jobs they can reach across the harbor within 30 minutes, and for the
 eight hardest-hit block groups, 27-77%. (That head-count depends on speed and
@@ -26,14 +26,15 @@ speeds (congestion appears only in stress futures), with Census population and j
 data. You remove a link and see who is affected. It then screens a catalog of 16
 hypothetical scenario options for where mitigation would matter. A deterministic
 two-stage search needs no AI key and is checked against an exhaustive audit of every
-eligible bundle, so its answer is provably the best the catalog allows. An NVIDIA
+eligible bundle: its top pick ranks 1st of 129 eligible bundles in the reference run.
+An NVIDIA
 Nemotron planner on Nebius Token Factory turns an open-ended goal into that same
 checked search, and its critic picks the one stress test most likely to break the
 leaders, which the simulator then has to survive. No language model ever produces a
 number: the simulator computes every metric, cited Census data supplies the
 population figures, and application templates write every result sentence. (Verified
-live against the raw Token Factory API as of 2026-10-24; not yet wired into the
-deployed site's production environment — see [Status](#status).)
+live against the real Token Factory API and against the deployed site itself as of
+2026-10-24 — see [Status](#status).)
 
 Built for the Nebius x NVIDIA Global AI Hackathon, track **Best Apps and Agents**.
 
@@ -73,8 +74,7 @@ Built for the Nebius x NVIDIA Global AI Hackathon, track **Best Apps and Agents*
   peninsula. See the finding below.
 - **Checks live news, with you in the loop.** A Tavily lookup can propose current
   road closures near the model area. Nothing enters the model until you read the
-  source and confirm it. (Built and tested; the live lookup is pending a deployed
-  key.)
+  source and confirm it. (Live on the deployed site as of 2026-10-24.)
 
 ## Who it is for
 
@@ -303,17 +303,15 @@ fake provider. As of 2026-10-24 they have also been verified live against the re
 Nebius Token Factory API: `GET /v1/models` resolves all four role model IDs
 (`nvidia/Nemotron-3-Ultra-550b-a55b` for planner/critic, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
 for parser/extractor), structured `json_schema` output and streaming both work on both
-models (see `docs/FEEDBACK_NOTES.md`). What is still pending is wiring that key into the
-*deployed* site's production environment (it needs a shared rate-limit store first, so a
-single script can't drain the shared AI budget) and running one real end-to-end mission
-through the live app. Until that lands, the deployed demo shows that AI planner setup is
-in progress, and the deterministic two-stage search above is the path that works without
-a key. This section will be updated the moment the live deployment has a configured
-provider (see [Status](#status)).
+models (see `docs/FEEDBACK_NOTES.md`). The key is wired into the deployed site's production
+environment behind the shared rate-limit store (so a single script can't drain the shared AI
+budget), and a real end-to-end mission has been run through the live app itself. The
+deterministic two-stage search above remains the path that works with no key at all (see
+[Status](#status)).
 
 ## Tavily: live road-closure feed
 
-Status: implemented and tested; live lookup pending a deployed key.
+Status: implemented, tested, and live on the deployed site as of 2026-10-24.
 
 `/api/closures` runs one fixed Tavily news search for Baltimore-area closures (last
 14 days, 8 results), then:
@@ -637,13 +635,12 @@ Repo hygiene: run `scripts/check-repo-hygiene.sh` before pushing.
 
 ## Status
 
-Last updated: 2026-10-24. **Live** means it works with no key and runs in your
-browser; **verified against the real service** means it has made a real call outside
-the app's own deployment, but is not yet wired into the deployed site; **built, not
-verified** means the code and tests exist but it has not run against the real service
-at all; **in progress** means it is not finished; **planned** means it does not exist
-yet. The exact commit the deployed site runs is tracked in `docs/STATUS.md`; re-check
-each Live item on https://worldseed-mu.vercel.app before submitting.
+Last updated: 2026-10-24. **Live** means it works, with or without a key, on the deployed
+site itself; **built, not verified** means the code and tests exist but it has not run
+against the real service at all; **in progress** means it is not finished; **planned**
+means it does not exist yet. The exact commit the deployed site runs is tracked in
+`docs/STATUS.md`; re-check each Live item on https://worldseed-mu.vercel.app before
+submitting.
 
 - [x] **Live.** Pre-collapse OpenStreetMap road graph and snapshot (Key Bridge, both harbor tunnels, block groups, jobs, facilities)
 - [x] **Live.** Browser-side simulator (Web Workers), tested against the independent reference
@@ -654,9 +651,9 @@ each Live item on https://worldseed-mu.vercel.app before submitting.
 - [x] **Live.** Exhaustive audit of the search against every eligible bundle (top pick ranks 1 of 129 in the reference run)
 - [x] **Live.** The guided story (six scenes, Expert mode toggle): shipped 2026-09-29, several rounds of work since; replaces the earlier `?tour=keybridge` tour (confirmed dead, not redirected, as of 2026-10-24)
 - [x] **Live.** Whole-Earth globe intro (MapLibre's native globe projection over the existing Esri imagery), draggable and zoomable, flies down into the regional view; added and verified live 2026-10-24
-- [ ] **Verified against the real service, not yet live on the deployed site.** AI planner and critic on Nemotron via Token Factory: all four role models resolve against the real account, structured output and streaming both confirmed working (2026-10-24, `docs/FEEDBACK_NOTES.md`); the key is not yet in the deployed site's production environment, pending a shared rate-limit store
-- [ ] **Built, not verified against a real service.** Tavily road-closure feed and the reality-check evidence drawer (code and tests complete; live lookups pending a deployed key)
-- [ ] **Built, not verified against a real service.** Upstash shared rate limits and daily budget (without it limits are per process; this is also the blocker on deploying the Nebius and Tavily keys to production)
+- [x] **Live.** AI planner and critic on Nemotron via Token Factory: all four role models resolve against the real account, structured output and streaming both confirmed working (2026-10-24, `docs/FEEDBACK_NOTES.md`), key wired into the deployed site's production environment behind the shared rate-limit store, real end-to-end mission run through the live app
+- [x] **Live.** Tavily road-closure feed and the reality-check evidence drawer (confirmed against the deployed site 2026-10-24: a real search returned real results, correctly screened)
+- [x] **Live.** Upstash shared rate limits and daily budget, wired into the deployed site's production environment
 - [ ] **Built, not verified against a real service.** Turnstile check hook
 - [ ] **Planned.** Screening other crossings from the app (the pipeline is bbox-configurable today)
 - [ ] **Planned.** Quantitative comparison of model output to published observations

@@ -229,27 +229,62 @@ Fill these in from the raw log near the deadline. Use experienced entries first;
 
 ### Functionality
 
-Did the models and endpoints do what was needed? Tool calling, structured output, correctness, model availability.
-Draw on: F-05, F-06, F-10, and the live-key sections.
-
-(empty)
+All four role model IDs we had guessed from public documentation in September
+(`nvidia/Nemotron-3-Ultra-550b-a55b`, `nvidia/nemotron-3-super-120b-a12b`,
+`nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, `nvidia/Nemotron-3_5-Lightning`) resolved
+exactly as written against the real `GET /v1/models` endpoint, with no change needed
+(F-05). Structured `response_format: json_schema` output worked on the first call for
+every model we use, every time we tried it, with no repair turn needed (F-10).
+Streaming worked with structured output on both role models, with valid JSON once
+reassembled. Observations from WorldSeed's own validators on our own requests (N = 10
+synthetic missions run through our app's own agent routes, 2026-10-24): our
+catalog-only validator correctly accepted a valid model selection on the first turn in
+27 of 30 provider-backed calls, and correctly rejected and fell back to our own
+deterministic path on the other 3 — proof our safety design (the model may only select
+from a precomputed catalog; anything else is discarded) holds against a real model's
+real behavior, not just our fake-provider tests. This describes how our app's own
+schema and screens handled the replies we received, not the quality or performance of
+Token Factory or any model; it is not a benchmark or a comparison with any other model
+or provider.
 
 ### Usability
 
-Onboarding, console, API keys, billing, quotas, latency, error messages.
-Draw on: F-01, F-02, F-03, F-04, F-08, F-09, and the live-key sections.
-
-(empty)
+Onboarding was straightforward: "Sign in with Google" needed no separate password step
+(experienced, 2026-10-23/24). Billing is mandatory before any API call and requires a real
+card; our first card attempt failed with a generic Stripe error, a second card
+succeeded. The $25 hackathon promo code was emailed within minutes of submitting the
+request form, but it landed in Gmail's Promotions tab and went unnoticed for about
+three weeks, while a separate account-activation email landed in the main inbox —
+worth noting for other hackathon entrants, since the credit is unusable until that
+specific email is found. Applying the code and creating an API key were both
+one-click, low-friction steps once we knew where to look. The rate-limit documentation
+page we could read without an account gave only an example baseline, not our account's
+real limits, which only appeared in the account UI once we had a key (F-09); we never
+hit a rate limit in practice.
 
 ### Documentation
 
-Accuracy, completeness, findability, examples that worked or did not.
-Draw on: F-05, F-06, F-07, F-08, F-09, F-10, F-11.
-
-(empty)
+The exact API model ID strings for Nemotron Ultra and Nano were not printed on any
+docs page we could reach, and the IDs that were documented were inconsistent in
+capitalization and punctuation across the deprecation notice, the marketing page, and
+the Hugging Face repository names for the same model families (F-05) — we resolved
+this by reading the account's own `/v1/models` list at runtime instead of hardcoding a
+guess, which we'd recommend as a general pattern given the inconsistency. The
+deprecation notice still used future tense ("will be removed") when read after the
+stated removal date had already passed (F-06). The quickstart, the marketing page, and
+a separate sample each showed a different base URL (with and without a region, with
+and without a trailing `/v1`) (F-07). Per-token pricing was not on any page reachable
+without logging in; we found it only on a marketing page, not the billing docs (F-08).
+On the positive side, every docs page we read could be fetched as plain Markdown by
+appending `.md` to its URL, and the quickstart's Python/JavaScript/curl samples
+against an OpenAI-compatible endpoint let us build our client on the standard `openai`
+package with no custom HTTP layer (F-11).
 
 ### Would use again?
 
-Yes or no, and why. What would change the answer.
-
-(empty)
+Yes. Once the account was set up, the actual integration was simple — an
+OpenAI-compatible endpoint, reliable structured output, and a working runtime
+`/models` list meant we never had to hardcode a brittle assumption about the catalog.
+The friction we hit was entirely in onboarding and documentation findability (the
+promo-code email, the scattered model IDs and base URLs), not in the API itself once
+we were calling it with a real key.

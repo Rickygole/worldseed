@@ -22,8 +22,8 @@ Read from the source on 2026-09-26; re-check after UI changes.
 | Footer (`frontend/components/Footer.tsx`) | "(c) OpenStreetMap contributors" (linked to the OSM copyright page) (ODbL), U.S. Census Bureau ACS/TIGER/LEHD, NVIDIA Nemotron via Nebius Token Factory (Terms link), Tavily, "AI-generated text may be inaccurate". |
 | About dialog (`frontend/components/AboutDialog.tsx`) | The same data credits, "Map tiles: OpenFreeMap, (c) OpenMapTiles", intended-use text, and the "not affiliated" list. |
 
-Not shown in the app yet (as of 2026-09-26): the State of Maryland acknowledgement for the iMAP facility layers, and a link to
-`THIRD_PARTY_LICENSES.md`. See the last section.
+**Done as of 2026-10-24:** the State of Maryland acknowledgement for the iMAP facility layers and a link to
+`THIRD_PARTY_LICENSES.md` are both in the About dialog (`frontend/components/AboutDialog.tsx`).
 
 ## Data
 
