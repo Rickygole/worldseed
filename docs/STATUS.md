@@ -14,7 +14,7 @@ confirmed it, and this pass did not guess at it either.
 |------|-------|
 | 2026-10-02 | Boston Builders & Brews event (optional; the Devpost city field applies only if attended) |
 | 2026-10-03 | Hard escalation date (passed): a real Nebius key working. The key itself started working 2026-10-24 (later than planned). |
-| 2026-10-24 | Nebius account, billing, promo code and API key done; raw-provider smoke test (plain + `--stream`) succeeded on all 4 model IDs. A real end-to-end mission through the app's own `/api/agent/*` routes also ran locally the same day (30 provider calls, 90% valid first-turn selection rate, 3 clean deterministic fallbacks on rejected output) — see `docs/FEEDBACK_NOTES.md`. Upstash still not set up (top blocker); live deployment still has no AI keys. |
+| 2026-10-24 | Nebius account, billing, promo code and API key done; raw-provider smoke test (plain + `--stream`) succeeded on all 4 model IDs. A real end-to-end mission through the app's own `/api/agent/*` routes ran locally (30 provider calls, 90% valid first-turn selection rate, 3 clean deterministic fallbacks on rejected output) — see `docs/FEEDBACK_NOTES.md`. Upstash set up and the key wired into Vercel production the same day: `/api/health` now reports `provider.configured: true`, `protection: "shared"`; a second real mission ran through the live deployed site itself (Expert mode, a plain-language goal through parse/plan/critique/finalize). Also shipped the same day: Harbor Tunnel and Fort McHenry Tunnel are now screenable crossings in Expert mode alongside the Key Bridge. |
 | 2026-10-30, 10:00am PT | Submission deadline, 6 days from today. Tag `v1.0-submission` and pin the judged deployment before this |
 | 2026-12-01 to 2026-12-15 | Judging period |
 | Through 2026-12-15 (12:00 PT per `docs/LEGAL.md`) | Demo must stay live and free to use, no login. Keep credits, quotas and hosting alive until then |
@@ -31,12 +31,12 @@ production env vars have been set since 2026-09-26, so the live deployment's AI-
   `/api/evidence` exists (a plain GET answers 405, so the route is there and expects POST). Not re-checked today.
 - **Verified 2026-09-26, `GET /api/health`:** HTTP 200 with `ok: true`, `degraded: true`, reason `planner_unavailable`; provider not configured;
   Tavily not configured; protection `instance-local`; every role `unavailable`; evidence not available.
-- **Re-verified 2026-10-24, `GET /api/health`:** identical result — `provider.configured: false`, `protection: "instance-local"`,
-  `tavily.configured: false`, every role `unavailable`. **This is the top remaining blocker before submission, and it is a distinct
-  fact from the local smoke test below:** a real `NEBIUS_API_KEY` now exists and works locally against the raw Nebius provider, but it
-  has not been pasted into Vercel's Production environment, and the standing decision (see Decisions) is not to do that until Upstash
-  exists, so the shared store and spend limits aren't bypassed by an instance-local deploy. Until both are done, the LIVE site cannot
-  make a single AI call — it is still in its "AI planner unavailable, explore manually" fallback state by design, not by accident.
+- **Re-verified 2026-10-24 (evening pass), `GET /api/health`:** `provider.configured: true`, `protection: "shared"`, every role
+  resolves to a real model (`nvidia/Nemotron-3-Ultra-550b-a55b` for planner/critic, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` for
+  parser/extractor), `degraded: false`. Upstash is set up, the key is in Vercel's Production environment, and a real mission has been
+  run through the live site itself (Expert mode: a plain-language goal through parse → plan → critique → finalize, with a real
+  finalist returned). **Tavily remains `configured: false`** — that key has not been obtained or deployed yet; this is now the only
+  remaining "no live key" gap.
 - **As reported (works without any key, not re-tested in a browser this pass):** the real browser-side simulator on the real snapshot
   with the cross-harbor, regional-access and first-response EMS lenses; freight trips (car and hazmat truck) and the freight search; the
   two-stage deterministic search; stress tests; the exhaustive check; compare and apply; closures and evidence drawers, which show an
@@ -57,9 +57,10 @@ production env vars have been set since 2026-09-26, so the live deployment's AI-
   0 needed the one built-in repair turn, and 3 produced an invalid/out-of-catalog selection that the validator correctly rejected,
   falling back to the deterministic critic's own stress test — the model-can-only-select-from-a-catalog safety design held against a
   real model's real failure modes, not just the fake-provider tests. Full rationale-kind breakdown in `docs/FEEDBACK_NOTES.md`.
-- **Still unverified:** this ran locally, not yet on the deployed site (pending Upstash + Vercel env vars). Tavily, Upstash and
-  Turnstile are still completely unverified against real services (`TAVILY_API_KEY` and the `UPSTASH_*` / `KV_*` variables are
-  confirmed empty in `.env` as of 2026-10-24).
+- **Verified against the deployed site too, later the same day (2026-10-24):** Upstash was set up, the Nebius key and
+  `WS_CONFIRM_SECRET` were added to Vercel's Production environment, and a real mission ran through the live site itself. **Still
+  unverified:** Tavily and Turnstile remain completely unverified against real services — `TAVILY_API_KEY` is still empty, and no
+  Turnstile keys have been obtained.
   Reasoning-token behavior and shared-store command counts also remain unverified (see `docs/FEEDBACK_NOTES.md` for exact gaps).
 
 ### Test and CI state
@@ -140,7 +141,11 @@ Top priorities, roughly in order:
 
 ## Risks
 
-- **No key means no stage-one API requirement — now partially mitigated, not resolved.** As of 2026-10-24, a real Nebius key exists and works against the raw Token Factory provider (model listing, structured output, streaming all confirmed; see `docs/FEEDBACK_NOTES.md`). That resolves the narrowest version of the risk: Nemotron on Token Factory has genuinely been exercised with a real key. It does NOT resolve the submission-relevant version: (1) the app's own agent routes (`/api/agent/*`) have never been called with this key — only the standalone smoke script has, which talks to Nebius directly and skips the app's state machine, validator and rationale logic entirely; (2) the deployed site at https://worldseed-mu.vercel.app still reports `provider.configured: false` (re-checked 2026-10-24), because the key has not been added to Vercel's Production environment — a decision deliberately deferred until Upstash exists, so the deploy doesn't fall back to the much lower instance-local budget. Until both a real in-app mission runs and the live deployment has the key, the submission still cannot demonstrate Nemotron on Token Factory in the thing judges will actually click. Mitigation: punch list in `docs/SUBMISSION_CHECKLIST.md` section 0a, days 0-2.
+- **No key means no stage-one API requirement — resolved 2026-10-24.** A real Nebius key is now live on the deployed site itself
+  (`/api/health` reports `provider.configured: true`, `protection: "shared"`), with a real mission run through the app's own agent
+  routes on the live site, not just the standalone smoke script. The submission can demonstrate Nemotron on Token Factory in the
+  thing judges will actually click. Remaining, lower-priority gap: Tavily is not yet deployed (affects the closure feed and the
+  Tavily bonus prize, not the core AI-planner requirement).
 - **Credits and the daily cap (credit-budget arithmetic).** `WS_DAILY_BUDGET_USD` defaults to 1 USD per day (`.env.example`). From 2026-10-30 to 2026-12-15 is 46 days, so the default could spend up to 46 USD, more than the 25 USD hackathon credit (unreceived) plus the 1 USD trial credit (documented as valid 30 days). Set `WS_DAILY_BUDGET_USD` from the real balance after testing: cap per day = (credit remaining) / (days to 2026-12-15), for example 20 USD left is about 0.40 USD per day. The cap is a flat number; a date-aware cap is not built.
 - **Model ID drift.** The catalog is moving (three models were removed from serverless on 2026-08-31). IDs may change between now and judging. Mitigation: runtime `/models` resolution and env overrides; re-run the smoke script shortly before tagging.
 - **Video and demo must match.** The judged demo must match the tagged video and description; no changes after the deadline.

@@ -11,12 +11,11 @@ Everything below is written to be pasted as is.
 ### Testing instructions (paste into the Devpost testing field)
 
 No login, no payment, no install. The simulation, map, inspector, freight panel and
-deterministic search run in your browser with no limits and no key. As of today the
-deployed site reports the AI planner as unavailable: the Token Factory key is verified
-live against the real API (see "How we used Token Factory and Nemotron" below) but not
-yet wired into production, pending a shared rate-limit store. Every finding and every
-number in this submission is independent of that and works today. Contact: [CONTACT
-EMAIL: a project address].
+deterministic search run in your browser with no limits and no key. As of 2026-10-24
+the deployed site's AI planner is live: the real Nebius Token Factory key is wired into
+production (see "How we used Token Factory and Nemotron" below), and a real mission can
+be run from Expert mode. Every finding and every number in this submission works
+without it too, with no key. Contact: [CONTACT EMAIL: a project address].
 
 ### Submission-form notes (do not paste)
 
@@ -116,11 +115,13 @@ and verified: `GET /v1/models` resolves all four role model IDs, structured
 end-to-end mission through the app's own routes (parse → plan → critique → finalize)
 ran locally the same day: 30 provider-backed calls, 90% valid on the first turn, and 3
 clean falls-back to the deterministic critic on the rest — proof the catalog-only
-validator holds against a real model's real mistakes, not just fake-provider tests.
-What's still open is wiring that same key into the deployed site's production
-environment, pending one shared rate-limit store so a single script can't drain the
-shared AI budget across serverless instances. That lands before judging; until then the
-deployed demo runs the deterministic path and says so.
+validator holds against a real model's real mistakes, not just fake-provider tests. As
+of 2026-10-24 that key is also wired into the deployed site's production environment,
+behind a shared rate-limit store, and a second real mission has run through the live
+site itself (Expert mode, a plain-language goal through parse → plan → critique →
+finalize). The deployed demo now runs the AI path live; it falls back to the
+deterministic path, labeled "not AI," only if the AI is unavailable, its output is
+rejected, or the daily budget is spent.
 
 Three lenses stay on screen together so no number hides another, for state DOT and MPO
 resilience analysts asking "if this crossing is lost, who loses access, and where would
@@ -189,9 +190,9 @@ mitigation matter?":
 - A search architecture where the exhaustive audit — no AI, rank 1 of 129 — is also the
   proof that the AI search policy sitting on top of it has nothing to hide behind.
 - A real Token Factory account, verified live at the API level (model resolution,
-  structured output, streaming) six days before the deadline, with ten real missions
-  run through the app's own routes and an honest account of what's left: wiring that
-  same key into the deployed site's production environment.
+  structured output, streaming) six days before the deadline, wired into the deployed
+  site's production environment, with real missions run both locally and through the
+  live site itself.
 - A public demo with zero server compute cost for its core simulation.
 
 ### What we learned
@@ -206,11 +207,11 @@ mitigation matter?":
 
 ### What's next
 
-- Finish Upstash-backed shared rate limiting, flip the key live in production, and
-  repeat the real end-to-end mission (parse → plan → critique → finalize) against the
-  deployed site — already run and recorded locally in `docs/FEEDBACK_NOTES.md`.
-- Screen other crossings; the pipeline is already bounding-box configurable.
+- Get a Tavily key onto production the same way (built and tested; live lookups still
+  pending a deployed key).
 - Compare model output quantitatively to published post-collapse observations.
+- Screen crossings beyond the three already shipped (Key Bridge, Harbor Tunnel, Fort
+  McHenry Tunnel); the pipeline is already bounding-box configurable for a new one.
 
 ---
 
@@ -237,17 +238,16 @@ documentation back in September — `nvidia/Nemotron-3-Ultra-550b-a55b` for
 planner/critic, `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` for parser/extractor — with no
 change needed. Structured `json_schema` output and streaming both work on both models,
 confirmed by real calls against the live API (latency, token counts and sample sizes in
-`docs/FEEDBACK_NOTES.md`). A full mission has also run end to end through the app's own
-routes (parse → plan → critique → finalize), locally: 30 provider-backed calls across 10
-synthetic missions, 90% valid on the first turn, and 3 clean falls-back to the
-deterministic critic on the rest. What hasn't happened: the key isn't yet wired into the
-deployed site's production environment — that's waiting on one Upstash-backed shared
-rate-limit store, so a single script can't drain the shared AI budget across serverless
-instances — so the local mission above hasn't yet been repeated against the live site.
-That's in progress and expected to land before the deadline. Until it does, the deployed
-demo reports the AI planner as unavailable and runs the deterministic two-stage search,
-labeled "not AI," which needs no key and whose top pick already ranks first of 129 in
-the exhaustive audit.
+`docs/FEEDBACK_NOTES.md`). A full mission has run end to end through the app's own
+routes (parse → plan → critique → finalize), first locally (30 provider-backed calls
+across 10 synthetic missions, 90% valid on the first turn, 3 clean falls-back to the
+deterministic critic), then — as of 2026-10-24 — against the live deployed site itself,
+behind an Upstash-backed shared rate-limit store so a single script can't drain the
+shared AI budget across serverless instances. The deployed demo now runs the AI path
+live, falling back to the deterministic two-stage search, labeled "not AI," only if the
+AI is unavailable, its output is rejected, or the budget is spent — and that fallback's
+own top pick already ranks first of 129 in the exhaustive audit, so there's no bad
+outcome either way.
 
 **Model licenses, by role.** Nemotron 3 Nano and Nemotron 3 Super: NVIDIA Nemotron Open
 Model License (last modified 2025-12-15). Nemotron 3 Ultra and Nemotron 3.5 Lightning:
@@ -316,10 +316,10 @@ OpenStreetMap Foundation. In an emergency, call 911.
   (36th percentile) and high on concentrated harm to a few people (92nd percentile for
   share losing more than 25% of cross-harbor jobs). We call it a concentrated
   cross-harbor bottleneck, not the most important road in the region.
-- **The AI planner hasn't run on the deployed site yet.** A full parse → plan → critique
-  → finalize mission has run for real, locally, against the live Token Factory API (30
-  calls, 90% valid first turn); production wiring on the deployed site — pending Upstash
-  — lands before judging, tracked in `docs/STATUS.md`.
+- **Tavily isn't on the deployed site yet.** The closure feed and reality-check
+  evidence drawer are built and tested, pending a deployed Tavily key — tracked in
+  `docs/STATUS.md`. (The AI planner itself is live on the deployed site as of
+  2026-10-24, with a real mission run both locally and through the live site.)
 - **Not validated against observed post-collapse traffic**, beyond the one reported
   commute above.
 - One bridge, one region, one historical snapshot: this is a screening tool, not a

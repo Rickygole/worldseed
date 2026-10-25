@@ -418,7 +418,16 @@ body {
   clip-path: inset(0 calc(100% - var(--split)) 0 0);
 }
 
-/* Below the Expert workspace's designed width the page scrolls instead of clipping. Story mode is responsive. */
+/*
+ * Below the Expert workspace's designed width: this does NOT actually make the page scroll (pre-existing
+ * gap, predates today's crossing picker - the overflow:auto below is on the min-w-[1280px] root itself
+ * (components/AppShell.tsx), which never overflows internally since nothing inside it is wider than its own
+ * 1280px floor; the box that is too wide for the viewport is that root's parent, html/body, which stays
+ * overflow:hidden with no override here, so no scrollbar ever appears and the right-hand side of Expert mode
+ * is unreachable below ~1280px. The original rule (before the story/Expert redesign) correctly targeted
+ * html/body; fixing this for real means putting the scroll back on an ancestor of the 1280px root, not on
+ * the root itself. Story mode is responsive and unaffected.
+ */
 @media (max-width: 1023px) {
   [data-mode="expert"] {
     overflow: auto;

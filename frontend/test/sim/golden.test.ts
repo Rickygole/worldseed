@@ -143,16 +143,25 @@ describe.skipIf(!snapshotExists)(`golden.json vs TS simulator${snapshotExists ? 
     expect(golden.worlds[1].closedLinks).toEqual(["L-KEYBRIDGE"]);
   });
 
-  it("the Expert mode crossing comparison card (lib/ui/methodology.ts CROSSING_COMPARISON, Methodology section 4.2) matches golden.json for each single crossing", () => {
+  it("the Expert mode crossing comparison card (lib/ui/methodology.ts CROSSING_COMPARISON, Methodology section 4.2) matches golden.json for every row golden.json has a world for", () => {
     const raw = JSON.parse(readFileSync(join(SNAPSHOT_DIR, "golden.json"), "utf8")) as {
       worlds: { id: string; access: { metrics: { popAddedS: number } } }[];
       xharbor: { worlds: { id: string; metrics: { popLossGt10pct: number; popLossGt25pct: number; lowWageLossGt10pct: number; popMeanAddedS: number; addedP90S: number } }[] };
     };
-    const GOLDEN_ID: Record<string, string> = { key_bridge: "keybridge_removed", harbor_tunnel: "harbor_tunnel_closed", fort_mchenry: "fort_mchenry_closed" };
+    // Every id combination golden.json has a world for: the three single crossings, and the two "bridge +
+    // one tunnel" pairs. "Both tunnels" (no bridge) and "bridge + both tunnels" have no golden world (see
+    // CROSSING_COMPARISON's doc comment) and are skipped below.
+    const GOLDEN_ID: Record<string, string> = {
+      key_bridge: "keybridge_removed",
+      harbor_tunnel: "harbor_tunnel_closed",
+      fort_mchenry: "fort_mchenry_closed",
+      "harbor_tunnel,key_bridge": "keybridge_and_harbor_tunnel_closed",
+      "fort_mchenry,key_bridge": "keybridge_and_fort_mchenry_closed",
+    };
     let checked = 0;
     for (const row of CROSSING_COMPARISON) {
-      if (row.ids.length !== 1) continue; // "both tunnels" and "bridge + both tunnels" aren't golden worlds; sourced from the doc table directly
-      const gid = GOLDEN_ID[row.ids[0]];
+      const gid = GOLDEN_ID[[...row.ids].sort().join(",")];
+      if (!gid) continue;
       const xh = raw.xharbor.worlds.find((w) => w.id === gid)!.metrics;
       const acc = raw.worlds.find((w) => w.id === gid)!.access.metrics;
       expect(Math.round(xh.popLossGt10pct), `${row.label} peopleGt10`).toBe(row.peopleGt10);
@@ -163,7 +172,7 @@ describe.skipIf(!snapshotExists)(`golden.json vs TS simulator${snapshotExists ? 
       expect(Math.abs(acc.popAddedS - row.regionalMeanAddedS), `${row.label} regionalMeanAddedS`).toBeLessThan(0.06);
       checked++;
     }
-    expect(checked).toBe(3);
+    expect(checked).toBe(5);
   });
 });
 

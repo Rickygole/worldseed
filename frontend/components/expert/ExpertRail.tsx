@@ -10,7 +10,7 @@ import { useSnapshotFile } from "@/lib/ui/useSnapshotFile";
 import type { LensId } from "@/lib/sim/contract";
 import type { LinkId } from "@/lib/sim/types";
 import { closedCrossingIds, CROSSINGS, CROSSING_BY_ID } from "@/lib/ui/crossings";
-import { CROSSING_COMPARISON, findCrossingComparisonRow, METHODOLOGY_URL, SINGLE_RUN_LABEL } from "@/lib/ui/methodology";
+import { CROSSING_COMPARISON, FAST_VS_EXACT_NOTE, findCrossingComparisonRow, METHODOLOGY_URL, SINGLE_RUN_LABEL } from "@/lib/ui/methodology";
 import Collapsible from "../ui/Collapsible";
 import MapLegend from "../MapLegend";
 import Explainer from "../Explainer";
@@ -22,7 +22,7 @@ const LENS_HINT: Record<string, string> = {
   ems: "Nearest fire or ambulance station",
 };
 
-/** One crossing's close/reopen toggle. Any combination of the three is allowed (golden data covers the pairs and the triple). */
+/** One crossing's close/reopen toggle. Any combination of the three is allowed (golden data covers the three single closures and the two "bridge + one tunnel" pairs - not "both tunnels" or the triple; see CROSSING_COMPARISON). */
 function CrossingToggle({ id }: { id: LinkId }) {
   // Closed by the picker OR by any other path that closes the same link (Cmd-K's shortcut, a confirmed news
   // closure): one truth, so this never shows "closed" wrong, or re-closes a crossing another path already touched.
@@ -87,6 +87,7 @@ function CrossingComparison() {
           })}
         </tbody>
       </table>
+      <p className="text-muted">{FAST_VS_EXACT_NOTE}</p>
       <p className="text-muted">
         First response (EMS) is unchanged above, even with all three crossings closed: both shores have their own fire and EMS stations in the simulation (a property of this lens, not evidence
         EMS is unaffected in reality). Simulation, not route guidance: both tunnels already bar listed hazardous loads, not every truck (MDTA rule, summarized; its published rules govern, not

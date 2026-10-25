@@ -28,7 +28,7 @@ an agent cannot do; everything else can be driven by an agent once the human ste
   - [ ] **Blocked on user:** sign up for Upstash free tier, create a Redis database, copy the REST URL and token.
   - [ ] **Blocked on user:** paste `NEBIUS_API_KEY`, `NEBIUS_BASE_URL`, `TAVILY_API_KEY` (once obtained), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and a freshly generated `WS_CONFIRM_SECRET` into the Vercel project's Production environment variables (section 1 below has the full list). Never paste these into the repo.
   - [ ] Redeploy (can be triggered by the user from the Vercel dashboard, or by pushing a commit).
-  - [ ] Confirm `GET https://worldseed-mu.vercel.app/api/health` now shows `provider.configured: true`, `protection` no longer `instance-local`, and `tavily.configured: true` once the Tavily key is also set. (Checked 2026-10-24 this pass: still `false`/`instance-local`/`false` — unchanged from 2026-09-26.)
+  - [x] Confirm `GET https://worldseed-mu.vercel.app/api/health` now shows `provider.configured: true`, `protection` no longer `instance-local`. **Done 2026-10-24, evening pass:** `provider.configured: true`, `protection: "shared"`, all roles resolve to real models. **Still open:** `tavily.configured: true` — Tavily key not yet obtained or deployed.
 - **Day 1-2 (10-25/10-26) — one real end-to-end mission on the deployed site.**
   - [ ] Once the deployment has keys, run one full mission (parse, propose, evaluate, critique, finalize, closure search with confirmation) against `https://worldseed-mu.vercel.app`, not just the raw `smoke-token-factory.mjs` script. This has not been done yet in any form — the only live-key testing so far is the raw provider smoke script (section 2), which bypasses the app's own agent routes.
   - [ ] Paste the result into `docs/FEEDBACK_NOTES.md` and tick section 2's end-to-end item.
@@ -67,7 +67,7 @@ Strongly recommended:
 
 Optional: `WS_TAVILY_DAILY_CAP` (default 30), `WS_TAVILY_CACHE_MS`, `WS_TURNSTILE_SECRET`, `WS_ALLOWED_ORIGINS`, and the front-door and store limits (`WS_FRONT_DOOR_*`, `WS_STORE_*`). Leave the trust-proxy variables alone on Vercel (address headers are believed on a serverless host).
 
-After setting variables: redeploy, then `GET https://worldseed-mu.vercel.app/api/health` and confirm `provider.configured` is true, `protection` is no longer `instance-local`, and each role resolves to a listed model. (On 2026-09-26 it reported none of these: no key, no store. **Re-checked 2026-10-24: still unchanged** — `provider.configured: false`, `protection: "instance-local"`, `tavily.configured: false` — because no production env vars have been set yet. This remains the top blocker; see section 0a.)
+After setting variables: redeploy, then `GET https://worldseed-mu.vercel.app/api/health` and confirm `provider.configured` is true, `protection` is no longer `instance-local`, and each role resolves to a listed model. **Done 2026-10-24, evening pass:** `provider.configured: true`, `protection: "shared"`, all four roles resolve to real Nemotron model IDs. `tavily.configured` is still `false` — that key hasn't been obtained yet, tracked separately, lower priority than the AI planner itself.
 
 ## 2. Pre-flight tests with real credentials
 

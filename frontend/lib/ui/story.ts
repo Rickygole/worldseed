@@ -25,6 +25,7 @@ import type { MutationRecord } from "../sim/contract";
 import { navigate } from "./nav";
 import { pathForScene, rememberScene } from "./routes";
 import { emsShowsChange, setEmsChangeBase } from "./lenses";
+import { closedCrossingIds } from "./crossings";
 
 export type StoryScene = Exclude<SceneId, "intro">;
 export const STORY_STEPS: StoryScene[] = ["crossing", "averages", "held", "freight", "fix", "explore"];
@@ -107,15 +108,37 @@ export const stepLabel = (id: SceneId | null): string | null => (id && id !== "i
 let enterSeq = 0;
 
 /**
+ * True when anything other than the Key Bridge is closed: a crossing closed from Expert mode's picker (any
+ * path - removedLinks or a close_link mutation, see closedCrossingIds). The guided story only ever models the
+ * Key Bridge removed, alone or on the untouched network; it never carries another crossing's closure, because
+ * every scene's number and copy assumes that single world (STORY.md section 5).
+ */
+function hasOutsideClosures(scenario: Scenario): boolean {
+  for (const id of closedCrossingIds(scenario)) if (id !== "key_bridge") return true;
+  return false;
+}
+
+/**
  * Scenes 2 to 5 describe a world without the Key Bridge link. Walking forward from the pre-collapse world
  * removes it (the story's own step); any other world is left as the user made it, and the copy switches to
  * its "in this scenario" templates (STORY.md section 11). A restored link shows the gate instead.
+ *
+ * Expert mode's crossing picker can close the Harbor Tunnel or Fort McHenry Tunnel, and the world carries over
+ * unchanged when the visitor comes back to the story (lib/ui/modes.ts, STORY.md section 8 - but that promise
+ * only ever covered the single Key-Bridge-only world the story itself produces). A scene entered or advanced
+ * with one of those other crossings still closed would show its numbers as if they were the Key Bridge's own:
+ * reset to baseline first, so every scene below starts from the one world it was written for.
  */
 async function ensureWorld(id: SceneId, auto: boolean): Promise<void> {
   const app = useApp.getState();
   if (app.status !== "ready") return;
+  if (hasOutsideClosures(app.scenario)) {
+    await app.resetWorld();
+    useSearch.getState().resetSearch();
+    useStory.setState({ appliedScenario: null, topWorld: null, stressCheck: null, stoppedAt: null });
+  }
   const needsRemoval = id === "averages" || id === "held" || id === "freight" || id === "fix";
-  if (needsRemoval && auto && isBaseline(app.scenario)) await app.removeBridge();
+  if (needsRemoval && auto && isBaseline(useApp.getState().scenario)) await app.removeBridge();
   if (id === "fix") void loadBridgeOnly();
 }
 
