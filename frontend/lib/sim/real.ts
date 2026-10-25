@@ -23,7 +23,7 @@ import { fetchReader, parseHexes, SnapshotMissingError, type SnapshotReader } fr
 import type { SnapshotInfo } from "./engine";
 import type { TripsResult } from "./trips";
 import { abortError, SimPool, type DeterministicManyOptions, type DeterministicManyResult, type FuturesRunOptions, type PairedOptions, type PairedResult, type PoolOptions } from "../workers/pool";
-import type { Assumption, Cell, RunOptions, Scenario, SimOutput, Simulator, SimulatorMeta, World, WorstBlockGroupNamed, XharborDetail } from "./types";
+import { LINK_GRAPH_IDS, type Assumption, type Cell, type RunOptions, type Scenario, type SimOutput, type Simulator, type SimulatorMeta, type World, type WorstBlockGroupNamed, type XharborDetail } from "./types";
 
 /**
  * Lens that drives the terrain: cross-harbor access (the hero). Regional access and the EMS "resilience
@@ -34,7 +34,8 @@ export const DEFAULT_LENS: LensId = "xharbor";
 
 export const DEFAULT_SNAPSHOT_URL = "/snapshot/";
 
-const LINK_IDS: Record<string, string> = { key_bridge: "L-KEYBRIDGE" };
+/** UI link id -> snapshot graph link id (close_link's `linkId`). Every LinkId maps here; see sim/types.ts. */
+const LINK_IDS: Record<string, string> = LINK_GRAPH_IDS;
 
 export interface RealSimulator extends Simulator {
   /** Resolves after loadWorld() with the snapshot summary (links, corridors, candidates, parameters). */

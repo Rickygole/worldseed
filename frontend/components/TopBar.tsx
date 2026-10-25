@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Command, FileText, Keyboard, Sprout, Unlink, GitBranch } from "lucide-react";
-import { useApp, isBridgeRemoved } from "@/lib/store";
+import { useApp } from "@/lib/store";
+import { closedCrossingNames } from "@/lib/ui/crossings";
 import { useSearch } from "@/lib/ui/search";
 import { shortModel } from "@/lib/ui/agentBridge";
 import { useStory } from "@/lib/ui/story";
@@ -84,7 +85,8 @@ function DocLinks() {
 /** The header: story bar on story pages; scenario, system state and tools in Expert mode; links everywhere. */
 export default function TopBar({ page }: { page: PageKind }) {
   const presentation = useApp((s) => s.presentation);
-  const removed = useApp(isBridgeRemoved);
+  const scenario = useApp((s) => s.scenario);
+  const closed = useMemo(() => closedCrossingNames(scenario), [scenario]);
   const mutated = useApp((s) => (s.scenario.mutations?.length ?? 0) > 0);
   const setAssumptionsOpen = useApp((s) => s.setAssumptionsOpen);
   const setCommandOpen = useApp((s) => s.setCommandOpen);
@@ -118,9 +120,12 @@ export default function TopBar({ page }: { page: PageKind }) {
       <Wordmark
         sub={
           <span className="chip" title="Current scenario">
-            {removed ? <Unlink size={12} className="text-critical" aria-hidden /> : <GitBranch size={12} aria-hidden />}
+            {closed.length > 0 ? <Unlink size={12} className="text-critical" aria-hidden /> : <GitBranch size={12} aria-hidden />}
             <span className="text-muted">Scenario</span>
-            <span>{removed ? (mutated ? "Key Bridge link removed + changes" : "Key Bridge link removed") : mutated ? "Pre-collapse + changes" : "Pre-collapse network"}</span>
+            <span>
+              {closed.length > 0 ? `${closed.join(" + ")} closed` : "Pre-collapse network"}
+              {mutated ? " + changes" : ""}
+            </span>
           </span>
         }
       />

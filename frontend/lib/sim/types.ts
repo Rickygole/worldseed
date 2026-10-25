@@ -20,7 +20,23 @@ export function statusOf(minutes: number): CoverageStatus {
   return "isolated";
 }
 
-export type LinkId = "key_bridge";
+/**
+ * The real, snapshot-backed crossings a visitor can close. Key Bridge is the guided story's only link; the
+ * two tunnels are Expert-mode-only (lib/ui/crossings.ts has their display names).
+ */
+export type LinkId = "key_bridge" | "harbor_tunnel" | "fort_mchenry";
+
+/** UI link id -> snapshot graph link id (graph.meta.json `links[].id`). */
+export const LINK_GRAPH_IDS: Record<LinkId, string> = {
+  key_bridge: "L-KEYBRIDGE",
+  harbor_tunnel: "L-HARBORTUNNEL",
+  fort_mchenry: "L-FORTMCHENRY",
+};
+
+/** The reverse of LINK_GRAPH_IDS: a snapshot graph link id -> UI link id, for any code that sees the graph id first (Cmd-K, the gazetteer, mutation records). */
+export const LINK_ID_BY_GRAPH_ID: Readonly<Record<string, LinkId>> = Object.fromEntries(
+  (Object.entries(LINK_GRAPH_IDS) as [LinkId, string][]).map(([id, graphId]) => [graphId, id]),
+);
 
 export interface Cell {
   /** H3 index (resolution 9). */

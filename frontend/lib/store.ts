@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { fmtClock, fmtCount, fmtDurText, fmtMin } from "./format";
 import {
   createSimulator,
+  LINK_GRAPH_IDS,
   type CausalChain,
   type LensId,
+  type LinkId,
   type Scenario,
   type SimOutput,
   type SimulatorMeta,
@@ -16,6 +18,7 @@ import { RIBBON_KEYS, ribbonValues, type RibbonKey } from "./ui/ribbon";
 import { loadNodeCoords } from "./ui/snapshotAux";
 import { assertMutationRecordAllowed } from "./agent/closures";
 import type { SceneId } from "./ui/mapDirector";
+import { closedCrossingIds, closedCrossingNames as crossingNamesOf, CROSSING_BY_ID } from "./ui/crossings";
 
 /** Story mode (the guided scenes over the map) or Expert mode (the full analyst workspace). */
 export type UiMode = "story" | "expert";
@@ -177,6 +180,8 @@ interface AppState {
   peek: (scenario: Scenario, lens: LensId, signal?: AbortSignal) => Promise<SimOutput>;
   removeBridge: () => Promise<void>;
   restoreBridge: () => Promise<void>;
+  /** Close or reopen one crossing (Expert mode's picker), keeping every other crossing's state as it is. */
+  toggleCrossing: (id: LinkId) => Promise<void>;
   resetWorld: () => Promise<void>;
   setLens: (lens: LensId) => Promise<void>;
   /** Re-encode the terrain from the same result (after a change in how a lens is drawn). */
@@ -379,9 +384,14 @@ export const useApp = create<AppState>((set, get) => {
 
     async removeBridge() {
       const s = get();
-      if (s.status !== "ready" || s.scenario.removedLinks.includes("key_bridge")) return;
+      if (s.status !== "ready") return;
+      // busy: a previous scenario change is still in flight, so s.scenario (read below) could be about to go
+      // stale; reject rather than race it (the picker's buttons already disable on busy; Cmd-K does not).
+      if (s.busy) return void s.log("SYS", "Still recalculating the previous change; try again in a moment.");
+      if (closedCrossingIds(s.scenario).has("key_bridge")) return;
       s.log("USER", "Remove link: Francis Scott Key Bridge (I-695)");
-      const out = await get().applyScenario({ removedLinks: ["key_bridge"], mutations: s.scenario.mutations });
+      // Add to, never replace, removedLinks: another crossing closed from Expert mode's picker must stay closed.
+      const out = await get().applyScenario({ removedLinks: [...s.scenario.removedLinks, "key_bridge"], mutations: s.scenario.mutations });
       if (!out) return;
       logRun(out);
       const b = ribbonValues(get().baseline);
@@ -397,13 +407,37 @@ export const useApp = create<AppState>((set, get) => {
 
     async restoreBridge() {
       const s = get();
-      if (s.status !== "ready" || s.scenario.removedLinks.length === 0) return;
+      if (s.status !== "ready") return;
+      if (s.busy) return void s.log("SYS", "Still recalculating the previous change; try again in a moment.");
+      if (!closedCrossingIds(s.scenario).has("key_bridge")) return;
       s.log("USER", "Restore link: Francis Scott Key Bridge (I-695)");
-      const out = await get().applyScenario({ removedLinks: [], mutations: s.scenario.mutations });
+      // Drop only "key_bridge": another crossing closed from Expert mode's picker must stay closed.
+      const removedLinks = s.scenario.removedLinks.filter((l) => l !== "key_bridge");
+      const out = await get().applyScenario({ removedLinks, mutations: s.scenario.mutations });
       if (out) {
         logRun(out);
-        get().log("SIM", "Baseline restored.");
+        get().log("SIM", removedLinks.length === 0 ? "Baseline restored." : "Key Bridge link restored; other closed crossings are unchanged.");
       }
+    },
+
+    async toggleCrossing(id) {
+      const s = get();
+      if (s.status !== "ready") return;
+      if (s.busy) {
+        s.log("SYS", "Still recalculating the previous change; try again in a moment.");
+        return;
+      }
+      const graphId = LINK_GRAPH_IDS[id];
+      // Closed by the picker (removedLinks) OR by any other path that closes the same link via a mutation
+      // (Cmd-K's "close <name>" shortcut, a confirmed news closure): one truth, so the picker never re-closes
+      // (or fails to reopen) a crossing another path already touched.
+      const closed = closedCrossingIds(s.scenario).has(id);
+      const removedLinks = closed ? s.scenario.removedLinks.filter((l) => l !== id) : [...s.scenario.removedLinks, id];
+      const mutations = closed ? (s.scenario.mutations ?? []).filter((r) => !(r.m.kind === "close_link" && r.m.linkId === graphId)) : s.scenario.mutations;
+      const info = CROSSING_BY_ID[id];
+      s.log("USER", `${closed ? "Restore" : "Close"} link: ${info.fullName}`);
+      const out = await get().applyScenario({ removedLinks, mutations });
+      if (out) logRun(out);
     },
 
     async resetWorld() {
@@ -518,3 +552,6 @@ export const useApp = create<AppState>((set, get) => {
 
 export const isBridgeRemoved = (s: AppState): boolean =>
   s.scenario.removedLinks.includes("key_bridge");
+
+/** Any crossing currently closed, named ("Key Bridge", "Harbor Tunnel", ...), in CROSSINGS order. Empty on the baseline. */
+export const closedCrossingNames = (s: AppState): string[] => crossingNamesOf(s.scenario);

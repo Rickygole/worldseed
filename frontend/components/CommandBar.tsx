@@ -11,6 +11,8 @@ import { validateParseOutput } from "@/lib/agent/validator";
 import { matchRoad } from "@/lib/server/gazetteerMatch";
 import type { GazetteerEntry } from "@/lib/agent/catalog";
 import type { MutationRecord } from "@/lib/sim";
+import { LINK_ID_BY_GRAPH_ID } from "@/lib/sim/types";
+import { closedCrossingIds, CROSSING_BY_ID } from "@/lib/ui/crossings";
 import { lensLabel, metricLabel } from "./planner/labels";
 import { setUiMode } from "@/lib/ui/modes";
 import { navigate } from "@/lib/ui/nav";
@@ -107,6 +109,15 @@ function CommandBarInner() {
       if (r.status === "ambiguous") return setPending({ text: `"${close[1]}" matches ${r.entries.length} roads. Be more specific.`, note: r.entries.slice(0, 4).map((e) => e.name).join(", ") });
       const e = r.entry;
       if (e.ref.link === "L-KEYBRIDGE") return setPending({ text: "Close: Francis Scott Key Bridge (I-695). Run?", run: () => void app.removeBridge() });
+      // Route any of the three named crossings through the same toggleCrossing path as Expert mode's picker
+      // (never a bare close_link mutation): one code path per crossing, so the picker, the top bar and Cmd-K
+      // always agree on whether it is closed.
+      const crossingId = e.ref.link ? LINK_ID_BY_GRAPH_ID[e.ref.link] : undefined;
+      if (crossingId) {
+        const info = CROSSING_BY_ID[crossingId];
+        if (closedCrossingIds(app.scenario).has(crossingId)) return setPending({ text: `${info.fullName} is already closed.` });
+        return setPending({ text: `Close: ${info.fullName}. Run?`, run: () => void app.toggleCrossing(crossingId) });
+      }
       const mut = closeMutation(e);
       if (!mut) return setPending({ text: `${e.name} is a corridor; name one of its roads or links to close it.` });
       return setPending({

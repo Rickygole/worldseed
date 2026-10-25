@@ -8,7 +8,7 @@ import type { Scenario, SimOutput } from "../sim/types";
 import type { TripsResult } from "../sim/trips";
 import { blockGroupAt, placesFor, type AuxIndex } from "./snapshotAux";
 import { ribbonValues } from "./ribbon";
-import { CONGESTED_MEDIAN_ADDED_S, fmtAbout, LOWER_BOUND_SENTENCE, MEAN_ADDED_RANGE_S, PEOPLE_GT10_RANGE } from "./methodology";
+import { CONGESTED_MEDIAN_ADDED_S, fmtAbout, LOWER_BOUND_SENTENCE, MEAN_ADDED_RANGE_S, PEOPLE_GT10_RANGE, SINGLE_RUN_LABEL } from "./methodology";
 
 /** A number slot: rendered in the mono face, optionally toned. */
 export interface Num {
@@ -147,7 +147,7 @@ export function explain({ baseline, current, scenario, aux, params, trips }: Exp
       ? [
           `The counts depend on speed and time-budget assumptions: about ${fmtAbout(PEOPLE_GT10_RANGE.lo)} to ${fmtAbout(PEOPLE_GT10_RANGE.hi)} residents across the variants tested. The time-based measures are stable: the average added cross-harbor time stays between about ${Math.round(MEAN_ADDED_RANGE_S.lo)} and ${Math.round(MEAN_ADDED_RANGE_S.hi)} s. The typical resident is unaffected at free-flow, but not if the tunnels congest after the closure (median added time then about ${Math.round(CONGESTED_MEDIAN_ADDED_S.lo)} to ${Math.round(CONGESTED_MEDIAN_ADDED_S.hi)} s).`,
         ]
-      : ["The counts depend on speed and time-budget assumptions; the time-based measures are the steadier guide."],
+      : [SINGLE_RUN_LABEL],
     link: { href: "https://github.com/Rickygole/worldseed/blob/main/docs/METHODOLOGY.md", text: "Methodology" },
   });
 

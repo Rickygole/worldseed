@@ -4,6 +4,8 @@
  * that shows them says so and links the methodology. They describe the Key Bridge-removed reference world
  * only; the UI shows them only when the world on screen is exactly that world.
  */
+import type { LinkId } from "../sim/types";
+
 export const METHODOLOGY_URL = "https://github.com/Rickygole/worldseed/blob/main/docs/METHODOLOGY.md";
 
 export const STUDY_SNAPSHOT = "keybridge-2024-03-01-v1";
@@ -84,6 +86,55 @@ export const STUDY_CONCLUSIONS: { id: string; plain: string; held: number }[] = 
   { id: "C5", plain: "Low-wage workers are hit at about the same rate as everyone", held: 51 },
   { id: "C6", plain: "The same places stay worst-hit (7 of the top 10)", held: 50 },
 ];
+
+// ---- crossing comparison (section 4.2): one deterministic run per crossing, closed alone or together -------
+
+export interface CrossingComparisonRow {
+  /** Matches scenario.removedLinks when this row's ids (order-independent) are exactly what's closed. */
+  ids: readonly LinkId[];
+  label: string;
+  directedEdges: number;
+  peopleGt10: number;
+  peopleGt25: number;
+  lowWageGt10: number;
+  xharborMeanAddedS: number;
+  xharborAddedP90S: number;
+  regionalMeanAddedS: number;
+}
+
+/**
+ * Single run at default assumptions, each real crossing closed alone or in combination (METHODOLOGY section
+ * 4.2, same reference snapshot as STUDY_REFERENCE). Unlike STUDY_REFERENCE, this is ONE run per row, not a
+ * 51-variant sensitivity study: that study covers the Key Bridge only (see SINGLE_RUN_LABEL below). EMS is
+ * unchanged in every row, including with all three crossings closed (not one of 7,985 hexes moves by 1 s).
+ *
+ * Golden-data coverage (frontend/test/sim/golden.test.ts): the three single-crossing rows are checked
+ * against the snapshot's independently-computed golden.json worlds. The "Both tunnels" and "Bridge + both
+ * tunnels" rows are transcribed from the doc only; golden.json has no world for either combination (a known,
+ * accepted gap - the Expert mode picker can still reach both live, since the simulator applies close_link
+ * generically with no combination-specific logic, see lib/sim/compile.ts; there is no structural reason to
+ * expect them to behave differently from the rows that are checked, but they have not been).
+ */
+export const CROSSING_COMPARISON: readonly CrossingComparisonRow[] = [
+  { ids: ["key_bridge"], label: "Key Bridge (I-695)", directedEdges: 6, peopleGt10: 19705, peopleGt25: 11623, lowWageGt10: 1371, xharborMeanAddedS: 13.6, xharborAddedP90S: 26.6, regionalMeanAddedS: 2.9 },
+  { ids: ["harbor_tunnel"], label: "Harbor Tunnel (I-895)", directedEdges: 6, peopleGt10: 63272, peopleGt25: 4934, lowWageGt10: 4849, xharborMeanAddedS: 23.9, xharborAddedP90S: 60.3, regionalMeanAddedS: 14.5 },
+  { ids: ["fort_mchenry"], label: "Fort McHenry Tunnel (I-95)", directedEdges: 4, peopleGt10: 5207, peopleGt25: 0, lowWageGt10: 404, xharborMeanAddedS: 2.1, xharborAddedP90S: 7.2, regionalMeanAddedS: 3.4 },
+  { ids: ["harbor_tunnel", "fort_mchenry"], label: "Both tunnels", directedEdges: 10, peopleGt10: 151676, peopleGt25: 71083, lowWageGt10: 11178, xharborMeanAddedS: 48.8, xharborAddedP90S: 170.0, regionalMeanAddedS: 35.1 },
+  { ids: ["key_bridge", "harbor_tunnel", "fort_mchenry"], label: "Bridge + both tunnels", directedEdges: 16, peopleGt10: 311086, peopleGt25: 153393, lowWageGt10: 21968, xharborMeanAddedS: 105.4, xharborAddedP90S: 298.5, regionalMeanAddedS: 56.6 },
+];
+
+/** The row whose ids exactly equal `removedLinks` (order and duplicates ignored), or undefined. */
+export function findCrossingComparisonRow(removedLinks: readonly LinkId[]): CrossingComparisonRow | undefined {
+  const want = new Set(removedLinks);
+  return CROSSING_COMPARISON.find((r) => r.ids.length === want.size && r.ids.every((id) => want.has(id)));
+}
+
+/**
+ * How a single run (any crossing other than the documented Key Bridge sensitivity study) must be labeled,
+ * so its one number is never shown next to, or confused with, the Key Bridge's 51-variant range.
+ */
+export const SINGLE_RUN_LABEL =
+  "Single run at default assumptions. The sensitivity study covers the Key Bridge only; see Methodology §4.2 for the cross-crossing comparison and §4.1 for the noise floor.";
 
 /** Selected variants (sensitivity.json names) and what they did to the people count and the added time. */
 export const STUDY_VARIANTS: { name: string; plain: string; peopleGt10: number; meanAddedS: number; medianAddedS: number }[] = [

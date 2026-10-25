@@ -18,6 +18,7 @@ import { setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { useApp, simInfo, scenarioKey } from "@/lib/store";
+import { LINK_GRAPH_IDS } from "@/lib/sim/types";
 import { BASE_VIEW, BRIDGE, PLACES, distKm, focusView, type PlaceId } from "@/lib/geo";
 import { easeOutCubic, fmtMin, fmtPct1 } from "@/lib/format";
 import { TerrainAnimator } from "@/lib/ui/terrainAnimator";
@@ -139,10 +140,15 @@ export default function MapStage({ toolbar = true }: { toolbar?: boolean } = {})
 
   const removed = scenario.removedLinks.includes("key_bridge");
   const changed = scenario.removedLinks.length > 0 || (scenario.mutations?.length ?? 0) > 0;
-  const closedTunnels = useMemo(
-    () => new Set((scenario.mutations ?? []).flatMap((r) => (r.m.kind === "close_link" ? [r.m.linkId] : []))),
-    [scenario],
-  );
+  const closedTunnels = useMemo(() => {
+    const s = new Set((scenario.mutations ?? []).flatMap((r) => (r.m.kind === "close_link" ? [r.m.linkId] : [])));
+    // Expert mode's crossing picker closes a tunnel via removedLinks, not a mutation: map it to the same graph link id.
+    for (const l of scenario.removedLinks) {
+      const g = LINK_GRAPH_IDS[l];
+      if (g) s.add(g);
+    }
+    return s;
+  }, [scenario]);
 
   // Safe area: what the story UI reported, else what the legacy panels imply.
   const override = usePaddingOverride();

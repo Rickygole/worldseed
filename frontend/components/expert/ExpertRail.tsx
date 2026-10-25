@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ChevronRight, Newspaper, RotateCcw, Scale, Truck, Undo2, Unlink } from "lucide-react";
-import { useApp, isBridgeRemoved } from "@/lib/store";
+import { useApp } from "@/lib/store";
 import { fmtDate } from "@/lib/format";
 import { LENSES } from "@/lib/ui/lenses";
 import { loadManifest } from "@/lib/ui/snapshotAux";
 import { useSnapshotFile } from "@/lib/ui/useSnapshotFile";
 import type { LensId } from "@/lib/sim/contract";
+import type { LinkId } from "@/lib/sim/types";
+import { closedCrossingIds, CROSSINGS, CROSSING_BY_ID } from "@/lib/ui/crossings";
+import { CROSSING_COMPARISON, findCrossingComparisonRow, METHODOLOGY_URL, SINGLE_RUN_LABEL } from "@/lib/ui/methodology";
 import Collapsible from "../ui/Collapsible";
 import MapLegend from "../MapLegend";
 import Explainer from "../Explainer";
@@ -19,31 +22,103 @@ const LENS_HINT: Record<string, string> = {
   ems: "Nearest fire or ambulance station",
 };
 
+/** One crossing's close/reopen toggle. Any combination of the three is allowed (golden data covers the pairs and the triple). */
+function CrossingToggle({ id }: { id: LinkId }) {
+  // Closed by the picker OR by any other path that closes the same link (Cmd-K's shortcut, a confirmed news
+  // closure): one truth, so this never shows "closed" wrong, or re-closes a crossing another path already touched.
+  const closed = useApp((s) => closedCrossingIds(s.scenario).has(id));
+  const ready = useApp((s) => s.status === "ready");
+  const busy = useApp((s) => s.busy);
+  const toggleCrossing = useApp((s) => s.toggleCrossing);
+  const info = CROSSING_BY_ID[id];
+  return (
+    <button
+      type="button"
+      className={`btn h-9 w-full justify-start ${closed ? "border-[rgb(255_61_113/0.55)]" : ""}`}
+      disabled={!ready || busy}
+      onClick={() => void toggleCrossing(id)}
+      title={info.fullName}
+    >
+      {closed ? <Undo2 size={16} aria-hidden /> : <Unlink size={16} className="text-muted" aria-hidden />}
+      {closed ? `Reopen ${info.label}` : `Close ${info.label}`}
+    </button>
+  );
+}
+
+/** Reference comparison: one deterministic run per real crossing, closed alone or together (Methodology §4.2). */
+function CrossingComparison() {
+  const scenario = useApp((s) => s.scenario);
+  // Highlighted the same way the lens picker marks its selected row (bg tint + brighter text), so the card
+  // reads as connected to the toggles above it, not a separate static reference table.
+  const current = useMemo(() => findCrossingComparisonRow([...closedCrossingIds(scenario)]), [scenario]);
+  return (
+    <div className="space-y-2 px-1 pb-3 text-xs">
+      <table className="num w-full">
+        <caption className="sr-only">Single deterministic run, each crossing closed alone or together (Methodology section 4.2); the row matching the crossings closed above is highlighted.</caption>
+        <thead className="text-muted">
+          <tr className="border-b border-line-strong">
+            <th scope="col" className="pb-1 text-left font-medium">
+              Closed
+            </th>
+            <th scope="col" className="pb-1 pl-2 text-right font-medium">
+              &gt;10% loss
+            </th>
+            <th scope="col" className="pb-1 pl-2 text-right font-medium">
+              xharbor +s
+            </th>
+            <th scope="col" className="pb-1 pl-2 text-right font-medium">
+              regional +s
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {CROSSING_COMPARISON.map((r) => {
+            const on = r === current;
+            return (
+              <tr key={r.label} className={`border-t border-border ${on ? "bg-[rgb(238_242_247/0.08)]" : ""}`}>
+                <th scope="row" className={`py-1 text-left font-normal ${on ? "text-text" : "text-text-2"}`}>
+                  {r.label}
+                </th>
+                <td className="py-1 pl-2 text-right text-text">{r.peopleGt10.toLocaleString("en-US")}</td>
+                <td className="py-1 pl-2 text-right text-text">{r.xharborMeanAddedS.toFixed(1)}</td>
+                <td className="py-1 pl-2 text-right text-text">{r.regionalMeanAddedS.toFixed(1)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="text-muted">
+        First response (EMS) is unchanged above, even with all three crossings closed: both shores have their own fire and EMS stations in the simulation (a property of this lens, not evidence
+        EMS is unaffected in reality). Simulation, not route guidance: both tunnels already bar listed hazardous loads, not every truck (MDTA rule, summarized; its published rules govern, not
+        this tool), so in the model a single tunnel closure does not change where a hazmat truck already has to drive &mdash; only closing the bridge sends that traffic onto the western arc
+        instead.
+      </p>
+      <p className="text-muted">
+        {SINGLE_RUN_LABEL}{" "}
+        <a className="link" href={METHODOLOGY_URL} target="_blank" rel="noreferrer">
+          Methodology &sect;4.2
+        </a>
+      </p>
+    </div>
+  );
+}
+
 function ScenarioSection() {
-  const removed = useApp(isBridgeRemoved);
   const ready = useApp((s) => s.status === "ready");
   const busy = useApp((s) => s.busy);
   const mutations = useApp((s) => s.scenario.mutations?.length ?? 0);
-  const removeBridge = useApp((s) => s.removeBridge);
-  const restoreBridge = useApp((s) => s.restoreBridge);
   const resetWorld = useApp((s) => s.resetWorld);
   const { data: manifest } = useSnapshotFile(loadManifest, ready);
   return (
     <section aria-labelledby="rail-scenario" className="px-4 pb-4 pt-4">
       <h2 id="rail-scenario" className="label mb-3">
-        Scenario
+        Crossings
       </h2>
-      {removed ? (
-        <button type="button" className="btn h-10 w-full justify-start" disabled={!ready || busy} onClick={() => void restoreBridge()}>
-          <Undo2 size={16} aria-hidden />
-          Restore Key Bridge link
-        </button>
-      ) : (
-        <button type="button" className="btn h-10 w-full justify-start border-[rgb(255_61_113/0.55)]" disabled={!ready || busy} onClick={() => void removeBridge()}>
-          <Unlink size={16} className="text-critical" aria-hidden />
-          Remove Key Bridge link
-        </button>
-      )}
+      <div role="group" aria-label="Close or reopen a crossing" className="space-y-2">
+        {CROSSINGS.map((c) => (
+          <CrossingToggle key={c.id} id={c.id} />
+        ))}
+      </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="min-w-0 truncate text-xs text-muted" aria-live="polite">
           {busy ? "Recalculating in your browser." : mutations > 0 ? `${mutations} change${mutations === 1 ? "" : "s"} applied` : `Roads as of ${manifest?.osmDate ? fmtDate(manifest.osmDate) : "1 March 2024"}`}
@@ -52,6 +127,11 @@ function ScenarioSection() {
           <RotateCcw size={12} aria-hidden />
           Reset <span className="kbd">R</span>
         </button>
+      </div>
+      <div className="mt-3 border-t border-border pt-1">
+        <Collapsible title="Crossing comparison" headerClassName="py-2">
+          <CrossingComparison />
+        </Collapsible>
       </div>
     </section>
   );

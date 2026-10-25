@@ -56,6 +56,37 @@ describe.skipIf(!snapshotExists)(`real snapshot end to end${snapshotExists ? "" 
     expect(ems.detail?.runnerText).toMatch(/^Computed locally/);
   });
 
+  it("Simulator: harbor_tunnel, fort_mchenry and their bridge combinations reproduce golden metrics (the Expert mode crossing picker's path)", async () => {
+    const read = fsReader(SNAPSHOT_DIR);
+    vi.stubGlobal("fetch", async (url: string) => {
+      try {
+        const buf = await read(url.replace("/snapshot/", ""));
+        return new Response(buf, { status: 200, headers: { "content-type": url.endsWith(".json") ? "application/json" : "application/octet-stream" } });
+      } catch (e) {
+        if (e instanceof SnapshotMissingError) return new Response("nf", { status: 404 });
+        throw e;
+      }
+    });
+    const sim = createSimulator();
+    const world = await sim.loadWorld();
+    const worlds: { removedLinks: ("key_bridge" | "harbor_tunnel" | "fort_mchenry")[]; goldenId: string }[] = [
+      { removedLinks: ["harbor_tunnel"], goldenId: "harbor_tunnel_closed" },
+      { removedLinks: ["fort_mchenry"], goldenId: "fort_mchenry_closed" },
+      { removedLinks: ["key_bridge", "harbor_tunnel"], goldenId: "keybridge_and_harbor_tunnel_closed" },
+      // Order in removedLinks must not matter: the picker can close these in either order.
+      { removedLinks: ["fort_mchenry", "key_bridge"], goldenId: "keybridge_and_fort_mchenry_closed" },
+    ];
+    for (const { removedLinks, goldenId } of worlds) {
+      const g = golden().worlds.find((w: { id: string }) => w.id === goldenId);
+      const acc = await sim.run(world, { removedLinks }, { lens: "access" });
+      expect(Math.abs((acc.detail?.metrics.popAddedS as number) - g.access.metrics.popAddedS), `${goldenId} access popAddedS`).toBeLessThan(0.5);
+      expect(acc.detail?.metrics.isolatedBg, `${goldenId} access isolatedBg`).toEqual(g.access.metrics.isolatedBg);
+      const ems = await sim.run(world, { removedLinks }, { lens: "ems" });
+      expect(Math.abs(ems.metrics.p90 * 60 - g.ems.metrics.p90S), `${goldenId} ems p90`).toBeLessThan(0.5);
+      expect(ems.metrics.isolated, `${goldenId} ems isolated`).toBe(g.ems.metrics.isolatedBg.length);
+    }
+  });
+
   it("Simulator default lens is the cross-harbor hero: terrain in added minutes, headline, named worst block groups, regional and EMS alongside", async () => {
     const read = fsReader(SNAPSHOT_DIR);
     vi.stubGlobal("fetch", async (url: string) => {

@@ -16,6 +16,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { SimEngine } from "../../lib/sim/engine";
 import { fsReader } from "../../lib/sim/node";
 import type { LensMetrics, WorldState } from "../../lib/sim/contract";
+import { CROSSING_COMPARISON } from "../../lib/ui/methodology";
 import { SKIP_REASON, SNAPSHOT_DIR, snapshotExists } from "./snapshotPath";
 
 interface GoldenMetrics {
@@ -140,6 +141,29 @@ describe.skipIf(!snapshotExists)(`golden.json vs TS simulator${snapshotExists ? 
   it("the first golden world is the empty world, and closing the Key Bridge is the only difference in world 2", () => {
     expect(golden.worlds[0].closedLinks).toEqual([]);
     expect(golden.worlds[1].closedLinks).toEqual(["L-KEYBRIDGE"]);
+  });
+
+  it("the Expert mode crossing comparison card (lib/ui/methodology.ts CROSSING_COMPARISON, Methodology section 4.2) matches golden.json for each single crossing", () => {
+    const raw = JSON.parse(readFileSync(join(SNAPSHOT_DIR, "golden.json"), "utf8")) as {
+      worlds: { id: string; access: { metrics: { popAddedS: number } } }[];
+      xharbor: { worlds: { id: string; metrics: { popLossGt10pct: number; popLossGt25pct: number; lowWageLossGt10pct: number; popMeanAddedS: number; addedP90S: number } }[] };
+    };
+    const GOLDEN_ID: Record<string, string> = { key_bridge: "keybridge_removed", harbor_tunnel: "harbor_tunnel_closed", fort_mchenry: "fort_mchenry_closed" };
+    let checked = 0;
+    for (const row of CROSSING_COMPARISON) {
+      if (row.ids.length !== 1) continue; // "both tunnels" and "bridge + both tunnels" aren't golden worlds; sourced from the doc table directly
+      const gid = GOLDEN_ID[row.ids[0]];
+      const xh = raw.xharbor.worlds.find((w) => w.id === gid)!.metrics;
+      const acc = raw.worlds.find((w) => w.id === gid)!.access.metrics;
+      expect(Math.round(xh.popLossGt10pct), `${row.label} peopleGt10`).toBe(row.peopleGt10);
+      expect(Math.round(xh.popLossGt25pct), `${row.label} peopleGt25`).toBe(row.peopleGt25);
+      expect(Math.round(xh.lowWageLossGt10pct), `${row.label} lowWageGt10`).toBe(row.lowWageGt10);
+      expect(Math.abs(xh.popMeanAddedS - row.xharborMeanAddedS), `${row.label} xharborMeanAddedS`).toBeLessThan(0.06);
+      expect(Math.abs(xh.addedP90S - row.xharborAddedP90S), `${row.label} xharborAddedP90S`).toBeLessThan(0.06);
+      expect(Math.abs(acc.popAddedS - row.regionalMeanAddedS), `${row.label} regionalMeanAddedS`).toBeLessThan(0.06);
+      checked++;
+    }
+    expect(checked).toBe(3);
   });
 });
 
